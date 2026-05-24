@@ -54,6 +54,8 @@ const ENEMY_LOW_HEALTH_RATIO = 0.35;
 const CLOSE_ICON = "assets/icons/close.svg";
 const ROTATE_ICON = "assets/icons/rotate.svg";
 const CLOCKWISE_DIRECTIONS = ["topLeft", "topRight", "bottomRight", "bottomLeft"];
+const PLAYER_MOVEMENT_MODES = ["Sneak", "Dodge", "Flank", "Hunt"];
+const DEFAULT_PLAYER_MOVEMENT_MODE = "Hunt";
 
 const EASING = {
   linear: (t) => t,
@@ -122,7 +124,7 @@ function projectTile(row, col) {
   };
 }
 
-function createWolf({ row, col, direction, team }) {
+function createWolf({ row, col, direction, team, movementMode = DEFAULT_PLAYER_MOVEMENT_MODE }) {
   return {
     element: document.createElement("div"),
     healthBar: null,
@@ -130,6 +132,7 @@ function createWolf({ row, col, direction, team }) {
     row,
     col,
     direction,
+    movementMode,
     team,
     health: UNIT_MAX_HEALTH,
     maxHealth: UNIT_MAX_HEALTH,
@@ -203,6 +206,13 @@ function refillAvailableActions() {
   });
 
   actionsList.prepend(...newItems);
+  updatePlayerActionControls();
+}
+
+function fillAvailableActions(action) {
+  const items = Array.from({ length: ACTION_SLOT_COUNT }, () => createAvailableActionItem(action));
+
+  actionsList.replaceChildren(...items);
   updatePlayerActionControls();
 }
 
@@ -315,12 +325,13 @@ function removeUnitActionAt(unit, index) {
 
 function createPlayerActionMenu() {
   const menu = document.createElement("div");
+  const movementModeSelector = createPlayerMovementModeSelector();
   const rotateButton = createPlayerRotateButton();
 
   menu.className = "player-action-menu";
   menu.hidden = true;
   menu.setAttribute("aria-label", "Player wolf actions");
-  menu.append(rotateButton);
+  menu.append(movementModeSelector, rotateButton);
 
   ACTIONS.forEach((action) => {
     const button = document.createElement("button");
@@ -336,6 +347,39 @@ function createPlayerActionMenu() {
   });
 
   return menu;
+}
+
+function createPlayerMovementModeSelector() {
+  const selector = document.createElement("div");
+  const label = document.createElement("div");
+  const track = document.createElement("div");
+
+  selector.className = "movement-mode-selector";
+  selector.dataset.playerMovementSelector = "true";
+  selector.setAttribute("aria-label", "Player movement mode");
+
+  label.className = "movement-mode-label";
+  label.dataset.playerMovementLabel = "true";
+
+  track.className = "movement-mode-track";
+
+  PLAYER_MOVEMENT_MODES.forEach((mode) => {
+    const button = document.createElement("button");
+
+    button.type = "button";
+    button.className = "movement-mode-dot";
+    button.dataset.playerMovementMode = mode;
+    button.setAttribute("aria-label", `Set movement mode to ${mode}`);
+    button.setAttribute("aria-pressed", "false");
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setPlayerMovementMode(mode);
+    });
+    track.append(button);
+  });
+
+  selector.append(label, track);
+  return selector;
 }
 
 function createPlayerRotateButton() {
@@ -449,6 +493,12 @@ function updatePlayerActionControls() {
   playerActionMenu.querySelectorAll("[data-player-rotate]").forEach((button) => {
     button.disabled = isExecutingActionQueue || player.movementFrameRequest !== null;
   });
+
+  playerActionMenu.querySelectorAll("[data-player-movement-mode]").forEach((button) => {
+    button.disabled = isExecutingActionQueue || player.movementFrameRequest !== null;
+  });
+
+  renderPlayerMovementModeSelector();
 }
 
 function setPlayerSelected(selected) {
@@ -479,6 +529,46 @@ function rotatePlayerClockwise() {
   playWolfAnimation(player, player.animationName, true);
   updatePlayerMovePreview(player);
   updateEnemyIntentPreview();
+}
+
+function setPlayerMovementMode(mode) {
+  if (
+    isExecutingActionQueue ||
+    player.movementFrameRequest !== null ||
+    !PLAYER_MOVEMENT_MODES.includes(mode)
+  ) {
+    updatePlayerActionControls();
+    return;
+  }
+
+  player.movementMode = mode;
+  renderPlayerMovementModeSelector();
+  updatePlayerMovePreview(player);
+}
+
+function renderPlayerMovementModeSelector() {
+  if (!playerActionMenu) {
+    return;
+  }
+
+  const selector = playerActionMenu.querySelector("[data-player-movement-selector]");
+  const label = playerActionMenu.querySelector("[data-player-movement-label]");
+  const modeIndex = PLAYER_MOVEMENT_MODES.indexOf(player.movementMode);
+
+  if (!selector || !label) {
+    return;
+  }
+
+  const safeModeIndex = modeIndex === -1 ? 0 : modeIndex;
+
+  label.textContent = PLAYER_MOVEMENT_MODES[safeModeIndex];
+
+  selector.querySelectorAll("[data-player-movement-mode]").forEach((button) => {
+    const isActive = button.dataset.playerMovementMode === PLAYER_MOVEMENT_MODES[safeModeIndex];
+
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
 }
 
 function updateEnemyIntentPreview() {
@@ -806,12 +896,7 @@ function updatePlayerMovePreview(unit = player) {
     return;
   }
 
-  const target = getTileInDirection(
-    player.row,
-    player.col,
-    player.direction,
-    MOVE_ACTION_TILE_COUNT * moveActionCount,
-  );
+  const target = getPlayerMovePreviewTarget();
   const anchor = getTileAnchor(target.row, target.col);
 
   playerMovePreview.hidden = false;
@@ -819,7 +904,43 @@ function updatePlayerMovePreview(unit = player) {
   playerMovePreview.style.top = `${anchor.y}px`;
   playerMovePreview.style.zIndex = GRID_SIZE * 2 + target.row + target.col + 21;
   setPlayerMovePreviewTile(getTileElementAt(target.row, target.col));
-  setMovePreviewFrame(player.direction);
+  setMovePreviewFrame(target.direction ?? player.direction);
+}
+
+function getPlayerMovePreviewTarget() {
+  const actionQueue = getUnitActionQueue(player);
+  const previewStates = new Map(
+    units.map((unit) => [
+      unit,
+      {
+        row: unit.row,
+        col: unit.col,
+        direction: unit.direction,
+      },
+    ]),
+  );
+  let target = previewStates.get(player);
+  let direction = player.direction;
+
+  actionQueue.forEach((action, actionIndex) => {
+    if (action !== "Move") {
+      return;
+    }
+
+    const plan = getPlayerMovePlanFromSnapshot(player, enemy, previewStates, {
+      actionQueue: actionQueue.slice(actionIndex + 1),
+    });
+
+    target = plan.target;
+    direction = target.direction ?? direction;
+    previewStates.set(player, {
+      row: target.row,
+      col: target.col,
+      direction,
+    });
+  });
+
+  return { ...target, direction };
 }
 
 function resizeArena() {
@@ -1488,7 +1609,7 @@ async function executeActionTick(combatants) {
       const target = moveTargets.get(unit) ?? startStates.get(unit);
 
       await moveUnitToTile(unit, target.row, target.col, {
-        direction: startStates.get(unit).direction,
+        direction: target.direction ?? startStates.get(unit).direction,
         shouldUpdateButtons,
       });
       return;
@@ -1548,19 +1669,39 @@ function getTickMoveTargets(tickActions, startStates) {
     .filter(({ action }) => action === "Move")
     .map(({ unit }) => {
       const startState = startStates.get(unit);
-      const path = getMovePathFromSnapshot(
-        startState.row,
-        startState.col,
-        startState.direction,
-        MOVE_ACTION_TILE_COUNT,
-        unit,
-        startStates,
-      );
-      const target = path[path.length - 1] ?? { row: startState.row, col: startState.col };
+      const hasAttackIntent = hasQueuedAttackIntentAfterCurrentMove(unit);
+      const attackTarget = hasAttackIntent
+        ? getOpposingUnit(unit)
+        : null;
+      const isAttackIntent = Boolean(attackTarget);
+      let plan = null;
 
-      return { unit, path, target };
+      if (unit === player) {
+        plan = getPlayerMovePlanFromSnapshot(unit, enemy, startStates);
+      } else if (unit === enemy) {
+        plan = getHuntMovePlanFromSnapshot(unit, player, startStates);
+      } else {
+        const path = getMovePathFromSnapshot(
+          startState.row,
+          startState.col,
+          startState.direction,
+          MOVE_ACTION_TILE_COUNT,
+          unit,
+          startStates,
+        );
+        const target = path[path.length - 1] ?? { row: startState.row, col: startState.col };
+
+        plan = { unit, path, target };
+      }
+
+      if (isAttackIntent) {
+        capMovePlanAtAttackRange(plan, startStates.get(attackTarget));
+      }
+
+      return { ...plan, attackTarget, isAttackIntent };
     });
 
+  stopAttackIntentMovePlansAtEngagement(movePlans, startStates);
   stopMovePlansBeforePathCollisions(movePlans, startStates);
 
   const targetCounts = new Map();
@@ -1573,13 +1714,451 @@ function getTickMoveTargets(tickActions, startStates) {
   return new Map(movePlans.map(({ unit, target }) => {
     const targetKey = getGridPositionKey(target.row, target.col);
 
-    if (targetCounts.get(targetKey) > 1) {
+    if (
+      targetCounts.get(targetKey) > 1 &&
+      !isAttackIntentEngagementTarget(unit, target, movePlans)
+    ) {
       const startState = startStates.get(unit);
       return [unit, { row: startState.row, col: startState.col }];
     }
 
     return [unit, target];
   }));
+}
+
+function isAttackIntentEngagementTarget(unit, target, movePlans) {
+  const plan = movePlans.find((movePlan) => movePlan.unit === unit);
+
+  if (!plan?.isAttackIntent) {
+    return false;
+  }
+
+  return movePlans.some((otherPlan) => {
+    return (
+      otherPlan !== plan &&
+      otherPlan.isAttackIntent &&
+      areOpposingUnits(plan.unit, otherPlan.unit) &&
+      isAdjacentTile(target.row, target.col, otherPlan.target.row, otherPlan.target.col)
+    );
+  });
+}
+
+function getOpposingUnit(unit) {
+  return units.find((otherUnit) => {
+    return otherUnit !== unit && areOpposingUnits(unit, otherUnit) && isUnitAlive(otherUnit);
+  }) ?? null;
+}
+
+function hasQueuedAttackIntentAfterCurrentMove(unit) {
+  const nextNonMoveAction = getUnitActionQueue(unit).find((action) => action !== "Move");
+
+  return nextNonMoveAction === "Attack";
+}
+
+function capMovePlanAtAttackRange(plan, targetStartState) {
+  if (!targetStartState) {
+    return;
+  }
+
+  const adjacentStep = plan.path.findIndex((position, step) => {
+    return (
+      step > 0 &&
+      isAdjacentTile(position.row, position.col, targetStartState.row, targetStartState.col)
+    );
+  });
+
+  if (adjacentStep === -1) {
+    return;
+  }
+
+  stopMovePlanAtStep(plan, adjacentStep);
+}
+
+function stopAttackIntentMovePlansAtEngagement(movePlans, startStates) {
+  for (let planIndex = 0; planIndex < movePlans.length; planIndex += 1) {
+    for (let otherIndex = planIndex + 1; otherIndex < movePlans.length; otherIndex += 1) {
+      const plan = movePlans[planIndex];
+      const otherPlan = movePlans[otherIndex];
+
+      if (
+        !plan.isAttackIntent ||
+        !otherPlan.isAttackIntent ||
+        !areOpposingUnits(plan.unit, otherPlan.unit)
+      ) {
+        continue;
+      }
+
+      const engagement = getPathEngagementStep(plan.path, otherPlan.path);
+
+      if (!engagement) {
+        continue;
+      }
+
+      if (engagement.isSharedTile) {
+        stopMovePlanAtStep(plan, engagement.step - 1, startStates.get(plan.unit));
+        stopMovePlanAtStep(otherPlan, engagement.step, startStates.get(otherPlan.unit));
+      } else {
+        stopMovePlanAtStep(plan, engagement.step, startStates.get(plan.unit));
+        stopMovePlanAtStep(otherPlan, engagement.step, startStates.get(otherPlan.unit));
+      }
+    }
+  }
+}
+
+function getPathEngagementStep(path, otherPath) {
+  const maxStep = Math.max(path.length, otherPath.length);
+
+  for (let step = 1; step < maxStep; step += 1) {
+    const position = getPathStep(path, step);
+    const otherPosition = getPathStep(otherPath, step);
+
+    if (isAdjacentTile(position.row, position.col, otherPosition.row, otherPosition.col)) {
+      return { step, isSharedTile: false };
+    }
+
+    if (areSameGridPosition(position, otherPosition)) {
+      return { step, isSharedTile: true };
+    }
+  }
+
+  return null;
+}
+
+function stopMovePlanAtStep(plan, step, startState = null) {
+  const target = getPathStepOrStart(plan.path, step, startState);
+  const endIndex = Math.max(1, step + 1);
+
+  plan.target = { ...target, direction: plan.target.direction };
+  plan.path = plan.path.slice(0, endIndex);
+}
+
+function getPlayerMovePlanFromSnapshot(
+  playerUnit,
+  targetUnit,
+  startStates,
+  { actionQueue = getUnitActionQueue(playerUnit) } = {},
+) {
+  return getMovementModeMovePlanFromSnapshot(
+    playerUnit,
+    targetUnit,
+    startStates,
+    playerUnit.movementMode,
+    { actionQueue },
+  );
+}
+
+function getHuntMovePlanFromSnapshot(movingUnit, targetUnit, startStates) {
+  return getMovementModeMovePlanFromSnapshot(movingUnit, targetUnit, startStates, "Hunt");
+}
+
+function getMovementModeMovePlanFromSnapshot(
+  movingUnit,
+  targetUnit,
+  startStates,
+  movementMode,
+  { actionQueue = getUnitActionQueue(movingUnit) } = {},
+) {
+  const startState = startStates.get(movingUnit);
+  const targetStartState = startStates.get(targetUnit);
+  const fallbackPath = [{ row: startState.row, col: startState.col }];
+  const fallbackPlan = {
+    unit: movingUnit,
+    path: fallbackPath,
+    target: { ...fallbackPath[0], direction: startState.direction },
+  };
+
+  if (!targetStartState || !isUnitAlive(targetUnit)) {
+    return fallbackPlan;
+  }
+
+  const context = getUnitMoveContext(movingUnit, targetUnit, startStates, actionQueue);
+  const candidate = getMoveCandidateForMode(movementMode, context);
+
+  return candidate
+    ? {
+      unit: movingUnit,
+      path: candidate.path,
+      target: { ...candidate.target, direction: candidate.direction },
+    }
+    : fallbackPlan;
+}
+
+function getUnitMoveContext(movingUnit, targetUnit, startStates, actionQueue) {
+  const startState = startStates.get(movingUnit);
+  const targetStartState = startStates.get(targetUnit);
+  const currentDistance = getGridDistance(
+    startState.row,
+    startState.col,
+    targetStartState.row,
+    targetStartState.col,
+  );
+  const currentFrontRisk = isEnemyFrontArcPosition(
+    startState.row,
+    startState.col,
+    targetStartState,
+  );
+  const currentEscapeRoutes = getEscapeRouteCountFromSnapshot(
+    startState.row,
+    startState.col,
+    movingUnit,
+    startStates,
+  );
+  const candidates = getUnitMoveCandidatesFromSnapshot(movingUnit, targetStartState, startStates);
+
+  return {
+    actionQueue,
+    candidates,
+    currentDistance,
+    currentEscapeRoutes,
+    currentFrontRisk,
+    movingUnit,
+    startState,
+    targetStartState,
+  };
+}
+
+function getUnitMoveCandidatesFromSnapshot(movingUnit, targetStartState, startStates) {
+  const startState = startStates.get(movingUnit);
+  const candidates = [];
+
+  CLOCKWISE_DIRECTIONS.forEach((direction) => {
+    const path = getMovePathFromSnapshot(
+      startState.row,
+      startState.col,
+      direction,
+      MOVE_ACTION_TILE_COUNT,
+      movingUnit,
+      startStates,
+    );
+    const turnCost = getDirectionTurnCost(startState.direction, direction);
+
+    path.slice(1).forEach((target, targetIndex) => {
+      const steps = targetIndex + 1;
+      const distance = getGridDistance(
+        target.row,
+        target.col,
+        targetStartState.row,
+        targetStartState.col,
+      );
+
+      candidates.push({
+        direction,
+        distance,
+        escapeRoutes: getEscapeRouteCountFromSnapshot(
+          target.row,
+          target.col,
+          movingUnit,
+          startStates,
+        ),
+        frontRisk: isEnemyFrontArcPosition(target.row, target.col, targetStartState),
+        isAdjacent: isAdjacentTile(
+          target.row,
+          target.col,
+          targetStartState.row,
+          targetStartState.col,
+        ),
+        path: path.slice(0, steps + 1),
+        steps,
+        target,
+        turnCost,
+      });
+    });
+  });
+
+  return candidates;
+}
+
+function getMoveCandidateForMode(mode, context) {
+  switch (mode) {
+    case "Flank":
+      return getFlankMoveCandidate(context);
+    case "Dodge":
+      return getDodgeMoveCandidate(context);
+    case "Sneak":
+      return getSneakMoveCandidate(context);
+    case "Hunt":
+    default:
+      return getHuntMoveCandidate(context);
+  }
+}
+
+function getHuntMoveCandidate({ candidates, currentDistance }) {
+  return candidates
+    .filter((candidate) => candidate.distance < currentDistance)
+    .sort(compareHuntMoveCandidates)[0] ?? null;
+}
+
+function compareHuntMoveCandidates(candidate, otherCandidate) {
+  return (
+    candidate.distance - otherCandidate.distance ||
+    candidate.turnCost - otherCandidate.turnCost ||
+    candidate.steps - otherCandidate.steps
+  );
+}
+
+function getFlankMoveCandidate(context) {
+  const wantsAttackSetup = context.actionQueue[0] === "Attack";
+  const isTooClose = isAdjacentTile(
+    context.startState.row,
+    context.startState.col,
+    context.targetStartState.row,
+    context.targetStartState.col,
+  );
+  const flankCandidates = context.candidates.filter((candidate) => {
+    return !candidate.frontRisk;
+  });
+  const candidates = isTooClose
+    ? flankCandidates.filter((candidate) => !candidate.isAdjacent)
+    : flankCandidates;
+  const selectedCandidates = candidates.length > 0
+    ? candidates
+    : flankCandidates.length > 0
+      ? flankCandidates
+      : context.candidates;
+
+  return selectedCandidates
+    .sort((candidate, otherCandidate) => compareFlankMoveCandidates(
+      candidate,
+      otherCandidate,
+      isTooClose ? false : wantsAttackSetup,
+    ))[0] ?? null;
+}
+
+function compareFlankMoveCandidates(candidate, otherCandidate, wantsAttackSetup) {
+  const candidateSpacing = wantsAttackSetup
+    ? (candidate.isAdjacent ? 0 : candidate.distance)
+    : getFlankSpacingPenalty(candidate.distance);
+  const otherSpacing = wantsAttackSetup
+    ? (otherCandidate.isAdjacent ? 0 : otherCandidate.distance)
+    : getFlankSpacingPenalty(otherCandidate.distance);
+
+  return (
+    candidateSpacing - otherSpacing ||
+    candidate.distance - otherCandidate.distance ||
+    candidate.turnCost - otherCandidate.turnCost ||
+    candidate.steps - otherCandidate.steps
+  );
+}
+
+function getFlankSpacingPenalty(distance) {
+  if (distance >= 2 && distance <= 3) {
+    return 0;
+  }
+
+  return Math.abs(distance - 2);
+}
+
+function getDodgeMoveCandidate(context) {
+  const currentSafety = getDodgeSafetyScore({
+    distance: context.currentDistance,
+    escapeRoutes: context.currentEscapeRoutes,
+    frontRisk: context.currentFrontRisk,
+    isAdjacent: context.currentDistance <= 1,
+  });
+  const improvingDistanceCandidates = context.candidates.filter((candidate) => {
+    return candidate.distance > context.currentDistance;
+  });
+  const safeCandidates = improvingDistanceCandidates.length > 0
+    ? improvingDistanceCandidates
+    : context.candidates.filter((candidate) => getDodgeSafetyScore(candidate) > currentSafety);
+
+  return safeCandidates
+    .sort(compareDodgeMoveCandidates)[0] ?? null;
+}
+
+function compareDodgeMoveCandidates(candidate, otherCandidate) {
+  return (
+    getDodgeSafetyScore(otherCandidate) - getDodgeSafetyScore(candidate) ||
+    otherCandidate.distance - candidate.distance ||
+    otherCandidate.escapeRoutes - candidate.escapeRoutes ||
+    candidate.turnCost - otherCandidate.turnCost ||
+    candidate.steps - otherCandidate.steps
+  );
+}
+
+function getDodgeSafetyScore(candidate) {
+  return (
+    candidate.distance * 2 +
+    candidate.escapeRoutes -
+    (candidate.isAdjacent ? 4 : 0) -
+    (candidate.frontRisk ? 2 : 0)
+  );
+}
+
+function getSneakMoveCandidate(context) {
+  const currentSneakScore = getSneakPositionScore({
+    distance: context.currentDistance,
+    escapeRoutes: context.currentEscapeRoutes,
+    frontRisk: context.currentFrontRisk,
+    isAdjacent: context.currentDistance <= 1,
+    steps: 0,
+    turnCost: 0,
+  });
+  const candidate = context.candidates
+    .filter((item) => item.steps <= 1)
+    .sort(compareSneakMoveCandidates)[0] ?? null;
+
+  if (!candidate || getSneakPositionScore(candidate) >= currentSneakScore) {
+    return null;
+  }
+
+  return candidate;
+}
+
+function compareSneakMoveCandidates(candidate, otherCandidate) {
+  return getSneakPositionScore(candidate) - getSneakPositionScore(otherCandidate);
+}
+
+function getSneakPositionScore(candidate) {
+  const spacingPenalty = Math.abs(candidate.distance - 2);
+
+  return (
+    spacingPenalty * 3 +
+    candidate.steps +
+    candidate.turnCost -
+    candidate.escapeRoutes * 0.25 +
+    (candidate.isAdjacent ? 2 : 0) +
+    (candidate.frontRisk ? 3 : 0)
+  );
+}
+
+function isEnemyFrontArcPosition(row, col, targetStartState) {
+  const delta = DIRECTION_TILE_DELTAS[targetStartState.direction];
+
+  if (!delta) {
+    return false;
+  }
+
+  const frontRow = targetStartState.row + delta.row;
+  const frontCol = targetStartState.col + delta.col;
+
+  return Math.abs(row - frontRow) <= 1 && Math.abs(col - frontCol) <= 1;
+}
+
+function getEscapeRouteCountFromSnapshot(row, col, movingUnit, startStates) {
+  return Object.values(DIRECTION_TILE_DELTAS).filter((delta) => {
+    const nextRow = row + delta.row;
+    const nextCol = col + delta.col;
+    const blockingUnit = getBlockingUnitAtSnapshotPosition(nextRow, nextCol, startStates);
+
+    return (
+      isGridPosition(nextRow, nextCol) &&
+      (!blockingUnit || blockingUnit === movingUnit)
+    );
+  }).length;
+}
+
+function getDirectionTurnCost(fromDirection, toDirection) {
+  const fromIndex = CLOCKWISE_DIRECTIONS.indexOf(fromDirection);
+  const toIndex = CLOCKWISE_DIRECTIONS.indexOf(toDirection);
+
+  if (fromIndex === -1 || toIndex === -1) {
+    return 0;
+  }
+
+  const distance = Math.abs(fromIndex - toIndex);
+
+  return Math.min(distance, CLOCKWISE_DIRECTIONS.length - distance);
 }
 
 function getMovePathFromSnapshot(row, col, direction, tileCount, movingUnit, startStates) {
@@ -1893,6 +2472,7 @@ function resetUnitForDev(unit, setup = {}) {
   const row = setup.row ?? unit.row;
   const col = setup.col ?? unit.col;
   const direction = setup.direction ?? unit.direction;
+  const movementMode = setup.movementMode ?? unit.movementMode ?? DEFAULT_PLAYER_MOVEMENT_MODE;
   const health = setup.health ?? UNIT_MAX_HEALTH;
   const anchor = getTileAnchor(row, col);
 
@@ -1906,6 +2486,7 @@ function resetUnitForDev(unit, setup = {}) {
   unit.row = row;
   unit.col = col;
   unit.direction = direction;
+  unit.movementMode = movementMode;
   unit.health = Math.max(0, Math.min(unit.maxHealth, health));
   unit.isDefeated = unit.health === 0;
   unit.hasPlayedDeathAnimation = false;
@@ -1923,6 +2504,10 @@ function resetUnitForDev(unit, setup = {}) {
   } else {
     playWolfAnimation(unit, "idle", unit === player);
   }
+
+  if (unit === player) {
+    renderPlayerMovementModeSelector();
+  }
 }
 
 function resetDevTest(playerSetup = {}, enemySetup = {}) {
@@ -1932,6 +2517,7 @@ function resetDevTest(playerSetup = {}, enemySetup = {}) {
     row: 9,
     col: 4,
     direction: "topRight",
+    movementMode: DEFAULT_PLAYER_MOVEMENT_MODE,
     health: UNIT_MAX_HEALTH,
     ...playerSetup,
   });
@@ -2442,6 +3028,17 @@ if (toggleTileNumbers) {
     const hidden = document.getElementById("arena").classList.toggle("tile-numbers-hidden");
     toggleTileNumbers.classList.toggle("is-active", !hidden);
     toggleTileNumbers.setAttribute("aria-pressed", String(!hidden));
+  });
+}
+
+const fillMoveActionsButton = document.getElementById("fill-move-actions");
+if (fillMoveActionsButton) {
+  fillMoveActionsButton.addEventListener("click", () => {
+    if (isExecutingActionQueue) {
+      return;
+    }
+
+    fillAvailableActions("Move");
   });
 }
 
