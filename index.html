@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Turnbus Arena Prototype</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="stage" aria-label="Turnbus isometric arena prototype">
+      <button type="button" id="toggle-dev-tools" class="ui-button dev-tools-toggle" aria-pressed="false">Dev tools</button>
+      <div id="arena" class="arena tile-numbers-hidden" aria-label="Battlefield grid"></div>
+      <aside class="action-panel" aria-label="Available actions">
+        <h2>Actions</h2>
+        <ol id="actions-list" class="actions-list"></ol>
+      </aside>
+      <section class="action-queue-panel" aria-label="Selected unit action queue">
+        <button type="button" id="execute-queue" class="ui-button action-queue-play-button is-applied" aria-label="Execute action queue">
+          <img class="action-icon action-queue-play-icon" src="assets/icons/play.svg" alt="" aria-hidden="true">
+        </button>
+        <ol id="action-queue-list" class="action-queue-list" aria-label="Queued actions"></ol>
+      </section>
+      <div id="game-result-overlay" class="game-result-overlay" hidden aria-live="assertive">
+        <div class="game-result-box">
+          <p class="game-result-message"></p>
+          <button type="button" id="restart-button" class="ui-button game-result-restart-button">Play Again</button>
+        </div>
+      </div>
+      <!-- Debug/testing controls: keep available for animation, direction, and tile-number checks. -->
+      <div class="debug-controls" aria-label="Developer tools" hidden>
+        <section class="dev-control-section" aria-label="Edge case tests">
+          <h2>Edge Cases</h2>
+          <div id="dev-test-scenarios" class="dev-test-scenarios"></div>
+          <output id="dev-test-status" class="dev-test-status">Ready</output>
+        </section>
+        <section class="dev-control-section" aria-label="Animation">
+          <h2>Animation</h2>
+          <div class="control-group">
+            <button type="button" class="ui-button" data-animation="idle">Idle</button>
+            <button type="button" class="ui-button" data-animation="run">Run</button>
+            <button type="button" class="ui-button" data-animation="bite">Bite</button>
+            <button type="button" class="ui-button" data-animation="howl">Howl</button>
+            <button type="button" class="ui-button" data-animation="death">Death</button>
+          </div>
+        </section>
+        <section class="dev-control-section" aria-label="Display">
+          <h2>Display</h2>
+          <div class="control-group">
+            <button type="button" id="toggle-tile-numbers" class="ui-button" aria-pressed="false">Tile #s</button>
+          </div>
+        </section>
+        <section class="dev-control-section" aria-label="Direction">
+          <h2>Direction</h2>
+          <div class="control-group">
+            <button type="button" class="ui-button" data-direction="topLeft" aria-label="Top left">↖</button>
+            <button type="button" class="ui-button" data-direction="topRight" aria-label="Top right">↗</button>
+            <button type="button" class="ui-button" data-direction="bottomRight" aria-label="Bottom right">↘</button>
+            <button type="button" class="ui-button" data-direction="bottomLeft" aria-label="Bottom left">↙</button>
+          </div>
+        </section>
+      </div>
+    </main>
+    <script src="script.js"></script>
+  </body>
+</html>

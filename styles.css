@@ -1,0 +1,814 @@
+:root {
+  --tile-width: 32px;
+  --tile-height: 32px;
+  --arena-scale: 3;
+  --arena-scale-inverse: 0.333;
+  --arena-width: 256px;
+  --arena-height: 144px;
+
+  /* Unit placement: foot is measured from the sprite frame's top-left. Nudges: +x = right, +y = down. */
+  --unit-foot-x: 35px;
+  --unit-foot-y: 40px;
+  --unit-nudge-x: 4px;
+  --unit-nudge-y: -1px;
+  --unit-health-bar-width: 40px;
+  --unit-health-bar-height: 8px;
+  --unit-health-bar-offset-x: 12px;
+  --unit-health-bar-offset-y: -28px;
+  --unit-health-border: #fff8df;
+  --unit-health-high: #9bd342;
+  --unit-health-mid: #ffd11a;
+  --unit-health-low: #f3181d;
+  --unit-health-track: #e9e6d8;
+  --unit-health-low-track: #ffacb8;
+  --unit-intent-tags-offset-x: 12px;
+  --unit-intent-tags-offset-y: -50px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(176, 196, 140, 0.12), transparent 34%),
+    linear-gradient(180deg, #172023 0%, #0e1517 100%);
+}
+
+.stage {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.arena {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--arena-width);
+  height: var(--arena-height);
+  transform: translate(-50%, -50%) scale(var(--arena-scale));
+  transform-origin: center;
+  image-rendering: pixelated;
+}
+
+.arena.has-hovered-tile {
+  cursor: pointer;
+}
+
+@keyframes arenaShake {
+  0%, 100% { translate: 0 0; }
+  15%       { translate: -3px -1px; }
+  30%       { translate: 3px 2px; }
+  50%       { translate: -2px 1px; }
+  65%       { translate: 2px -2px; }
+  80%       { translate: -1px 1px; }
+}
+
+.arena.shaking {
+  animation: arenaShake 0.35s ease-out;
+}
+
+.tile-layer,
+.unit-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.tile {
+  position: absolute;
+  width: var(--tile-width);
+  height: var(--tile-height);
+  transform: translate(-50%, 0);
+  pointer-events: none;
+}
+
+.tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.tile.is-hovered img,
+.tile.is-move-preview img,
+.tile:focus-visible img {
+  filter: brightness(1.2) saturate(1.5);
+}
+
+.tile:focus-visible {
+  outline: none;
+}
+
+.tile:focus-visible .tile-anchor {
+  box-shadow: 0 0 0 6px rgba(201, 230, 128, 0.34);
+}
+
+.tile-anchor {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.tile-number {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  min-width: 24px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  color: #f8ffe7;
+  background: rgba(6, 11, 12, 0.68);
+  box-shadow: 0 0 0 1px rgba(248, 255, 231, 0.24);
+  font: 700 14px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-align: center;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+  transform: translate(-50%, -50%) scale(var(--arena-scale-inverse));
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.tile-numbers-hidden .tile-number {
+  display: none;
+}
+
+.unit-layer {
+  pointer-events: none;
+}
+
+.unit.enemy {
+  filter: brightness(1.9) saturate(0.50) contrast(1.5);
+}
+
+.unit {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  transform: translate(
+    calc(var(--unit-nudge-x) - var(--unit-foot-x)),
+    calc(var(--unit-nudge-y) - var(--unit-foot-y))
+  );
+  background-repeat: no-repeat;
+  background-size: auto;
+  image-rendering: pixelated;
+}
+
+.unit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: inherit;
+  background-position: inherit;
+  background-repeat: inherit;
+  background-size: inherit;
+  /* Hit reaction color: edit this filter to change the red overlay tint. */
+  filter: brightness(0) saturate(100%) invert(20%) sepia(93%) saturate(5974%) hue-rotate(354deg) brightness(99%) contrast(106%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.unit.is-hit::after {
+  /* Hit reaction blink length: keep this in sync with UNIT_HIT_REACTION_MS in script.js. */
+  animation: unitHitFlash 100ms steps(1, end) both;
+}
+
+@keyframes unitHitFlash {
+  0%, 49% {
+    /* Hit reaction flash strength: lower opacity makes the overlay subtler. */
+    opacity: 0.20;
+  }
+
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+.unit.player.is-selected {
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 1));
+}
+
+.unit.move-preview {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.unit-health-bar {
+  position: absolute;
+  width: var(--unit-health-bar-width);
+  height: var(--unit-health-bar-height);
+  border: 1px solid var(--unit-health-border);
+  background: var(--unit-health-track);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  image-rendering: pixelated;
+  pointer-events: none;
+  transform: translate(
+    calc(var(--unit-health-bar-offset-x) - 50%),
+    var(--unit-health-bar-offset-y)
+  ) scale(var(--arena-scale-inverse));
+  transform-origin: center top;
+}
+
+.unit-health-bar[hidden] {
+  display: none;
+}
+
+.unit-health-bar-fill {
+  width: var(--unit-health-fill-width, 100%);
+  height: 100%;
+  background: var(--unit-health-high);
+}
+
+.unit-health-bar.is-health-mid .unit-health-bar-fill {
+  background: var(--unit-health-mid);
+}
+
+.unit-health-bar.is-health-low {
+  background: var(--unit-health-low-track);
+}
+
+.unit-health-bar.is-health-low .unit-health-bar-fill {
+  background: var(--unit-health-low);
+}
+
+.unit-intent-tags {
+  position: absolute;
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  pointer-events: none;
+  transform: translate(
+    calc(var(--unit-intent-tags-offset-x) - 50%),
+    var(--unit-intent-tags-offset-y)
+  ) scale(var(--arena-scale-inverse));
+  transform-origin: center top;
+}
+
+.unit-intent-tags[hidden] {
+  display: none;
+}
+
+.unit-intent-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+  padding: 2px 5px;
+  border: 1px solid rgba(255, 248, 223, 0.82);
+  border-radius: 4px;
+  color: #fff8df;
+  background: rgba(42, 20, 16, 0.88);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.34);
+  font: 800 9px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.unit-intent-icon {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  filter: brightness(0) saturate(100%) invert(96%) sepia(17%) saturate(685%) hue-rotate(325deg) brightness(108%) contrast(101%);
+}
+
+.intent-move {
+  background: rgba(38, 70, 68, 0.9);
+}
+
+.intent-attack {
+  background: rgba(96, 34, 28, 0.9);
+}
+
+.intent-defend {
+  background: rgba(72, 65, 34, 0.9);
+}
+
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 64px;
+  min-height: 48px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  color: #edf2e9;
+  background: rgba(255, 255, 255, 0.08);
+  font: 600 16px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    transform 90ms ease;
+}
+
+.action-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  transition:
+    filter 140ms ease,
+    opacity 140ms ease;
+}
+
+.action-button {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 24px;
+  gap: 8px;
+  justify-items: start;
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  text-align: left;
+}
+
+.action-button[hidden] {
+  display: none;
+}
+
+.action-button .action-icon {
+  width: 18px;
+  height: 18px;
+  align-self: center;
+  justify-self: center;
+}
+
+.action-button .action-label {
+  align-self: center;
+  white-space: nowrap;
+}
+
+.action-count-badge {
+  display: inline-grid;
+  place-items: center;
+  align-self: center;
+  justify-self: end;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  color: #edf2e9;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+  font: 700 14px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-align: center;
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    color 140ms ease;
+}
+
+.action-button:active:not(:disabled) .action-count-badge {
+  color: #0e1517;
+  background: rgba(14, 21, 23, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(14, 21, 23, 0.2);
+}
+
+.action-button:disabled .action-count-badge {
+  color: rgba(237, 242, 233, 0.42);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.player-rotate-button {
+  margin-bottom: 2px;
+}
+
+.ui-button.is-active .action-icon,
+.ui-button.is-applied .action-icon,
+.action-button:active:not(:disabled) .action-icon,
+.action-queue-slot .action-icon {
+  filter: brightness(0) saturate(100%);
+}
+
+.ui-button:disabled .action-icon {
+  opacity: 0.42;
+}
+
+.ui-button.is-applied:disabled .action-icon {
+  opacity: 1;
+}
+
+.action-label {
+  min-width: 0;
+  overflow-wrap: normal;
+}
+
+.ui-button:hover:not(:disabled):not(.is-active):not(.is-applied) {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.ui-button.is-active:hover:not(:disabled),
+.ui-button.is-applied:hover:not(:disabled) {
+  background: #b9d474;
+  border-color: #cce88e;
+}
+
+.ui-button:focus-visible {
+  outline: 2px solid rgba(220, 245, 161, 0.82);
+  outline-offset: 2px;
+}
+
+.ui-button.is-active:focus-visible,
+.ui-button.is-applied:focus-visible {
+  outline-color: rgba(14, 21, 23, 0.7);
+}
+
+.ui-button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+
+.action-button:active:not(:disabled) {
+  color: #0e1517;
+  background: #c9e680;
+  border-color: #dcf5a1;
+}
+
+.ui-button.is-active,
+.ui-button.is-applied {
+  color: #0e1517;
+  background: #c9e680;
+  border-color: #dcf5a1;
+}
+
+.ui-button:disabled {
+  color: rgba(237, 242, 233, 0.42);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: default;
+}
+
+.ui-button.is-applied:disabled {
+  color: #0e1517;
+  background: #c9e680;
+  border-color: #dcf5a1;
+}
+
+.player-action-menu {
+  position: absolute;
+  display: grid;
+  gap: 8px;
+  width: 156px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  color: #edf2e9;
+  background: rgba(11, 17, 18, 0.82);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
+  transform: translate(-100%, -50%);
+  pointer-events: auto;
+  backdrop-filter: blur(10px);
+}
+
+.player-action-menu[hidden] {
+  display: none;
+}
+
+
+.action-panel {
+  position: absolute;
+  top: 50%;
+  right: 24px;
+  width: 180px;
+  padding: 12px;
+  color: #edf2e9;
+  transform: translateY(-50%);
+}
+
+.action-panel h2 {
+  margin: 0 0 10px;
+  font: 700 14px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.actions-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 600 14px/1.3 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* 5 items × 48px + 4 gaps × 8px — keeps the panel height stable so the Actions label never moves */
+  min-height: calc(5 * 48px + 4 * 8px);
+  align-content: end;
+  overflow: hidden;
+}
+
+.actions-list li {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  padding: 0 10px;
+  border: 1px solid rgba(201, 230, 128, 0.26);
+  border-radius: 6px;
+  color: rgba(237, 242, 233, 0.88);
+  background: rgba(201, 230, 128, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  text-align: center;
+}
+
+@keyframes action-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.available-action {
+  grid-template-columns: minmax(0, auto) minmax(0, auto);
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+  animation: action-slide-in 200ms ease-out var(--slide-delay, 0ms) both;
+}
+
+.available-action > .action-icon,
+.available-action > .action-label {
+  pointer-events: none;
+}
+
+.available-action .action-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.78;
+}
+
+.available-action .action-label {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.action-queue-panel {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(584px, calc(100vw - 32px));
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #edf2e9;
+  background: rgba(11, 17, 18, 0.72);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  transform: translateX(-50%);
+  backdrop-filter: blur(10px);
+}
+
+.action-queue-play-button {
+  flex: 0 0 auto;
+  width: 58px;
+  height: 58px;
+  min-width: 0;
+  border-radius: 6px;
+}
+
+.action-queue-play-button:active:not(:disabled) {
+  transform: none;
+}
+
+.action-queue-play-icon {
+  width: 24px;
+  height: 24px;
+  transition: transform 120ms ease;
+}
+
+.action-queue-play-button:active:not(:disabled) .action-queue-play-icon {
+  transform: translateY(1px) scale(0.985);
+}
+
+.action-queue-list {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 58px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.action-queue-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 80px;
+  height: 58px;
+  padding: 0;
+  border: 1px solid rgba(201, 230, 128, 0.42);
+  border-radius: 6px;
+  color: #0e1517;
+  background: #c9e680;
+  font: 700 14px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-align: center;
+  overflow: hidden;
+}
+
+.action-queue-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  transition: transform 120ms ease;
+}
+
+.action-queue-action .action-label {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.action-queue-slot.is-empty {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.action-queue-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0 8px;
+  border: 0;
+  color: #0e1517;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.action-queue-button:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.action-queue-button:active .action-queue-action {
+  transform: translateY(1px) scale(0.985);
+}
+
+.action-queue-button:focus-visible {
+  outline: 2px solid rgba(14, 21, 23, 0.7);
+  outline-offset: -3px;
+}
+
+.action-remove-icon {
+  display: none;
+}
+
+.dev-tools-toggle {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 80;
+  min-width: 0;
+  min-height: 40px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.debug-controls {
+  position: fixed;
+  left: 16px;
+  top: 68px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 232px;
+  max-height: calc(100vh - 84px);
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #edf2e9;
+  background: rgba(11, 17, 18, 0.72);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  overflow: auto;
+  backdrop-filter: blur(10px);
+}
+
+.debug-controls[hidden] {
+  display: none;
+}
+
+.control-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.debug-controls .ui-button {
+  min-width: 48px;
+  min-height: 38px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.dev-control-section {
+  display: grid;
+  gap: 8px;
+}
+
+.dev-control-section h2 {
+  margin: 0;
+  color: rgba(237, 242, 233, 0.86);
+  font: 700 12px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.dev-test-scenarios {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.dev-test-button {
+  justify-content: flex-start;
+  width: 100%;
+  min-width: 0;
+}
+
+.dev-test-status {
+  min-height: 42px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: rgba(237, 242, 233, 0.84);
+  background: rgba(255, 255, 255, 0.06);
+  font: 600 12px/1.3 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.dev-test-status.is-pass {
+  color: #dff4ad;
+  border-color: rgba(201, 230, 128, 0.42);
+  background: rgba(88, 125, 44, 0.22);
+}
+
+.dev-test-status.is-fail {
+  color: #ffd7d3;
+  border-color: rgba(243, 24, 29, 0.42);
+  background: rgba(113, 31, 28, 0.24);
+}
+
+.game-result-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 11, 12, 0.78);
+  z-index: 100;
+}
+
+.game-result-overlay[hidden] {
+  display: none;
+}
+
+.game-result-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding: 44px 56px;
+  /*background: rgba(14, 21, 23, 0.95); */
+  /*border: 1px solid rgba(255, 255, 255, 0.12);*/
+  border-radius: 14px;
+}
+
+.game-result-message {
+  margin: 0;
+  color: #f8ffe7;
+  font: 700 36px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.game-result-message.is-win {
+  color: #a3e66e;
+}
+
+.game-result-message.is-lose {
+  color: #ff7a6e;
+}
+
+.game-result-restart-button {
+  font-size: 18px;
+  padding: 12px 32px;
+}
