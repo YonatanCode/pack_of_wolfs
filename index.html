@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Turnbus Arena Prototype</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -14,11 +17,11 @@
         <h2>Actions</h2>
         <ol id="actions-list" class="actions-list"></ol>
       </aside>
-      <section class="action-queue-panel" aria-label="Selected unit action queue">
+      <section class="action-queue-panel" aria-label="Player shared action timeline">
         <button type="button" id="execute-queue" class="ui-button action-queue-play-button is-applied" aria-label="Execute action queue">
           <img class="action-icon action-queue-play-icon" src="assets/icons/play.svg" alt="" aria-hidden="true">
         </button>
-        <ol id="action-queue-list" class="action-queue-list" aria-label="Queued actions"></ol>
+        <ol id="action-queue-list" class="action-queue-list" aria-label="Player shared action timeline"></ol>
       </section>
       <div id="game-result-overlay" class="game-result-overlay" hidden aria-live="assertive">
         <div class="game-result-box">
@@ -47,6 +50,12 @@
           <h2>Display</h2>
           <div class="control-group">
             <button type="button" id="toggle-tile-numbers" class="ui-button" aria-pressed="false">Tile #s</button>
+          </div>
+        </section>
+        <section class="dev-control-section" aria-label="Actions">
+          <h2>Actions</h2>
+          <div class="control-group">
+            <button type="button" id="fill-move-actions" class="ui-button">Moves</button>
           </div>
         </section>
         <section class="dev-control-section" aria-label="Direction">

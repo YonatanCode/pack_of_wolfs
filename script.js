@@ -13,6 +13,7 @@ const PLAYER_MOVE_ANIMATION_STOP_EARLY_FRAMES = 5;
 const PLAYER_MOVE_ANIMATION_MIN_VISIBLE_FRAMES = 2;
 const UNIT_MAX_HEALTH = 10;
 const UNIT_ATTACK_DAMAGE = 3;
+const UNIT_DEFENDED_DAMAGE = Math.ceil(UNIT_ATTACK_DAMAGE / 3);
 const UNIT_HIT_REACTION_MS = 220;
 const TILE_PATH = "isometric tileset/separated images";
 const WOLF_PATH = "wolf/no effects";
@@ -37,6 +38,17 @@ const DIRECTION_TILE_DELTAS = {
   bottomRight: { row: 0, col: 1 },
   bottomLeft: { row: 1, col: 0 },
 };
+const ANGLED_MOVEMENT_TILE_DELTAS = {
+  top: { row: -1, col: -1 },
+  right: { row: -1, col: 1 },
+  bottom: { row: 1, col: 1 },
+  left: { row: 1, col: -1 },
+};
+const MOVEMENT_TILE_DELTAS = {
+  ...DIRECTION_TILE_DELTAS,
+  ...ANGLED_MOVEMENT_TILE_DELTAS,
+};
+const MOVEMENT_DIRECTIONS = Object.keys(MOVEMENT_TILE_DELTAS);
 const ATTACK_TILE_DELTAS = [
   ...Object.values(DIRECTION_TILE_DELTAS),
   { row: -1, col: -1 },
@@ -49,11 +61,13 @@ const ACTION_ANIMATIONS = {
   Defend: { animationName: "howl", cycles: 1 },
 };
 const ENEMY_PLAN_ACTION_COUNT = 5;
-const ENEMY_AGGRESSIVE_DOCTRINE = ["Move", "Move", "Attack", "Attack", "Defend"];
+const ENEMY_AGGRESSIVE_DOCTRINE = ["Move", "Move", "Defend", "Attack", "Attack"];
 const ENEMY_LOW_HEALTH_RATIO = 0.35;
 const CLOSE_ICON = "assets/icons/close.svg";
 const ROTATE_ICON = "assets/icons/rotate.svg";
 const CLOCKWISE_DIRECTIONS = ["topLeft", "topRight", "bottomRight", "bottomLeft"];
+const PLAYER_MOVEMENT_MODES = ["Sneak", "Dodge", "Flank", "Hunt"];
+const DEFAULT_PLAYER_MOVEMENT_MODE = "Hunt";
 
 const EASING = {
   linear: (t) => t,
@@ -79,7 +93,7 @@ const restartButton = document.querySelector("#restart-button");
 const tileElements = [];
 const unitActionQueues = new WeakMap();
 let hoveredTile = null;
-let isPlayerSelected = false;
+let selectedPlayerUnit = null;
 let isDevToolsEnabled = false;
 let playerActionMenu = null;
 let playerMovePreview = null;
@@ -90,8 +104,12 @@ const boardWidth = (GRID_SIZE + GRID_SIZE) * ISO_X_STEP;
 const boardHeight = (GRID_SIZE + GRID_SIZE - 2) * ISO_Y_STEP + TILE_HEIGHT;
 const xOffset = boardWidth / 2;
 const player = createWolf({ row: 9, col: 4, direction: "topRight", team: "player" });
+const playerSupport = createWolf({ row: 9, col: 2, direction: "topRight", team: "player" });
 const enemy = createWolf({ row: 0, col: 4, direction: "bottomLeft", team: "enemy" });
-const units = [player, enemy];
+const enemySupport = createWolf({ row: 0, col: 6, direction: "bottomLeft", team: "enemy" });
+const units = [player, playerSupport, enemy, enemySupport];
+const enemyPackActionQueue = [];
+let enemyPackFocusTarget = null;
 
 const wolfAnimations = {
   idle: { file: "wolf-idle.png", frames: 4, frameMs: 180 },
@@ -110,6 +128,22 @@ const wolfAnimationPreloads = new Map(
 document.documentElement.style.setProperty("--arena-width", `${boardWidth}px`);
 document.documentElement.style.setProperty("--arena-height", `${boardHeight}px`);
 
+function hasQueuedPlayerActions() {
+  return getQueuedPlayerActionTotal() > 0;
+}
+
+function hasMovingPlayerUnits() {
+  return getAliveUnitsByTeam("player").some((unit) => unit.movementFrameRequest !== null);
+}
+
+function getPlayerTimelineUnits() {
+  return [player, playerSupport];
+}
+
+function getQueuedPlayerActionTotal() {
+  return getPlayerTimelineUnits().reduce((total, unit) => total + getUnitActionQueue(unit).length, 0);
+}
+
 function randomTileSrc() {
   const index = Math.floor(Math.random() * (TILE_MAX_INDEX + 1));
   return `${TILE_PATH}/tile_${String(index).padStart(3, "0")}.png`;
@@ -122,7 +156,7 @@ function projectTile(row, col) {
   };
 }
 
-function createWolf({ row, col, direction, team }) {
+function createWolf({ row, col, direction, team, movementMode = DEFAULT_PLAYER_MOVEMENT_MODE }) {
   return {
     element: document.createElement("div"),
     healthBar: null,
@@ -130,6 +164,7 @@ function createWolf({ row, col, direction, team }) {
     row,
     col,
     direction,
+    movementMode,
     team,
     health: UNIT_MAX_HEALTH,
     maxHealth: UNIT_MAX_HEALTH,
@@ -206,6 +241,13 @@ function refillAvailableActions() {
   updatePlayerActionControls();
 }
 
+function fillAvailableActions(action) {
+  const items = Array.from({ length: ACTION_SLOT_COUNT }, () => createAvailableActionItem(action));
+
+  actionsList.replaceChildren(...items);
+  updatePlayerActionControls();
+}
+
 function addAvailableAction(action) {
   actionsList.prepend(createAvailableActionItem(action));
 }
@@ -219,6 +261,10 @@ function getUnitActionQueue(unit) {
 }
 
 function isUnitActionQueueFull(unit) {
+  if (unit.team === "player") {
+    return getQueuedPlayerActionTotal() >= ACTION_QUEUE_SLOT_COUNT;
+  }
+
   return getUnitActionQueue(unit).length >= ACTION_QUEUE_SLOT_COUNT;
 }
 
@@ -237,59 +283,96 @@ function updateActionQueueControls() {
 
   executeQueueButton.disabled =
     isExecutingActionQueue ||
-    getUnitActionQueue(player).length === 0 ||
-    player.movementFrameRequest !== null;
+    !hasQueuedPlayerActions() ||
+    hasMovingPlayerUnits();
 }
 
-function renderActionQueue(unit) {
-  const actionQueue = getUnitActionQueue(unit);
-  const slots = Array.from({ length: ACTION_QUEUE_SLOT_COUNT }, (_, index) => {
-    const item = document.createElement("li");
-    const action = actionQueue[index];
+function getPlayerUnitId(unit) {
+  if (unit === player) return "player";
+  if (unit === playerSupport) return "playerSupport";
+  return "";
+}
 
-    item.className = "action-queue-slot";
+function getPlayerUnitById(unitId) {
+  if (unitId === "player") return player;
+  if (unitId === "playerSupport") return playerSupport;
+  return null;
+}
 
-    if (!action) {
-      item.classList.add("is-empty");
-      item.setAttribute("aria-label", "Empty action slot");
-      return item;
-    }
+function getPlayerUnitLabel(unit) {
+  return unit === playerSupport ? "support wolf" : "lead wolf";
+}
 
-    const button = document.createElement("button");
-    const content = document.createElement("span");
-    const closeIcon = createIcon(CLOSE_ICON, "action-remove-icon");
+function renderActionQueue() {
+  renderPlayerTimeline();
+}
 
-    button.type = "button";
-    button.className = "action-queue-button";
-    button.dataset.actionIndex = index;
-    button.disabled = isExecutingActionQueue;
-    button.setAttribute("aria-label", `Remove ${action} from action queue`);
-    content.className = "action-queue-action";
-    closeIcon.classList.add("action-queue-close");
+function renderPlayerTimeline() {
+  const selectedUnit = getSelectedPlayerUnit();
+  const rows = getPlayerTimelineUnits().map((unit) => {
+    const row = document.createElement("li");
+    const chip = document.createElement("button");
+    const actions = document.createElement("ol");
+    const unitId = getPlayerUnitId(unit);
+    const unitLabel = getPlayerUnitLabel(unit);
+    const actionQueue = getUnitActionQueue(unit);
 
-    content.append(createActionContent(action));
-    button.append(content, closeIcon);
+    row.className = "action-timeline-row";
+    row.classList.toggle("is-selected", unit === selectedUnit);
+    row.dataset.unitId = unitId;
 
-    item.append(button);
-    return item;
+    chip.type = "button";
+    chip.className = "timeline-unit-chip";
+    chip.dataset.playerTimelineUnit = unitId;
+    chip.setAttribute("aria-label", `Select ${unitLabel} timeline`);
+    chip.setAttribute("aria-pressed", String(unit === selectedUnit));
+    chip.textContent = unit === playerSupport ? "P2" : "P1";
+
+    actions.className = "action-timeline-actions";
+    actions.setAttribute("aria-label", `${unitLabel} queued actions`);
+
+    actionQueue.forEach((action, index) => {
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      const content = document.createElement("span");
+      const closeIcon = createIcon(CLOSE_ICON, "action-remove-icon");
+
+      item.className = "action-queue-slot";
+      button.type = "button";
+      button.className = "action-queue-button";
+      button.dataset.unitId = unitId;
+      button.dataset.actionIndex = index;
+      button.disabled = isExecutingActionQueue;
+      button.setAttribute("aria-label", `Remove ${action} from ${unitLabel} timeline`);
+      content.className = "action-queue-action";
+      closeIcon.classList.add("action-queue-close");
+
+      content.append(createActionContent(action));
+      button.append(content, closeIcon);
+      item.append(button);
+      actions.append(item);
+    });
+
+    row.append(chip, actions);
+    return row;
   });
 
-  actionQueueList.replaceChildren(...slots);
+  actionQueueList.replaceChildren(...rows);
   updateActionQueueControls();
-  updatePlayerMovePreview(unit);
+  updatePlayerMovePreview();
 }
 
 function queueUnitAction(unit, action) {
   const actionQueue = getUnitActionQueue(unit);
 
-  if (actionQueue.length >= ACTION_QUEUE_SLOT_COUNT) {
+  if (isUnitActionQueueFull(unit)) {
     return false;
   }
 
   actionQueue.push(action);
-  renderActionQueue(unit);
+  renderActionQueue();
 
-  if (unit === player) {
+  if (unit.team === "player") {
     updateEnemyIntentPreview();
   }
 
@@ -305,9 +388,9 @@ function removeUnitActionAt(unit, index) {
   }
 
   addAvailableAction(removedAction);
-  renderActionQueue(unit);
+  renderActionQueue();
 
-  if (unit === player) {
+  if (unit.team === "player") {
     updatePlayerActionControls();
     updateEnemyIntentPreview();
   }
@@ -315,12 +398,13 @@ function removeUnitActionAt(unit, index) {
 
 function createPlayerActionMenu() {
   const menu = document.createElement("div");
+  const movementModeSelector = createPlayerMovementModeSelector();
   const rotateButton = createPlayerRotateButton();
 
   menu.className = "player-action-menu";
   menu.hidden = true;
   menu.setAttribute("aria-label", "Player wolf actions");
-  menu.append(rotateButton);
+  menu.append(movementModeSelector, rotateButton);
 
   ACTIONS.forEach((action) => {
     const button = document.createElement("button");
@@ -336,6 +420,39 @@ function createPlayerActionMenu() {
   });
 
   return menu;
+}
+
+function createPlayerMovementModeSelector() {
+  const selector = document.createElement("div");
+  const label = document.createElement("div");
+  const track = document.createElement("div");
+
+  selector.className = "movement-mode-selector";
+  selector.dataset.playerMovementSelector = "true";
+  selector.setAttribute("aria-label", "Player movement mode");
+
+  label.className = "movement-mode-label";
+  label.dataset.playerMovementLabel = "true";
+
+  track.className = "movement-mode-track";
+
+  PLAYER_MOVEMENT_MODES.forEach((mode) => {
+    const button = document.createElement("button");
+
+    button.type = "button";
+    button.className = "movement-mode-dot";
+    button.dataset.playerMovementMode = mode;
+    button.setAttribute("aria-label", `Set movement mode to ${mode}`);
+    button.setAttribute("aria-pressed", "false");
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setPlayerMovementMode(mode);
+    });
+    track.append(button);
+  });
+
+  selector.append(label, track);
+  return selector;
 }
 
 function createPlayerRotateButton() {
@@ -407,13 +524,20 @@ function positionPlayerActionMenu() {
     return;
   }
 
+  const selectedUnit = getSelectedPlayerUnit();
+
+  if (!selectedUnit) {
+    playerActionMenu.hidden = true;
+    return;
+  }
+
   const arenaRect = arena.getBoundingClientRect();
   const stageRect = arena.parentElement.getBoundingClientRect();
   const scaleX = arenaRect.width / boardWidth;
   const scaleY = arenaRect.height / boardHeight;
 
-  playerActionMenu.style.left = `${arenaRect.left - stageRect.left + player.x * scaleX - 64}px`;
-  playerActionMenu.style.top = `${arenaRect.top - stageRect.top + player.y * scaleY - 4}px`;
+  playerActionMenu.style.left = `${arenaRect.left - stageRect.left + selectedUnit.x * scaleX - 64}px`;
+  playerActionMenu.style.top = `${arenaRect.top - stageRect.top + selectedUnit.y * scaleY - 4}px`;
   playerActionMenu.style.zIndex = 30;
 }
 
@@ -423,6 +547,7 @@ function updatePlayerActionControls() {
   }
 
   const hasAnyAvailableAction = getAvailableActionTotal() > 0;
+  const selectedUnit = getSelectedPlayerUnit();
 
   playerActionMenu.querySelectorAll("[data-player-action]").forEach((button) => {
     const action = button.dataset.playerAction;
@@ -434,51 +559,139 @@ function updatePlayerActionControls() {
     }
 
     button.hidden = availableCount === 0;
-    button.disabled = isExecutingActionQueue || isUnitActionQueueFull(player) || availableCount === 0;
+    button.disabled =
+      isExecutingActionQueue ||
+      !selectedUnit ||
+      isUnitActionQueueFull(selectedUnit) ||
+      availableCount === 0;
     button.setAttribute("aria-label", `${action} (${availableCount} available)`);
   });
 
-  if (isPlayerSelected && !hasAnyAvailableAction) {
-    isPlayerSelected = false;
-    player.isSelected = false;
-    player.element.classList.remove("is-selected");
-    updateUnitHealthBar(player);
+  if (selectedUnit && !hasAnyAvailableAction) {
+    clearPlayerSelection();
+    renderActionQueue(null);
     playerActionMenu.hidden = true;
   }
 
   playerActionMenu.querySelectorAll("[data-player-rotate]").forEach((button) => {
-    button.disabled = isExecutingActionQueue || player.movementFrameRequest !== null;
+    button.disabled = isExecutingActionQueue || !selectedUnit || selectedUnit.movementFrameRequest !== null;
   });
+
+  playerActionMenu.querySelectorAll("[data-player-movement-mode]").forEach((button) => {
+    button.disabled = isExecutingActionQueue || !selectedUnit || selectedUnit.movementFrameRequest !== null;
+  });
+
+  renderPlayerMovementModeSelector();
 }
 
-function setPlayerSelected(selected) {
-  isPlayerSelected = selected;
-  player.isSelected = selected;
-  player.element.classList.toggle("is-selected", selected);
-  updateUnitHealthBar(player);
+function getSelectedPlayerUnit() {
+  if (!selectedPlayerUnit || selectedPlayerUnit.team !== "player" || !isUnitAlive(selectedPlayerUnit)) {
+    return null;
+  }
+
+  return selectedPlayerUnit;
+}
+
+function clearPlayerSelection() {
+  if (!selectedPlayerUnit) {
+    return;
+  }
+
+  selectedPlayerUnit.isSelected = false;
+  selectedPlayerUnit.element.classList.remove("is-selected");
+  updateUnitHealthBar(selectedPlayerUnit);
+  selectedPlayerUnit = null;
+}
+
+function setPlayerSelected(unitOrNull) {
+  const nextUnit = unitOrNull && unitOrNull.team === "player" && isUnitAlive(unitOrNull)
+    ? unitOrNull
+    : null;
+
+  if (selectedPlayerUnit && selectedPlayerUnit !== nextUnit) {
+    selectedPlayerUnit.isSelected = false;
+    selectedPlayerUnit.element.classList.remove("is-selected");
+    updateUnitHealthBar(selectedPlayerUnit);
+  }
+
+  selectedPlayerUnit = nextUnit;
+
+  if (selectedPlayerUnit) {
+    selectedPlayerUnit.isSelected = true;
+    selectedPlayerUnit.element.classList.add("is-selected");
+    updateUnitHealthBar(selectedPlayerUnit);
+  }
 
   if (playerActionMenu) {
-    playerActionMenu.hidden = !selected;
+    playerActionMenu.hidden = !selectedPlayerUnit;
     positionPlayerActionMenu();
   }
 
+  renderActionQueue(selectedPlayerUnit);
+  updateActiveDirection((selectedPlayerUnit ?? player).direction);
   updatePlayerActionControls();
 }
 
 function rotatePlayerClockwise() {
-  if (isExecutingActionQueue || player.movementFrameRequest !== null) {
+  const selectedUnit = getSelectedPlayerUnit();
+
+  if (!selectedUnit || isExecutingActionQueue || selectedUnit.movementFrameRequest !== null) {
     updatePlayerActionControls();
     return;
   }
 
-  const currentIndex = CLOCKWISE_DIRECTIONS.indexOf(player.direction);
+  const currentIndex = CLOCKWISE_DIRECTIONS.indexOf(selectedUnit.direction);
   const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % CLOCKWISE_DIRECTIONS.length;
 
-  player.direction = CLOCKWISE_DIRECTIONS[nextIndex];
-  updateActiveDirection(player.direction);
-  playWolfAnimation(player, player.animationName, true);
-  updatePlayerMovePreview(player);
+  selectedUnit.direction = CLOCKWISE_DIRECTIONS[nextIndex];
+  updateActiveDirection(selectedUnit.direction);
+  playWolfAnimation(selectedUnit, selectedUnit.animationName, true);
+  updatePlayerMovePreview();
   updateEnemyIntentPreview();
+}
+
+function setPlayerMovementMode(mode) {
+  const selectedUnit = getSelectedPlayerUnit();
+
+  if (
+    isExecutingActionQueue ||
+    !selectedUnit ||
+    selectedUnit.movementFrameRequest !== null ||
+    !PLAYER_MOVEMENT_MODES.includes(mode)
+  ) {
+    updatePlayerActionControls();
+    return;
+  }
+
+  selectedUnit.movementMode = mode;
+  renderPlayerMovementModeSelector();
+  updatePlayerMovePreview();
+}
+
+function renderPlayerMovementModeSelector() {
+  if (!playerActionMenu) {
+    return;
+  }
+
+  const selector = playerActionMenu.querySelector("[data-player-movement-selector]");
+  const label = playerActionMenu.querySelector("[data-player-movement-label]");
+  const selectedUnit = getSelectedPlayerUnit();
+  const modeIndex = PLAYER_MOVEMENT_MODES.indexOf(selectedUnit?.movementMode ?? player.movementMode);
+
+  if (!selector || !label) {
+    return;
+  }
+
+  const safeModeIndex = modeIndex === -1 ? 0 : modeIndex;
+
+  label.textContent = PLAYER_MOVEMENT_MODES[safeModeIndex];
+
+  selector.querySelectorAll("[data-player-movement-mode]").forEach((button) => {
+    const isActive = button.dataset.playerMovementMode === PLAYER_MOVEMENT_MODES[safeModeIndex];
+
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
 }
 
 function updateEnemyIntentPreview() {
@@ -486,13 +699,16 @@ function updateEnemyIntentPreview() {
     return;
   }
 
-  if (!isUnitAlive(player) || !isUnitAlive(enemy)) {
-    clearUnitActionQueue(enemy);
-    renderUnitIntentTags(enemy);
+  const enemyUnits = units.filter((unit) => unit.team === "enemy");
+  const playerUnits = units.filter((unit) => unit.team === "player");
+
+  if (!hasAliveUnitsByTeam("player") || !hasAliveUnitsByTeam("enemy")) {
+    clearEnemyPackActionQueue();
+    renderEnemyPackIntentTags(enemyUnits);
     return;
   }
 
-  planEnemyTurn(enemy, player);
+  planEnemyPackTurn(enemyUnits, playerUnits);
 }
 
 function updatePlayerTileLabels() {
@@ -500,8 +716,8 @@ function updatePlayerTileLabels() {
     const tileNumber = tile.dataset.tileNumber;
     let label = `Move wolf to tile ${tileNumber}`;
 
-    if (isPlayerTile(tile)) {
-      label = `Select player wolf on tile ${tileNumber}`;
+    if (isFriendlyTile(tile)) {
+      label = `Select friendly wolf on tile ${tileNumber}`;
     } else if (isEnemyTile(tile)) {
       label = `Enemy wolf occupies tile ${tileNumber}`;
     }
@@ -511,12 +727,14 @@ function updatePlayerTileLabels() {
 }
 
 function applyPlayerAction(action) {
+  const selectedUnit = getSelectedPlayerUnit();
+
   if (isExecutingActionQueue) {
     updatePlayerActionControls();
     return;
   }
 
-  if (isUnitActionQueueFull(player)) {
+  if (!selectedUnit || isUnitActionQueueFull(selectedUnit)) {
     updatePlayerActionControls();
     return;
   }
@@ -526,7 +744,7 @@ function applyPlayerAction(action) {
     return;
   }
 
-  queueUnitAction(player, action);
+  queueUnitAction(selectedUnit, action);
   updatePlayerActionControls();
 }
 
@@ -572,11 +790,10 @@ function buildArena() {
     }
   }
 
-  placeWolf(unitLayer, player);
-  player.element.classList.add("player");
-
-  placeWolf(unitLayer, enemy);
-  enemy.element.classList.add("enemy");
+  units.forEach((unit) => {
+    placeWolf(unitLayer, unit);
+    unit.element.classList.add(unit.team);
+  });
 
   playerMovePreview = createPlayerMovePreview();
   unitLayer.append(playerMovePreview);
@@ -585,7 +802,7 @@ function buildArena() {
   arena.replaceChildren(tileLayer, unitLayer);
   arena.parentElement.append(playerActionMenu);
   positionPlayerActionMenu();
-  updatePlayerMovePreview(player);
+  updatePlayerMovePreview();
 }
 
 function placeWolf(unitLayer, wolf) {
@@ -686,7 +903,7 @@ function updateUnitHealthBar(wolf) {
   }
 
   const healthRatio = Math.max(0, Math.min(1, wolf.health / wolf.maxHealth));
-  const shouldShow = wolf.health < wolf.maxHealth || wolf.isSelected;
+  const shouldShow = !wolf.isDefeated && (wolf.health < wolf.maxHealth || wolf.isSelected);
 
   wolf.healthBar.hidden = !shouldShow;
   wolf.healthBar.classList.toggle("is-health-high", healthRatio > 0.6);
@@ -699,24 +916,44 @@ function updateUnitHealthBar(wolf) {
 
 function damageUnit(wolf, damageAmount) {
   if (wolf.isDefeated) {
-    return { damaged: false, defeated: false };
+    return { damaged: false, defeated: false, damageTaken: 0 };
   }
 
   const nextHealth = Math.max(0, wolf.health - damageAmount);
+  const damageTaken = wolf.health - nextHealth;
 
   if (nextHealth === wolf.health) {
-    return { damaged: false, defeated: false };
+    return { damaged: false, defeated: false, damageTaken: 0 };
   }
 
   wolf.health = nextHealth;
-  updateUnitHealthBar(wolf);
 
   if (wolf.health === 0) {
     wolf.isDefeated = true;
-    return { damaged: true, defeated: true };
+    updateUnitHealthBar(wolf);
+    return { damaged: true, defeated: true, damageTaken };
   }
 
-  return { damaged: true, defeated: false };
+  updateUnitHealthBar(wolf);
+  return { damaged: true, defeated: false, damageTaken };
+}
+
+function showUnitDamagePopup(wolf, damageAmount) {
+  if (!wolf.element.parentElement || damageAmount <= 0) {
+    return;
+  }
+
+  const popup = document.createElement("div");
+
+  popup.className = "unit-damage-popup";
+  popup.textContent = `-${damageAmount}`;
+  popup.style.left = `${wolf.x}px`;
+  popup.style.top = `${wolf.y}px`;
+  popup.style.zIndex = Number(wolf.element.style.zIndex || 0) + 3;
+  popup.setAttribute("aria-hidden", "true");
+  popup.addEventListener("animationend", () => popup.remove(), { once: true });
+
+  wolf.element.parentElement.append(popup);
 }
 
 function getTileAnchor(row, col) {
@@ -736,7 +973,7 @@ function setWolfPosition(wolf, x, y) {
   positionUnitHealthBar(wolf);
   positionUnitIntentTags(wolf);
 
-  if (wolf === player) {
+  if (wolf === getSelectedPlayerUnit()) {
     positionPlayerActionMenu();
   }
 }
@@ -746,7 +983,7 @@ function updateWolfDepth(wolf) {
   updateUnitHealthBarDepth(wolf);
   updateUnitIntentTagsDepth(wolf);
 
-  if (wolf === player) {
+  if (wolf === getSelectedPlayerUnit()) {
     positionPlayerActionMenu();
   }
 }
@@ -786,32 +1023,27 @@ function setPlayerMovePreviewTile(tile) {
   }
 }
 
-function setMovePreviewFrame(direction) {
-  const directionRow = WOLF_DIRECTIONS[direction] ?? WOLF_DIRECTIONS[player.direction];
+function setMovePreviewFrame(direction, fallbackUnit = getSelectedPlayerUnit() ?? player) {
+  const directionRow = WOLF_DIRECTIONS[direction] ?? WOLF_DIRECTIONS[fallbackUnit.direction];
 
   playerMovePreview.style.backgroundImage = `url("${getWolfAnimationSrc("idle")}")`;
   playerMovePreview.style.backgroundPosition = `0 -${directionRow * WOLF_FRAME_SIZE}px`;
 }
 
-function updatePlayerMovePreview(unit = player) {
-  if (unit !== player || !playerMovePreview) {
+function updatePlayerMovePreview(unit = getSelectedPlayerUnit()) {
+  if (!playerMovePreview) {
     return;
   }
 
-  const moveActionCount = getQueuedMoveActionCount(player);
+  const selectedUnit = unit === getSelectedPlayerUnit() ? unit : getSelectedPlayerUnit();
 
-  if (isExecutingActionQueue || moveActionCount === 0) {
+  if (!selectedUnit || isExecutingActionQueue || getQueuedMoveActionCount(selectedUnit) === 0) {
     playerMovePreview.hidden = true;
     setPlayerMovePreviewTile(null);
     return;
   }
 
-  const target = getTileInDirection(
-    player.row,
-    player.col,
-    player.direction,
-    MOVE_ACTION_TILE_COUNT * moveActionCount,
-  );
+  const target = getPlayerMovePreviewTarget(selectedUnit);
   const anchor = getTileAnchor(target.row, target.col);
 
   playerMovePreview.hidden = false;
@@ -819,7 +1051,43 @@ function updatePlayerMovePreview(unit = player) {
   playerMovePreview.style.top = `${anchor.y}px`;
   playerMovePreview.style.zIndex = GRID_SIZE * 2 + target.row + target.col + 21;
   setPlayerMovePreviewTile(getTileElementAt(target.row, target.col));
-  setMovePreviewFrame(player.direction);
+  setMovePreviewFrame(target.direction ?? selectedUnit.direction, selectedUnit);
+}
+
+function getPlayerMovePreviewTarget(playerUnit = getSelectedPlayerUnit() ?? player) {
+  const actionQueue = getUnitActionQueue(playerUnit);
+  const previewStates = new Map(
+    units.map((unit) => [
+      unit,
+      {
+        row: unit.row,
+        col: unit.col,
+        direction: unit.direction,
+      },
+    ]),
+  );
+  let target = previewStates.get(playerUnit);
+  let direction = playerUnit.direction;
+
+  actionQueue.forEach((action, actionIndex) => {
+    if (action !== "Move") {
+      return;
+    }
+
+    const plan = getPlayerMovePlanFromSnapshot(playerUnit, getFriendlyFocusTarget(playerUnit), previewStates, {
+      actionQueue: actionQueue.slice(actionIndex + 1),
+    });
+
+    target = plan.target;
+    direction = target.direction ?? direction;
+    previewStates.set(playerUnit, {
+      row: target.row,
+      col: target.col,
+      direction,
+    });
+  });
+
+  return { ...target, direction };
 }
 
 function resizeArena() {
@@ -919,6 +1187,19 @@ function isPointerInsideWolf(wolf, event) {
   );
 }
 
+function getFriendlyUnitFromPointerEvent(event) {
+  const point = getArenaPoint(event);
+
+  return getAliveUnitsByTeam("player")
+    .filter((unit) => isPointerInsideWolf(unit, event))
+    .sort((unit, otherUnit) => {
+      return (
+        Math.hypot(point.x - unit.x, point.y - unit.y) -
+        Math.hypot(point.x - otherUnit.x, point.y - otherUnit.y)
+      );
+    })[0] ?? null;
+}
+
 function setHoveredTile(tile) {
   if (hoveredTile === tile) {
     return;
@@ -954,6 +1235,14 @@ function isUnitAlive(unit) {
   return !unit.isDefeated && unit.health > 0;
 }
 
+function getAliveUnitsByTeam(team) {
+  return units.filter((unit) => unit.team === team && isUnitAlive(unit));
+}
+
+function hasAliveUnitsByTeam(team) {
+  return getAliveUnitsByTeam(team).length > 0;
+}
+
 function areOpposingUnits(unitA, unitB) {
   return unitA.team !== unitB.team;
 }
@@ -973,7 +1262,7 @@ function isGridPosition(row, col) {
 }
 
 function getTileInDirection(row, col, direction, tileCount) {
-  const delta = DIRECTION_TILE_DELTAS[direction];
+  const delta = MOVEMENT_TILE_DELTAS[direction];
   let targetRow = row;
   let targetCol = col;
 
@@ -997,7 +1286,7 @@ function getTileInDirection(row, col, direction, tileCount) {
 }
 
 function getTileInDirectionForPlan(row, col, direction, tileCount, planningUnit) {
-  const delta = DIRECTION_TILE_DELTAS[direction];
+  const delta = MOVEMENT_TILE_DELTAS[direction];
   let targetRow = row;
   let targetCol = col;
 
@@ -1024,6 +1313,17 @@ function getTileInDirectionForPlan(row, col, direction, tileCount, planningUnit)
   return { row: targetRow, col: targetCol };
 }
 
+function getFacingDirectionForMove(startRow, startCol, targetRow, targetCol, fallbackDirection) {
+  const startAnchor = getTileAnchor(startRow, startCol);
+  const targetAnchor = getTileAnchor(targetRow, targetCol);
+
+  if (startRow === targetRow && startCol === targetCol) {
+    return fallbackDirection;
+  }
+
+  return getDirectionFromDelta(targetAnchor.x - startAnchor.x, targetAnchor.y - startAnchor.y);
+}
+
 function getGridDistance(rowA, colA, rowB, colB) {
   return Math.abs(rowA - rowB) + Math.abs(colA - colB);
 }
@@ -1034,7 +1334,7 @@ function getBestMoveDirectionToward(row, col, targetRow, targetCol, planningUnit
   let bestTarget = { row, col };
   let bestDistance = currentDistance;
 
-  CLOCKWISE_DIRECTIONS.forEach((direction) => {
+  MOVEMENT_DIRECTIONS.forEach((direction) => {
     const target = getTileInDirectionForPlan(
       row,
       col,
@@ -1051,7 +1351,7 @@ function getBestMoveDirectionToward(row, col, targetRow, targetCol, planningUnit
     const distance = getGridDistance(target.row, target.col, targetRow, targetCol);
 
     if (distance < bestDistance) {
-      bestDirection = direction;
+      bestDirection = getFacingDirectionForMove(row, col, target.row, target.col, planningUnit.direction);
       bestTarget = target;
       bestDistance = distance;
     }
@@ -1078,6 +1378,266 @@ function pushEnemyPlannedAction(actionQueue, doctrinePool, action) {
 
   actionQueue.push(action);
   return true;
+}
+
+function clearEnemyPackActionQueue() {
+  enemyPackActionQueue.length = 0;
+  enemyPackFocusTarget = null;
+}
+
+function getEnemyPackActionsForUnit(unit) {
+  return enemyPackActionQueue
+    .filter((entry) => entry.unit === unit)
+    .map((entry) => entry.action);
+}
+
+function renderEnemyPackIntentTags(enemyUnits = units.filter((unit) => unit.team === "enemy")) {
+  enemyUnits.forEach((unit) => {
+    renderUnitIntentTags(unit, getEnemyPackActionsForUnit(unit));
+  });
+}
+
+function planEnemyPackTurn(enemyUnits, playerUnits) {
+  const aliveEnemies = enemyUnits.filter(isUnitAlive);
+  const alivePlayers = playerUnits.filter(isUnitAlive);
+
+  clearEnemyPackActionQueue();
+
+  if (aliveEnemies.length === 0 || alivePlayers.length === 0) {
+    renderEnemyPackIntentTags(enemyUnits);
+    return enemyPackActionQueue;
+  }
+
+  enemyPackFocusTarget = getBestPackFocusTarget(aliveEnemies, alivePlayers);
+
+  const plannedStates = new Map(aliveEnemies.map((unit) => [
+    unit,
+    { row: unit.row, col: unit.col, direction: unit.direction },
+  ]));
+  const reservedMoveTargets = new Set();
+  const doctrinePool = [...ENEMY_AGGRESSIVE_DOCTRINE];
+
+  while (enemyPackActionQueue.length < ENEMY_PLAN_ACTION_COUNT) {
+    const assignment = getBestEnemyPackAction(
+      aliveEnemies,
+      enemyPackFocusTarget,
+      plannedStates,
+      reservedMoveTargets,
+      enemyPackActionQueue,
+      doctrinePool,
+    );
+
+    if (!assignment) {
+      break;
+    }
+
+    consumeDoctrineAction(doctrinePool, assignment.action);
+    enemyPackActionQueue.push({ unit: assignment.unit, action: assignment.action });
+
+    if (assignment.action === "Move") {
+      const previousState = plannedStates.get(assignment.unit);
+
+      plannedStates.set(assignment.unit, {
+        row: assignment.target.row,
+        col: assignment.target.col,
+        direction: assignment.facingDirection ?? previousState.direction,
+      });
+      reservedMoveTargets.add(getGridPositionKey(assignment.target.row, assignment.target.col));
+    }
+  }
+
+  renderEnemyPackIntentTags(enemyUnits);
+  return enemyPackActionQueue;
+}
+
+function getBestPackFocusTarget(enemyUnits, playerUnits) {
+  return [...playerUnits].sort((target, otherTarget) => {
+    return getPackFocusTargetScore(target, enemyUnits) - getPackFocusTargetScore(otherTarget, enemyUnits);
+  })[0] ?? null;
+}
+
+function getPackFocusTargetScore(target, enemyUnits) {
+  const distances = enemyUnits.map((unit) => getGridDistance(unit.row, unit.col, target.row, target.col));
+  const nearestDistance = Math.min(...distances);
+  const attackOpportunity = enemyUnits.some((unit) => {
+    return isAdjacentTile(unit.row, unit.col, target.row, target.col);
+  });
+
+  return target.health * 5 + nearestDistance * 2 - (attackOpportunity ? 8 : 0);
+}
+
+function getBestEnemyPackAction(
+  enemyUnits,
+  focusTarget,
+  plannedStates,
+  reservedMoveTargets,
+  plannedActions,
+  doctrinePool,
+) {
+  const attackAssignments = doctrinePool.includes("Attack")
+    ? enemyUnits
+      .map((unit) => {
+        const plannedState = plannedStates.get(unit);
+
+        if (!plannedState || !isAdjacentTile(plannedState.row, plannedState.col, focusTarget.row, focusTarget.col)) {
+          return null;
+        }
+
+        return {
+          action: "Attack",
+          score: getGridDistance(unit.row, unit.col, focusTarget.row, focusTarget.col) +
+            getPlannedActionCountForUnit(unit, plannedActions) * 5,
+          unit,
+        };
+      })
+      .filter(Boolean)
+      .sort((assignment, otherAssignment) => assignment.score - otherAssignment.score)
+    : [];
+
+  if (attackAssignments.length > 0) {
+    return attackAssignments[0];
+  }
+
+  if (doctrinePool.includes("Move")) {
+    const moveAssignment = enemyUnits
+      .map((unit) => getEnemyPackMoveAssignment(
+        unit,
+        focusTarget,
+        plannedStates,
+        reservedMoveTargets,
+        plannedActions,
+      ))
+      .filter(Boolean)
+      .sort((assignment, otherAssignment) => otherAssignment.score - assignment.score)[0] ?? null;
+
+    if (moveAssignment) {
+      return moveAssignment;
+    }
+  }
+
+  if (doctrinePool.includes("Defend")) {
+    return getEnemyPackDefendAssignment(enemyUnits, plannedActions);
+  }
+
+  return null;
+}
+
+function getPlannedActionCountForUnit(unit, plannedActions) {
+  return plannedActions.filter((entry) => entry.unit === unit).length;
+}
+
+function getEnemyPackDefendAssignment(enemyUnits, plannedActions) {
+  return enemyUnits
+    .map((unit) => {
+      return {
+        action: "Defend",
+        score: unit.health / unit.maxHealth + getPlannedActionCountForUnit(unit, plannedActions),
+        unit,
+      };
+    })
+    .sort((assignment, otherAssignment) => assignment.score - otherAssignment.score)[0] ?? null;
+}
+
+function getEnemyPackMoveAssignment(unit, focusTarget, plannedStates, reservedMoveTargets, plannedActions) {
+  const plannedState = plannedStates.get(unit);
+
+  if (!plannedState) {
+    return null;
+  }
+
+  const currentDistance = getGridDistance(plannedState.row, plannedState.col, focusTarget.row, focusTarget.col);
+  let bestAssignment = null;
+
+  MOVEMENT_DIRECTIONS.forEach((direction) => {
+    const target = getTileInDirectionForPackPlan(
+      plannedState.row,
+      plannedState.col,
+      direction,
+      MOVE_ACTION_TILE_COUNT,
+      unit,
+      plannedStates,
+    );
+    const targetKey = getGridPositionKey(target.row, target.col);
+    const didMove = target.row !== plannedState.row || target.col !== plannedState.col;
+
+    if (!didMove || reservedMoveTargets.has(targetKey)) {
+      return;
+    }
+
+    const distance = getGridDistance(target.row, target.col, focusTarget.row, focusTarget.col);
+    const improvement = currentDistance - distance;
+
+    if (improvement <= 0) {
+      return;
+    }
+
+    const assignment = {
+      action: "Move",
+      direction,
+      facingDirection: getFacingDirectionForMove(
+        plannedState.row,
+        plannedState.col,
+        target.row,
+        target.col,
+        plannedState.direction,
+      ),
+      score: improvement * 10 -
+        distance -
+        getDirectionTurnCost(plannedState.direction, getFacingDirectionForMove(
+          plannedState.row,
+          plannedState.col,
+          target.row,
+          target.col,
+          plannedState.direction,
+        )) -
+        getPlannedActionCountForUnit(unit, plannedActions) * 5,
+      target,
+      unit,
+    };
+
+    if (!bestAssignment || assignment.score > bestAssignment.score) {
+      bestAssignment = assignment;
+    }
+  });
+
+  return bestAssignment;
+}
+
+function getTileInDirectionForPackPlan(row, col, direction, tileCount, planningUnit, plannedStates) {
+  const delta = MOVEMENT_TILE_DELTAS[direction];
+  let targetRow = row;
+  let targetCol = col;
+
+  if (!delta) {
+    return { row: targetRow, col: targetCol };
+  }
+
+  for (let step = 0; step < tileCount; step += 1) {
+    const nextRow = targetRow + delta.row;
+    const nextCol = targetCol + delta.col;
+    const blockingUnit = getPackPlanBlockingUnitAtPosition(nextRow, nextCol, planningUnit, plannedStates);
+
+    if (!isGridPosition(nextRow, nextCol) || blockingUnit) {
+      break;
+    }
+
+    targetRow = nextRow;
+    targetCol = nextCol;
+  }
+
+  return { row: targetRow, col: targetCol };
+}
+
+function getPackPlanBlockingUnitAtPosition(row, col, planningUnit, plannedStates) {
+  return units.find((unit) => {
+    const plannedState = plannedStates.get(unit);
+
+    if (plannedState) {
+      return unit !== planningUnit && plannedState.row === row && plannedState.col === col;
+    }
+
+    return unit !== planningUnit && isUnitAlive(unit) && unit.row === row && unit.col === col;
+  }) ?? null;
 }
 
 function planEnemyTurn(enemyUnit, targetUnit) {
@@ -1393,56 +1953,56 @@ function resetGame() {
 }
 
 async function executePlayerActionQueue() {
-  const actionQueue = getUnitActionQueue(player);
-
-  if (isExecutingActionQueue || actionQueue.length === 0 || player.movementFrameRequest !== null) {
+  if (isExecutingActionQueue || !hasQueuedPlayerActions() || hasMovingPlayerUnits()) {
     updateActionQueueControls();
     return;
   }
 
-  planEnemyTurn(enemy, player);
+  planEnemyPackTurn(
+    units.filter((unit) => unit.team === "enemy"),
+    units.filter((unit) => unit.team === "player"),
+  );
   isExecutingActionQueue = true;
-  setPlayerSelected(false);
-  renderActionQueue(player);
+  setPlayerSelected(null);
   updatePlayerActionControls();
 
   try {
     const combatants = [
-      {
-        unit: player,
-        renderQueue: () => renderActionQueue(player),
+      ...getAliveUnitsByTeam("player").map((unit) => ({
+        renderQueue: () => renderActionQueue(unit),
         shouldUpdateButtons: true,
-      },
-      {
-        unit: enemy,
-        renderQueue: () => renderUnitIntentTags(enemy),
-      },
+        unit,
+      })),
+      ...getAliveUnitsByTeam("enemy").map((unit) => ({
+        isEnemyPackCombatant: true,
+        renderQueue: () => renderEnemyPackIntentTags(),
+        unit,
+      })),
     ];
 
     while (
-      combatants.some(({ unit }) => getUnitActionQueue(unit).length > 0 && isUnitAlive(unit)) &&
-      isUnitAlive(player) &&
-      isUnitAlive(enemy)
+      combatants.some((combatant) => hasCombatantQueuedActions(combatant)) &&
+      hasAliveUnitsByTeam("player") &&
+      hasAliveUnitsByTeam("enemy")
     ) {
       await executeActionTick(combatants);
     }
   } finally {
     isExecutingActionQueue = false;
     refillAvailableActions();
-    renderActionQueue(player);
+    renderActionQueue(getSelectedPlayerUnit());
     updateEnemyIntentPreview();
     updatePlayerActionControls();
-    if (isUnitAlive(player)) {
-      playWolfAnimation(player, "idle", true);
-    }
+    getAliveUnitsByTeam("player").forEach((unit) => {
+      playWolfAnimation(unit, "idle", unit === player);
+    });
+    getAliveUnitsByTeam("enemy").forEach((unit) => {
+      playWolfAnimation(unit, "idle");
+    });
 
-    if (isUnitAlive(enemy)) {
-      playWolfAnimation(enemy, "idle");
-    }
-
-    if (!isUnitAlive(player)) {
+    if (!hasAliveUnitsByTeam("player")) {
       showGameResult(false);
-    } else if (!isUnitAlive(enemy)) {
+    } else if (!hasAliveUnitsByTeam("enemy")) {
       showGameResult(true);
     }
   }
@@ -1460,14 +2020,21 @@ async function executeActionTick(combatants) {
     ]),
   );
   const tickActions = combatants
-    .map(({ unit, renderQueue, shouldUpdateButtons = false }) => {
-      const actionQueue = getUnitActionQueue(unit);
-
-      if (!isUnitAlive(unit) || actionQueue.length === 0) {
+    .map(({ unit, renderQueue, shouldUpdateButtons = false, isEnemyPackCombatant = false }) => {
+      if (!isUnitAlive(unit)) {
         return null;
       }
 
-      const action = actionQueue.shift();
+      const action = shiftCombatantAction({
+        isEnemyPackCombatant,
+        renderQueue,
+        shouldUpdateButtons,
+        unit,
+      });
+
+      if (!action) {
+        return null;
+      }
 
       return { unit, action, renderQueue, shouldUpdateButtons };
     })
@@ -1479,20 +2046,21 @@ async function executeActionTick(combatants) {
 
   const moveTargets = getTickMoveTargets(tickActions, startStates);
   const damageIntents = [];
+  const moveActions = tickActions.filter(({ action }) => action === "Move");
+  const nonMoveActions = tickActions.filter(({ action }) => action !== "Move");
 
-  await Promise.all(tickActions.map(async (tickAction) => {
+  await Promise.all(moveActions.map(({ unit, shouldUpdateButtons }) => {
+    const target = moveTargets.get(unit) ?? startStates.get(unit);
+
+    return moveUnitToTile(unit, target.row, target.col, {
+      direction: target.direction ?? startStates.get(unit).direction,
+      shouldUpdateButtons,
+    });
+  }));
+
+  await Promise.all(nonMoveActions.map(async (tickAction) => {
     const { unit, action, shouldUpdateButtons } = tickAction;
     const actionAnimation = ACTION_ANIMATIONS[action];
-
-    if (action === "Move") {
-      const target = moveTargets.get(unit) ?? startStates.get(unit);
-
-      await moveUnitToTile(unit, target.row, target.col, {
-        direction: startStates.get(unit).direction,
-        shouldUpdateButtons,
-      });
-      return;
-    }
 
     if (!actionAnimation) {
       return;
@@ -1502,7 +2070,7 @@ async function executeActionTick(combatants) {
     let attackTarget = null;
 
     if (action === "Attack") {
-      attackTarget = getAttackTargetFromSnapshot(unit, startStates);
+      attackTarget = getAttackIntentTarget(unit, startStates);
       actionDirection = attackTarget
         ? getAttackDirectionFromSnapshot(unit, attackTarget, startStates)
         : actionDirection;
@@ -1510,7 +2078,7 @@ async function executeActionTick(combatants) {
       if (actionDirection) {
         unit.direction = actionDirection;
 
-        if (unit === player) {
+        if (unit === getSelectedPlayerUnit()) {
           updateActiveDirection(unit.direction);
         }
       }
@@ -1527,11 +2095,12 @@ async function executeActionTick(combatants) {
 
     if (action === "Attack") {
       playWolfAnimation(unit, "idle", shouldUpdateButtons);
-      const targetHasAction = tickActions.some((t) => t.unit === attackTarget);
+      const liveTarget = getLiveAttackTarget(unit, attackTarget, startStates);
+      const targetIsDefending = tickActions.some((t) => t.unit === liveTarget && t.action === "Defend");
       damageIntents.push({
         attacker: unit,
-        target: attackTarget,
-        damage: targetHasAction ? Math.ceil(UNIT_ATTACK_DAMAGE / 3) : UNIT_ATTACK_DAMAGE,
+        target: liveTarget,
+        damage: targetIsDefending ? UNIT_DEFENDED_DAMAGE : UNIT_ATTACK_DAMAGE,
       });
     }
   }));
@@ -1543,24 +2112,83 @@ async function executeActionTick(combatants) {
   });
 }
 
+function hasCombatantQueuedActions(combatant) {
+  if (!isUnitAlive(combatant.unit)) {
+    return false;
+  }
+
+  if (combatant.isEnemyPackCombatant) {
+    return enemyPackActionQueue.some((entry) => entry.unit === combatant.unit);
+  }
+
+  return getUnitActionQueue(combatant.unit).length > 0;
+}
+
+function shiftCombatantAction(combatant) {
+  if (combatant.isEnemyPackCombatant) {
+    const entryIndex = enemyPackActionQueue.findIndex((entry) => entry.unit === combatant.unit);
+
+    if (entryIndex === -1) {
+      return null;
+    }
+
+    const [entry] = enemyPackActionQueue.splice(entryIndex, 1);
+
+    return entry.action;
+  }
+
+  return getUnitActionQueue(combatant.unit).shift() ?? null;
+}
+
 function getTickMoveTargets(tickActions, startStates) {
   const movePlans = tickActions
     .filter(({ action }) => action === "Move")
     .map(({ unit }) => {
       const startState = startStates.get(unit);
-      const path = getMovePathFromSnapshot(
-        startState.row,
-        startState.col,
-        startState.direction,
-        MOVE_ACTION_TILE_COUNT,
-        unit,
-        startStates,
-      );
-      const target = path[path.length - 1] ?? { row: startState.row, col: startState.col };
+      const hasAttackIntent = hasQueuedAttackIntentAfterCurrentMove(unit);
+      const attackTarget = hasAttackIntent
+        ? getOpposingUnit(unit)
+        : null;
+      const isAttackIntent = Boolean(attackTarget);
+      let plan = null;
 
-      return { unit, path, target };
+      if (unit.team === "player") {
+        plan = getPlayerMovePlanFromSnapshot(unit, getFriendlyFocusTarget(unit), startStates);
+      } else if (unit.team === "enemy") {
+        plan = getHuntMovePlanFromSnapshot(unit, getEnemyPackFocusTarget(), startStates);
+      } else {
+        const path = getMovePathFromSnapshot(
+          startState.row,
+          startState.col,
+          startState.direction,
+          MOVE_ACTION_TILE_COUNT,
+          unit,
+          startStates,
+        );
+        const target = path[path.length - 1] ?? { row: startState.row, col: startState.col };
+
+        plan = { unit, path, target };
+      }
+
+      return { ...plan, attackTarget, isAttackIntent };
     });
 
+  movePlans.forEach((plan) => {
+    const opposingAttackIntentPlan = movePlans.find((otherPlan) => {
+      return (
+        otherPlan !== plan &&
+        plan.isAttackIntent &&
+        otherPlan.isAttackIntent &&
+        areOpposingUnits(plan.unit, otherPlan.unit)
+      );
+    });
+
+    if (plan.isAttackIntent && !opposingAttackIntentPlan) {
+      capMovePlanAtAttackRange(plan, startStates.get(plan.attackTarget));
+    }
+  });
+
+  applyAttackIntentEngagementStops(movePlans, startStates);
   stopMovePlansBeforePathCollisions(movePlans, startStates);
 
   const targetCounts = new Map();
@@ -1573,7 +2201,10 @@ function getTickMoveTargets(tickActions, startStates) {
   return new Map(movePlans.map(({ unit, target }) => {
     const targetKey = getGridPositionKey(target.row, target.col);
 
-    if (targetCounts.get(targetKey) > 1) {
+    if (
+      targetCounts.get(targetKey) > 1 &&
+      !isAttackIntentEngagementTarget(unit, target, movePlans)
+    ) {
       const startState = startStates.get(unit);
       return [unit, { row: startState.row, col: startState.col }];
     }
@@ -1582,8 +2213,540 @@ function getTickMoveTargets(tickActions, startStates) {
   }));
 }
 
+function isAttackIntentEngagementTarget(unit, target, movePlans) {
+  const plan = movePlans.find((movePlan) => movePlan.unit === unit);
+
+  if (!plan?.isAttackIntent) {
+    return false;
+  }
+
+  return movePlans.some((otherPlan) => {
+    return (
+      otherPlan !== plan &&
+      otherPlan.isAttackIntent &&
+      areOpposingUnits(plan.unit, otherPlan.unit) &&
+      isAdjacentTile(target.row, target.col, otherPlan.target.row, otherPlan.target.col)
+    );
+  });
+}
+
+function getOpposingUnit(unit) {
+  if (unit.team === "enemy") {
+    const focusTarget = getEnemyPackFocusTarget();
+
+    if (focusTarget) {
+      return focusTarget;
+    }
+  }
+
+  if (unit.team === "player") {
+    return getFriendlyFocusTarget(unit);
+  }
+
+  return units.find((otherUnit) => {
+    return otherUnit !== unit && areOpposingUnits(unit, otherUnit) && isUnitAlive(otherUnit);
+  }) ?? null;
+}
+
+function getEnemyPackFocusTarget() {
+  if (enemyPackFocusTarget && isUnitAlive(enemyPackFocusTarget)) {
+    return enemyPackFocusTarget;
+  }
+
+  return getAliveUnitsByTeam("player")[0] ?? player;
+}
+
+function getFriendlyFocusTarget(friendlyUnit = player) {
+  return getAliveUnitsByTeam("enemy")
+    .sort((unit, otherUnit) => {
+      return (
+        getGridDistance(friendlyUnit.row, friendlyUnit.col, unit.row, unit.col) -
+        getGridDistance(friendlyUnit.row, friendlyUnit.col, otherUnit.row, otherUnit.col)
+      );
+    })[0] ?? enemy;
+}
+
+function hasQueuedAttackIntentAfterCurrentMove(unit) {
+  if (unit.team === "enemy") {
+    const nextNonMoveEntry = enemyPackActionQueue.find((entry) => {
+      return entry.unit === unit && entry.action !== "Move";
+    });
+
+    return nextNonMoveEntry?.action === "Attack";
+  }
+
+  const nextNonMoveAction = getUnitActionQueue(unit).find((action) => action !== "Move");
+
+  return nextNonMoveAction === "Attack";
+}
+
+function capMovePlanAtAttackRange(plan, targetStartState) {
+  if (!targetStartState) {
+    return;
+  }
+
+  const adjacentStep = plan.path.findIndex((position, step) => {
+    return (
+      step > 0 &&
+      isAdjacentTile(position.row, position.col, targetStartState.row, targetStartState.col)
+    );
+  });
+
+  if (adjacentStep === -1) {
+    return;
+  }
+
+  stopMovePlanAtStep(plan, adjacentStep);
+}
+
+function applyAttackIntentEngagementStops(movePlans, startStates) {
+  const engagedUnits = new Set();
+
+  for (let planIndex = 0; planIndex < movePlans.length; planIndex += 1) {
+    for (let otherIndex = planIndex + 1; otherIndex < movePlans.length; otherIndex += 1) {
+      const plan = movePlans[planIndex];
+      const otherPlan = movePlans[otherIndex];
+
+      if (
+        engagedUnits.has(plan.unit) ||
+        engagedUnits.has(otherPlan.unit) ||
+        !plan.isAttackIntent ||
+        !otherPlan.isAttackIntent ||
+        !areOpposingUnits(plan.unit, otherPlan.unit)
+      ) {
+        continue;
+      }
+
+      const endpoints = getBestAttackIntentEngagementEndpoints(plan, otherPlan, startStates);
+
+      if (!endpoints) {
+        continue;
+      }
+
+      stopMovePlanAtStep(plan, endpoints.step, startStates.get(plan.unit));
+      stopMovePlanAtStep(otherPlan, endpoints.otherStep, startStates.get(otherPlan.unit));
+      engagedUnits.add(plan.unit);
+      engagedUnits.add(otherPlan.unit);
+    }
+  }
+}
+
+function getBestAttackIntentEngagementEndpoints(plan, otherPlan, startStates) {
+  let bestEndpoints = null;
+  let bestScore = -1;
+
+  for (let step = 0; step < plan.path.length; step += 1) {
+    const position = getPathStepOrStart(plan.path, step, startStates.get(plan.unit));
+
+    for (let otherStep = 0; otherStep < otherPlan.path.length; otherStep += 1) {
+      const otherPosition = getPathStepOrStart(
+        otherPlan.path,
+        otherStep,
+        startStates.get(otherPlan.unit),
+      );
+
+      if (
+        !isAdjacentTile(position.row, position.col, otherPosition.row, otherPosition.col) ||
+        !isValidEngagementEndpoint(position, plan.unit, otherPosition, startStates, otherPlan.unit) ||
+        !isValidEngagementEndpoint(otherPosition, otherPlan.unit, position, startStates, plan.unit)
+      ) {
+        continue;
+      }
+
+      const score = step + otherStep;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestEndpoints = { step, otherStep };
+      }
+    }
+  }
+
+  return bestEndpoints;
+}
+
+function isValidEngagementEndpoint(position, unit, otherPosition, startStates, otherUnit = null) {
+  const blockingUnit = getBlockingUnitAtSnapshotPosition(position.row, position.col, startStates);
+
+  return (
+    isGridPosition(position.row, position.col) &&
+    !areSameGridPosition(position, otherPosition) &&
+    (
+      !blockingUnit ||
+      blockingUnit === unit ||
+      (
+        blockingUnit === otherUnit &&
+        !areSameGridPosition(position, otherPosition)
+      )
+    )
+  );
+}
+
+function getPathEngagementStep(path, otherPath) {
+  const maxStep = Math.max(path.length, otherPath.length);
+
+  for (let step = 1; step < maxStep; step += 1) {
+    const position = getPathStep(path, step);
+    const otherPosition = getPathStep(otherPath, step);
+
+    if (isAdjacentTile(position.row, position.col, otherPosition.row, otherPosition.col)) {
+      return { step, isSharedTile: false };
+    }
+
+    if (areSameGridPosition(position, otherPosition)) {
+      return { step, isSharedTile: true };
+    }
+  }
+
+  return null;
+}
+
+function stopMovePlanAtStep(plan, step, startState = null) {
+  const target = getPathStepOrStart(plan.path, step, startState);
+  const endIndex = Math.max(1, step + 1);
+
+  plan.target = { ...target, direction: plan.target.direction };
+  plan.path = plan.path.slice(0, endIndex);
+}
+
+function getPlayerMovePlanFromSnapshot(
+  playerUnit,
+  targetUnit,
+  startStates,
+  { actionQueue = getUnitActionQueue(playerUnit) } = {},
+) {
+  return getMovementModeMovePlanFromSnapshot(
+    playerUnit,
+    targetUnit,
+    startStates,
+    playerUnit.movementMode,
+    { actionQueue },
+  );
+}
+
+function getHuntMovePlanFromSnapshot(movingUnit, targetUnit, startStates) {
+  return getMovementModeMovePlanFromSnapshot(movingUnit, targetUnit, startStates, "Hunt");
+}
+
+function getMovementModeMovePlanFromSnapshot(
+  movingUnit,
+  targetUnit,
+  startStates,
+  movementMode,
+  { actionQueue = getUnitActionQueue(movingUnit) } = {},
+) {
+  const startState = startStates.get(movingUnit);
+  const targetStartState = startStates.get(targetUnit);
+  const fallbackPath = [{ row: startState.row, col: startState.col }];
+  const fallbackPlan = {
+    unit: movingUnit,
+    path: fallbackPath,
+    target: { ...fallbackPath[0], direction: startState.direction },
+  };
+
+  if (!targetStartState || !isUnitAlive(targetUnit)) {
+    return fallbackPlan;
+  }
+
+  const context = getUnitMoveContext(movingUnit, targetUnit, startStates, actionQueue);
+  const candidate = getMoveCandidateForMode(movementMode, context);
+
+  return candidate
+    ? {
+      unit: movingUnit,
+      path: candidate.path,
+      target: { ...candidate.target, direction: candidate.direction },
+    }
+    : fallbackPlan;
+}
+
+function getUnitMoveContext(movingUnit, targetUnit, startStates, actionQueue) {
+  const startState = startStates.get(movingUnit);
+  const targetStartState = startStates.get(targetUnit);
+  const currentDistance = getGridDistance(
+    startState.row,
+    startState.col,
+    targetStartState.row,
+    targetStartState.col,
+  );
+  const currentFrontRisk = isEnemyFrontArcPosition(
+    startState.row,
+    startState.col,
+    targetStartState,
+  );
+  const currentEscapeRoutes = getEscapeRouteCountFromSnapshot(
+    startState.row,
+    startState.col,
+    movingUnit,
+    startStates,
+  );
+  const candidates = getUnitMoveCandidatesFromSnapshot(movingUnit, targetStartState, startStates);
+
+  return {
+    actionQueue,
+    candidates,
+    currentDistance,
+    currentEscapeRoutes,
+    currentFrontRisk,
+    movingUnit,
+    startState,
+    targetStartState,
+  };
+}
+
+function getUnitMoveCandidatesFromSnapshot(movingUnit, targetStartState, startStates) {
+  const startState = startStates.get(movingUnit);
+  const candidates = [];
+
+  MOVEMENT_DIRECTIONS.forEach((direction) => {
+    const path = getMovePathFromSnapshot(
+      startState.row,
+      startState.col,
+      direction,
+      MOVE_ACTION_TILE_COUNT,
+      movingUnit,
+      startStates,
+    );
+
+    path.slice(1).forEach((target, targetIndex) => {
+      const steps = targetIndex + 1;
+      const facingDirection = getFacingDirectionForMove(
+        startState.row,
+        startState.col,
+        target.row,
+        target.col,
+        startState.direction,
+      );
+      const turnCost = getDirectionTurnCost(startState.direction, facingDirection);
+      const distance = getGridDistance(
+        target.row,
+        target.col,
+        targetStartState.row,
+        targetStartState.col,
+      );
+
+      candidates.push({
+        direction: facingDirection,
+        distance,
+        escapeRoutes: getEscapeRouteCountFromSnapshot(
+          target.row,
+          target.col,
+          movingUnit,
+          startStates,
+        ),
+        frontRisk: isEnemyFrontArcPosition(target.row, target.col, targetStartState),
+        isAdjacent: isAdjacentTile(
+          target.row,
+          target.col,
+          targetStartState.row,
+          targetStartState.col,
+        ),
+        path: path.slice(0, steps + 1),
+        steps,
+        target,
+        turnCost,
+      });
+    });
+  });
+
+  return candidates;
+}
+
+function getMoveCandidateForMode(mode, context) {
+  switch (mode) {
+    case "Flank":
+      return getFlankMoveCandidate(context);
+    case "Dodge":
+      return getDodgeMoveCandidate(context);
+    case "Sneak":
+      return getSneakMoveCandidate(context);
+    case "Hunt":
+    default:
+      return getHuntMoveCandidate(context);
+  }
+}
+
+function getHuntMoveCandidate({ candidates, currentDistance }) {
+  return candidates
+    .filter((candidate) => candidate.distance < currentDistance)
+    .sort(compareHuntMoveCandidates)[0] ?? null;
+}
+
+function compareHuntMoveCandidates(candidate, otherCandidate) {
+  return (
+    candidate.distance - otherCandidate.distance ||
+    candidate.turnCost - otherCandidate.turnCost ||
+    candidate.steps - otherCandidate.steps
+  );
+}
+
+function getFlankMoveCandidate(context) {
+  const wantsAttackSetup = context.actionQueue[0] === "Attack";
+  const isTooClose = isAdjacentTile(
+    context.startState.row,
+    context.startState.col,
+    context.targetStartState.row,
+    context.targetStartState.col,
+  );
+  const flankCandidates = context.candidates.filter((candidate) => {
+    return !candidate.frontRisk;
+  });
+  const candidates = isTooClose
+    ? flankCandidates.filter((candidate) => !candidate.isAdjacent)
+    : flankCandidates;
+  const selectedCandidates = candidates.length > 0
+    ? candidates
+    : flankCandidates.length > 0
+      ? flankCandidates
+      : context.candidates;
+
+  return selectedCandidates
+    .sort((candidate, otherCandidate) => compareFlankMoveCandidates(
+      candidate,
+      otherCandidate,
+      isTooClose ? false : wantsAttackSetup,
+    ))[0] ?? null;
+}
+
+function compareFlankMoveCandidates(candidate, otherCandidate, wantsAttackSetup) {
+  const candidateSpacing = wantsAttackSetup
+    ? (candidate.isAdjacent ? 0 : candidate.distance)
+    : getFlankSpacingPenalty(candidate.distance);
+  const otherSpacing = wantsAttackSetup
+    ? (otherCandidate.isAdjacent ? 0 : otherCandidate.distance)
+    : getFlankSpacingPenalty(otherCandidate.distance);
+
+  return (
+    candidateSpacing - otherSpacing ||
+    candidate.distance - otherCandidate.distance ||
+    candidate.turnCost - otherCandidate.turnCost ||
+    candidate.steps - otherCandidate.steps
+  );
+}
+
+function getFlankSpacingPenalty(distance) {
+  if (distance >= 2 && distance <= 3) {
+    return 0;
+  }
+
+  return Math.abs(distance - 2);
+}
+
+function getDodgeMoveCandidate(context) {
+  const currentSafety = getDodgeSafetyScore({
+    distance: context.currentDistance,
+    escapeRoutes: context.currentEscapeRoutes,
+    frontRisk: context.currentFrontRisk,
+    isAdjacent: context.currentDistance <= 1,
+  });
+  const improvingDistanceCandidates = context.candidates.filter((candidate) => {
+    return candidate.distance > context.currentDistance;
+  });
+  const safeCandidates = improvingDistanceCandidates.length > 0
+    ? improvingDistanceCandidates
+    : context.candidates.filter((candidate) => getDodgeSafetyScore(candidate) > currentSafety);
+
+  return safeCandidates
+    .sort(compareDodgeMoveCandidates)[0] ?? null;
+}
+
+function compareDodgeMoveCandidates(candidate, otherCandidate) {
+  return (
+    getDodgeSafetyScore(otherCandidate) - getDodgeSafetyScore(candidate) ||
+    otherCandidate.distance - candidate.distance ||
+    otherCandidate.escapeRoutes - candidate.escapeRoutes ||
+    candidate.turnCost - otherCandidate.turnCost ||
+    candidate.steps - otherCandidate.steps
+  );
+}
+
+function getDodgeSafetyScore(candidate) {
+  return (
+    candidate.distance * 2 +
+    candidate.escapeRoutes -
+    (candidate.isAdjacent ? 4 : 0) -
+    (candidate.frontRisk ? 2 : 0)
+  );
+}
+
+function getSneakMoveCandidate(context) {
+  const currentSneakScore = getSneakPositionScore({
+    distance: context.currentDistance,
+    escapeRoutes: context.currentEscapeRoutes,
+    frontRisk: context.currentFrontRisk,
+    isAdjacent: context.currentDistance <= 1,
+    steps: 0,
+    turnCost: 0,
+  });
+  const candidate = context.candidates
+    .filter((item) => item.steps <= 1)
+    .sort(compareSneakMoveCandidates)[0] ?? null;
+
+  if (!candidate || getSneakPositionScore(candidate) >= currentSneakScore) {
+    return null;
+  }
+
+  return candidate;
+}
+
+function compareSneakMoveCandidates(candidate, otherCandidate) {
+  return getSneakPositionScore(candidate) - getSneakPositionScore(otherCandidate);
+}
+
+function getSneakPositionScore(candidate) {
+  const spacingPenalty = Math.abs(candidate.distance - 2);
+
+  return (
+    spacingPenalty * 3 +
+    candidate.steps +
+    candidate.turnCost -
+    candidate.escapeRoutes * 0.25 +
+    (candidate.isAdjacent ? 2 : 0) +
+    (candidate.frontRisk ? 3 : 0)
+  );
+}
+
+function isEnemyFrontArcPosition(row, col, targetStartState) {
+  const delta = DIRECTION_TILE_DELTAS[targetStartState.direction];
+
+  if (!delta) {
+    return false;
+  }
+
+  const frontRow = targetStartState.row + delta.row;
+  const frontCol = targetStartState.col + delta.col;
+
+  return Math.abs(row - frontRow) <= 1 && Math.abs(col - frontCol) <= 1;
+}
+
+function getEscapeRouteCountFromSnapshot(row, col, movingUnit, startStates) {
+  return Object.values(MOVEMENT_TILE_DELTAS).filter((delta) => {
+    const nextRow = row + delta.row;
+    const nextCol = col + delta.col;
+    const blockingUnit = getBlockingUnitAtSnapshotPosition(nextRow, nextCol, startStates);
+
+    return (
+      isGridPosition(nextRow, nextCol) &&
+      (!blockingUnit || blockingUnit === movingUnit)
+    );
+  }).length;
+}
+
+function getDirectionTurnCost(fromDirection, toDirection) {
+  const fromIndex = CLOCKWISE_DIRECTIONS.indexOf(fromDirection);
+  const toIndex = CLOCKWISE_DIRECTIONS.indexOf(toDirection);
+
+  if (fromIndex === -1 || toIndex === -1) {
+    return 0;
+  }
+
+  const distance = Math.abs(fromIndex - toIndex);
+
+  return Math.min(distance, CLOCKWISE_DIRECTIONS.length - distance);
+}
+
 function getMovePathFromSnapshot(row, col, direction, tileCount, movingUnit, startStates) {
-  const delta = DIRECTION_TILE_DELTAS[direction];
+  const delta = MOVEMENT_TILE_DELTAS[direction];
   let targetRow = row;
   let targetCol = col;
   const path = [{ row, col }];
@@ -1694,6 +2857,23 @@ function getBlockingUnitAtSnapshotPosition(row, col, startStates) {
   }) ?? null;
 }
 
+function getAttackIntentTarget(attacker, startStates) {
+  return getAttackTargetFromSnapshot(attacker, startStates);
+}
+
+function getLiveAttackTarget(attacker, intendedTarget, startStates) {
+  if (
+    intendedTarget &&
+    isUnitAlive(intendedTarget) &&
+    areOpposingUnits(attacker, intendedTarget) &&
+    isAdjacentTile(attacker.row, attacker.col, intendedTarget.row, intendedTarget.col)
+  ) {
+    return intendedTarget;
+  }
+
+  return getAttackTarget(attacker) ?? getAttackTargetFromSnapshot(attacker, startStates);
+}
+
 function getAttackTargetFromSnapshot(attacker, startStates) {
   const attackerStart = startStates.get(attacker);
   const adjacentTargets = units.filter((unit) => {
@@ -1710,6 +2890,10 @@ function getAttackTargetFromSnapshot(attacker, startStates) {
 
   if (adjacentTargets.length <= 1) {
     return adjacentTargets[0] ?? null;
+  }
+
+  if (attacker.team === "enemy" && adjacentTargets.includes(enemyPackFocusTarget)) {
+    return enemyPackFocusTarget;
   }
 
   const facingDelta = DIRECTION_TILE_DELTAS[attackerStart.direction];
@@ -1754,9 +2938,13 @@ async function resolveTickDamage(damageIntents) {
     };
   });
 
+  damageResults.forEach(({ target, damageTaken }) => {
+    showUnitDamagePopup(target, damageTaken);
+  });
+
   damageResults.forEach(({ target, defeated }) => {
     if (defeated) {
-      clearUnitActionQueue(target);
+      clearQueuedActionsForUnit(target);
     }
   });
 
@@ -1785,6 +2973,20 @@ function isAttackDamageStillValid(attacker, target) {
 
 function clearUnitActionQueue(unit) {
   getUnitActionQueue(unit).length = 0;
+}
+
+function clearQueuedActionsForUnit(unit) {
+  clearUnitActionQueue(unit);
+
+  if (unit === getSelectedPlayerUnit()) {
+    setPlayerSelected(null);
+  }
+
+  for (let index = enemyPackActionQueue.length - 1; index >= 0; index -= 1) {
+    if (enemyPackActionQueue[index].unit === unit) {
+      enemyPackActionQueue.splice(index, 1);
+    }
+  }
 }
 
 function shakeArenaSoon() {
@@ -1830,9 +3032,9 @@ function moveUnitToTile(unit, row, col, { direction = null, shouldUpdateButtons 
   updatePlayerTileLabels();
   updateWolfDepth(unit);
 
-  if (unit === player) {
-    updatePlayerMovePreview(player);
-    updateActiveDirection(player.direction);
+  if (unit === getSelectedPlayerUnit()) {
+    updatePlayerMovePreview();
+    updateActiveDirection(unit.direction);
   }
 
   playWolfAnimation(unit, "run", shouldUpdateButtons);
@@ -1868,24 +3070,25 @@ function moveUnitToTile(unit, row, col, { direction = null, shouldUpdateButtons 
   });
 }
 
-function movePlayerToTile(row, col, { direction = null } = {}) {
-  return moveUnitToTile(player, row, col, {
+function movePlayerToTile(row, col, { direction = null, unit = player } = {}) {
+  return moveUnitToTile(unit, row, col, {
     direction,
-    shouldUpdateButtons: true,
+    shouldUpdateButtons: unit === getSelectedPlayerUnit() || unit === player,
   });
 }
 
 function getDevTestCombatants() {
   return [
-    {
-      unit: player,
-      renderQueue: () => renderActionQueue(player),
+    ...getAliveUnitsByTeam("player").map((unit) => ({
+      renderQueue: () => renderActionQueue(unit),
       shouldUpdateButtons: true,
-    },
-    {
-      unit: enemy,
-      renderQueue: () => renderUnitIntentTags(enemy),
-    },
+      unit,
+    })),
+    ...getAliveUnitsByTeam("enemy").map((unit) => ({
+      isEnemyPackCombatant: true,
+      renderQueue: () => renderEnemyPackIntentTags(),
+      unit,
+    })),
   ];
 }
 
@@ -1893,6 +3096,7 @@ function resetUnitForDev(unit, setup = {}) {
   const row = setup.row ?? unit.row;
   const col = setup.col ?? unit.col;
   const direction = setup.direction ?? unit.direction;
+  const movementMode = setup.movementMode ?? unit.movementMode ?? DEFAULT_PLAYER_MOVEMENT_MODE;
   const health = setup.health ?? UNIT_MAX_HEALTH;
   const anchor = getTileAnchor(row, col);
 
@@ -1906,6 +3110,7 @@ function resetUnitForDev(unit, setup = {}) {
   unit.row = row;
   unit.col = col;
   unit.direction = direction;
+  unit.movementMode = movementMode;
   unit.health = Math.max(0, Math.min(unit.maxHealth, health));
   unit.isDefeated = unit.health === 0;
   unit.hasPlayedDeathAnimation = false;
@@ -1923,17 +3128,31 @@ function resetUnitForDev(unit, setup = {}) {
   } else {
     playWolfAnimation(unit, "idle", unit === player);
   }
+
+  if (unit === getSelectedPlayerUnit()) {
+    renderPlayerMovementModeSelector();
+  }
 }
 
-function resetDevTest(playerSetup = {}, enemySetup = {}) {
+function resetDevTest(playerSetup = {}, enemySetup = {}, playerSupportSetup = null, enemySupportSetup = null) {
   isExecutingActionQueue = false;
-  setPlayerSelected(false);
+  clearEnemyPackActionQueue();
+  setPlayerSelected(null);
   resetUnitForDev(player, {
     row: 9,
     col: 4,
     direction: "topRight",
+    movementMode: DEFAULT_PLAYER_MOVEMENT_MODE,
     health: UNIT_MAX_HEALTH,
     ...playerSetup,
+  });
+  resetUnitForDev(playerSupport, {
+    row: 9,
+    col: 2,
+    direction: "topRight",
+    movementMode: DEFAULT_PLAYER_MOVEMENT_MODE,
+    health: UNIT_MAX_HEALTH,
+    ...(playerSupportSetup ?? {}),
   });
   resetUnitForDev(enemy, {
     row: 0,
@@ -1942,26 +3161,56 @@ function resetDevTest(playerSetup = {}, enemySetup = {}) {
     health: UNIT_MAX_HEALTH,
     ...enemySetup,
   });
+  resetUnitForDev(enemySupport, {
+    row: 0,
+    col: 6,
+    direction: "bottomLeft",
+    health: UNIT_MAX_HEALTH,
+    ...(enemySupportSetup ?? {}),
+  });
   updatePlayerTileLabels();
   updateActiveDirection(player.direction);
-  renderActionQueue(player);
+  renderActionQueue(getSelectedPlayerUnit());
   renderUnitIntentTags(enemy);
+  renderUnitIntentTags(enemySupport);
   updatePlayerActionControls();
 
   return getDevTestState();
 }
 
 function queueDevTestActions(playerActions = [], enemyActions = []) {
-  clearUnitActionQueue(player);
-  clearUnitActionQueue(enemy);
+  clearEnemyPackActionQueue();
+  units.forEach((unit) => {
+    clearUnitActionQueue(unit);
+  });
   playerActions.forEach((action) => {
     getUnitActionQueue(player).push(action);
   });
   enemyActions.forEach((action) => {
-    getUnitActionQueue(enemy).push(action);
+    enemyPackActionQueue.push({ unit: enemy, action });
   });
-  renderActionQueue(player);
-  renderUnitIntentTags(enemy);
+  renderActionQueue(getSelectedPlayerUnit());
+  renderEnemyPackIntentTags();
+
+  return getDevTestState();
+}
+
+function queueDevTestPackActions(packActions = []) {
+  const unitMap = { player, playerSupport, enemy, enemySupport };
+
+  clearEnemyPackActionQueue();
+  units.forEach((unit) => {
+    clearUnitActionQueue(unit);
+  });
+  packActions.forEach(({ unitId, action }) => {
+    const unit = unitMap[unitId];
+
+    if (unit) {
+      enemyPackActionQueue.push({ unit, action });
+    }
+  });
+  renderActionQueue(getSelectedPlayerUnit());
+  renderEnemyPackIntentTags();
 
   return getDevTestState();
 }
@@ -1985,18 +3234,24 @@ async function runDevTestTurn() {
 
   try {
     while (
-      getDevTestCombatants().some(({ unit }) => getUnitActionQueue(unit).length > 0 && isUnitAlive(unit)) &&
-      isUnitAlive(player) &&
-      isUnitAlive(enemy)
+      getDevTestCombatants().some(hasCombatantQueuedActions) &&
+      hasAliveUnitsByTeam("player") &&
+      hasAliveUnitsByTeam("enemy")
     ) {
       await executeActionTick(getDevTestCombatants());
     }
   } finally {
     isExecutingActionQueue = false;
-    renderActionQueue(player);
-    renderUnitIntentTags(enemy);
+    renderActionQueue(getSelectedPlayerUnit());
+    renderEnemyPackIntentTags();
     updatePlayerActionControls();
     updateActionQueueControls();
+
+    if (!hasAliveUnitsByTeam("player")) {
+      showGameResult(false);
+    } else if (!hasAliveUnitsByTeam("enemy")) {
+      showGameResult(true);
+    }
   }
 
   return getDevTestState();
@@ -2017,7 +3272,19 @@ function getDevTestUnitState(unit) {
 function getDevTestState() {
   return {
     player: getDevTestUnitState(player),
+    playerSupport: getDevTestUnitState(playerSupport),
     enemy: getDevTestUnitState(enemy),
+    enemySupport: getDevTestUnitState(enemySupport),
+    playerQueuedActionTotal: getQueuedPlayerActionTotal(),
+    enemyPackQueue: enemyPackActionQueue.map((entry) => ({
+      action: entry.action,
+      unitTeam: entry.unit.team,
+      unitRow: entry.unit.row,
+      unitCol: entry.unit.col,
+    })),
+    enemyPackFocusTarget: enemyPackFocusTarget
+      ? { row: enemyPackFocusTarget.row, col: enemyPackFocusTarget.col }
+      : null,
     enemyIntentTags: enemy.intentTags
       ? Array.from(enemy.intentTags.querySelectorAll(".unit-intent-label")).map((tag) => tag.textContent)
       : [],
@@ -2037,8 +3304,26 @@ const DEV_TEST_SCENARIOS = [
       return runDevTestTick();
     },
     expect: (state) => (
-      state.player.health === 7 &&
-      state.enemy.health === 7 &&
+      state.player.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE &&
+      state.enemy.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE &&
+      !state.player.isDefeated &&
+      !state.enemy.isDefeated
+    ),
+  },
+  {
+    id: "defend-blocks",
+    label: "Defend blocks",
+    run: async () => {
+      resetDevTest(
+        { row: 5, col: 4, direction: "topRight" },
+        { row: 4, col: 4, direction: "bottomLeft" },
+      );
+      queueDevTestActions(["Defend"], ["Attack"]);
+      return runDevTestTick();
+    },
+    expect: (state) => (
+      state.player.health === UNIT_MAX_HEALTH - UNIT_DEFENDED_DAMAGE &&
+      state.enemy.health === 10 &&
       !state.player.isDefeated &&
       !state.enemy.isDefeated
     ),
@@ -2048,8 +3333,8 @@ const DEV_TEST_SCENARIOS = [
     label: "Double KO",
     run: async () => {
       resetDevTest(
-        { row: 5, col: 4, direction: "topRight", health: 3 },
-        { row: 4, col: 4, direction: "bottomLeft", health: 3 },
+        { row: 5, col: 4, direction: "topRight", health: 1 },
+        { row: 4, col: 4, direction: "bottomLeft", health: 1 },
       );
       queueDevTestActions(["Attack", "Move"], ["Attack", "Move"]);
       return runDevTestTick();
@@ -2099,6 +3384,25 @@ const DEV_TEST_SCENARIOS = [
     ),
   },
   {
+    id: "angled-move-path",
+    label: "Angled move path",
+    run: async () => {
+      resetDevTest({ row: 5, col: 5, direction: "topLeft" });
+      const startStates = new Map(units.map((unit) => [
+        unit,
+        { row: unit.row, col: unit.col, direction: unit.direction },
+      ]));
+      const path = getMovePathFromSnapshot(5, 5, "top", MOVE_ACTION_TILE_COUNT, player, startStates);
+
+      return { ...getDevTestState(), path };
+    },
+    expect: (state) => {
+      const target = state.path[state.path.length - 1];
+
+      return target.row === 2 && target.col === 2;
+    },
+  },
+  {
     id: "crossing-paths",
     label: "Crossing paths",
     run: async () => {
@@ -2135,6 +3439,92 @@ const DEV_TEST_SCENARIOS = [
     ),
   },
   {
+    id: "gap-engage",
+    label: "Gap engage",
+    run: async () => {
+      resetDevTest(
+        { row: 6, col: 4, direction: "topRight" },
+        { row: 4, col: 4, direction: "bottomLeft" },
+      );
+      queueDevTestActions(["Move", "Attack"], ["Move", "Attack"]);
+      return runDevTestTurn();
+    },
+    expect: (state) => (
+      isAdjacentTile(state.player.row, state.player.col, state.enemy.row, state.enemy.col) &&
+      state.player.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE &&
+      state.enemy.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE &&
+      state.player.actionQueue.length === 0 &&
+      state.enemyPackQueue.length === 0
+    ),
+  },
+  {
+    id: "cross-engage",
+    label: "Cross engage",
+    run: async () => {
+      resetDevTest(
+        { row: 6, col: 4, direction: "topRight" },
+        { row: 2, col: 4, direction: "bottomLeft" },
+      );
+      queueDevTestActions(["Move", "Attack"], ["Move", "Attack"]);
+      return runDevTestTurn();
+    },
+    expect: (state) => (
+      isAdjacentTile(state.player.row, state.player.col, state.enemy.row, state.enemy.col) &&
+      state.player.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE &&
+      state.enemy.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE
+    ),
+  },
+  {
+    id: "same-tile-engage",
+    label: "Same-tile engage",
+    run: async () => {
+      resetDevTest(
+        { row: 5, col: 4, direction: "topRight" },
+        { row: 3, col: 4, direction: "bottomLeft" },
+      );
+      queueDevTestActions(["Move", "Attack"], ["Move", "Attack"]);
+      return runDevTestTurn();
+    },
+    expect: (state) => (
+      isAdjacentTile(state.player.row, state.player.col, state.enemy.row, state.enemy.col) &&
+      state.player.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE &&
+      state.enemy.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE
+    ),
+  },
+  {
+    id: "post-move-contact",
+    label: "Post-move contact",
+    run: async () => {
+      resetDevTest(
+        { row: 6, col: 4, direction: "topRight" },
+        { row: 3, col: 4, direction: "bottomLeft" },
+      );
+      queueDevTestActions(["Attack"], ["Move"]);
+      return runDevTestTick();
+    },
+    expect: (state) => (
+      isAdjacentTile(state.player.row, state.player.col, state.enemy.row, state.enemy.col) &&
+      state.enemy.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE
+    ),
+  },
+  {
+    id: "intent-target-fallback",
+    label: "Intent fallback",
+    run: async () => {
+      resetDevTest(
+        { row: 5, col: 4, direction: "bottomLeft", movementMode: "Dodge" },
+        { row: 4, col: 4, direction: "bottomLeft" },
+        { row: 4, col: 3, direction: "topRight" },
+      );
+      queueDevTestActions(["Move"], ["Attack"]);
+      return runDevTestTick();
+    },
+    expect: (state) => (
+      state.player.health === UNIT_MAX_HEALTH &&
+      state.playerSupport.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE
+    ),
+  },
+  {
     id: "dead-target",
     label: "Dead target",
     run: async () => {
@@ -2168,6 +3558,149 @@ const DEV_TEST_SCENARIOS = [
       state.enemy.row === 5 &&
       state.enemy.col === 4 &&
       state.enemy.actionQueue.length === 0
+    ),
+  },
+  {
+    id: "support-only-attack",
+    label: "Support attacks",
+    run: async () => {
+      resetDevTest(
+        {},
+        { row: 4, col: 4, direction: "bottomLeft" },
+        { row: 5, col: 4, direction: "topRight" },
+      );
+      getUnitActionQueue(playerSupport).push("Attack");
+      return runDevTestTick();
+    },
+    expect: (state) => (
+      state.player.health === UNIT_MAX_HEALTH &&
+      state.playerSupport.actionQueue.length === 0 &&
+      state.enemy.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE
+    ),
+  },
+  {
+    id: "player-shared-action-cap",
+    label: "Players: 5-action cap",
+    run: async () => {
+      resetDevTest();
+      const results = [
+        queueUnitAction(player, "Move"),
+        queueUnitAction(player, "Attack"),
+        queueUnitAction(player, "Defend"),
+        queueUnitAction(playerSupport, "Move"),
+        queueUnitAction(playerSupport, "Attack"),
+        queueUnitAction(playerSupport, "Defend"),
+      ];
+
+      return { ...getDevTestState(), capResults: results };
+    },
+    expect: (state) => (
+      state.playerQueuedActionTotal === ACTION_QUEUE_SLOT_COUNT &&
+      state.player.actionQueue.length === 3 &&
+      state.playerSupport.actionQueue.length === 2 &&
+      state.capResults.slice(0, ACTION_QUEUE_SLOT_COUNT).every(Boolean) &&
+      state.capResults[ACTION_QUEUE_SLOT_COUNT] === false
+    ),
+  },
+  {
+    id: "both-players-attack",
+    label: "Both players attack",
+    run: async () => {
+      resetDevTest(
+        { row: 5, col: 4, direction: "topRight" },
+        { row: 4, col: 4, direction: "bottomLeft" },
+        { row: 4, col: 3, direction: "bottomRight" },
+      );
+      getUnitActionQueue(player).push("Attack");
+      getUnitActionQueue(playerSupport).push("Attack");
+      return runDevTestTick();
+    },
+    expect: (state) => (
+      state.player.actionQueue.length === 0 &&
+      state.playerSupport.actionQueue.length === 0 &&
+      state.enemy.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE * 2
+    ),
+  },
+  {
+    id: "pack-action-cap",
+    label: "Pack: 5-action cap",
+    run: async () => {
+      resetDevTest();
+      planEnemyPackTurn(
+        units.filter((u) => u.team === "enemy"),
+        units.filter((u) => u.team === "player"),
+      );
+      return getDevTestState();
+    },
+    expect: (state) => state.enemyPackQueue.length === 5,
+  },
+  {
+    id: "pack-focus-weaker",
+    label: "Pack: focus weaker",
+    run: async () => {
+      resetDevTest({}, {}, { health: 3 });
+      planEnemyPackTurn(
+        units.filter((u) => u.team === "enemy"),
+        units.filter((u) => u.team === "player"),
+      );
+      return getDevTestState();
+    },
+    expect: (state) => (
+      state.enemyPackFocusTarget !== null &&
+      state.enemyPackFocusTarget.row === state.playerSupport.row &&
+      state.enemyPackFocusTarget.col === state.playerSupport.col
+    ),
+  },
+  {
+    id: "pack-both-attack",
+    label: "Pack: both attack",
+    run: async () => {
+      resetDevTest({ row: 5, col: 4, direction: "topRight" });
+      queueDevTestPackActions([
+        { unitId: "enemy", action: "Attack" },
+        { unitId: "enemySupport", action: "Attack" },
+      ]);
+      resetUnitForDev(enemy, { row: 4, col: 3, direction: "bottomRight" });
+      resetUnitForDev(enemySupport, { row: 4, col: 5, direction: "bottomLeft" });
+      renderEnemyPackIntentTags();
+      return runDevTestTick();
+    },
+    expect: (state) => (
+      state.player.health === 4 &&
+      state.enemyPackQueue.length === 0
+    ),
+  },
+  {
+    id: "pack-multi-tick",
+    label: "Pack: multi-tick",
+    run: async () => {
+      resetDevTest();
+      planEnemyPackTurn(
+        units.filter((u) => u.team === "enemy"),
+        units.filter((u) => u.team === "player"),
+      );
+      return runDevTestTurn();
+    },
+    expect: (state) => (
+      state.enemyPackQueue.length === 0 &&
+      state.enemy.row > 0
+    ),
+  },
+  {
+    id: "pack-one-enemy",
+    label: "Pack: 1 enemy",
+    run: async () => {
+      resetDevTest({}, {}, null, { health: 0 });
+      planEnemyPackTurn(
+        units.filter((u) => u.team === "enemy"),
+        units.filter((u) => u.team === "player"),
+      );
+      return getDevTestState();
+    },
+    expect: (state) => (
+      state.enemyPackQueue.length > 0 &&
+      state.enemyPackQueue.length <= 5 &&
+      state.enemyPackQueue.every((entry) => entry.unitRow === 0 && entry.unitCol === 4)
     ),
   },
 ];
@@ -2250,6 +3783,7 @@ function setupDevTestControls() {
 window.devTest = {
   reset: resetDevTest,
   queue: queueDevTestActions,
+  queuePack: queueDevTestPackActions,
   runTick: runDevTestTick,
   runTurn: runDevTestTurn,
   runScenario: runDevTestScenario,
@@ -2266,15 +3800,32 @@ function movePlayerFromTileElement(tile) {
     return;
   }
 
-  movePlayerToTile(Number(tile.dataset.row), Number(tile.dataset.col));
+  movePlayerToTile(Number(tile.dataset.row), Number(tile.dataset.col), {
+    unit: getSelectedPlayerUnit() ?? player,
+  });
 }
 
 function isPlayerTile(tile) {
+  return Boolean(getFriendlyUnitAtTile(tile));
+}
+
+function getFriendlyUnitAtTile(tile) {
+  if (!tile) {
+    return null;
+  }
+
+  const row = Number(tile.dataset.row);
+  const col = Number(tile.dataset.col);
+
+  return getAliveUnitsByTeam("player").find((unit) => unit.row === row && unit.col === col) ?? null;
+}
+
+function isFriendlyTile(tile) {
   if (!tile) {
     return false;
   }
 
-  return Number(tile.dataset.row) === player.row && Number(tile.dataset.col) === player.col;
+  return isFriendlyPosition(Number(tile.dataset.row), Number(tile.dataset.col));
 }
 
 function isEnemyTile(tile) {
@@ -2287,6 +3838,10 @@ function isEnemyTile(tile) {
 
 function isEnemyPosition(row, col) {
   return units.some((unit) => unit.team === "enemy" && unit.row === row && unit.col === col);
+}
+
+function isFriendlyPosition(row, col) {
+  return units.some((unit) => unit.team === "player" && unit.row === row && unit.col === col);
 }
 
 function setDevToolsEnabled(enabled) {
@@ -2315,8 +3870,14 @@ function handleTileIntent(tile) {
     return;
   }
 
-  if (isPlayerTile(tile)) {
-    setPlayerSelected(!isPlayerSelected);
+  const friendlyUnit = getFriendlyUnitAtTile(tile);
+
+  if (friendlyUnit) {
+    setPlayerSelected(friendlyUnit === getSelectedPlayerUnit() ? null : friendlyUnit);
+    return;
+  }
+
+  if (isFriendlyTile(tile)) {
     return;
   }
 
@@ -2325,15 +3886,15 @@ function handleTileIntent(tile) {
   }
 
   if (!isDevToolsEnabled) {
-    if (isPlayerSelected) {
-      setPlayerSelected(false);
+    if (getSelectedPlayerUnit()) {
+      setPlayerSelected(null);
     }
 
     return;
   }
 
-  if (isPlayerSelected) {
-    setPlayerSelected(false);
+  if (getSelectedPlayerUnit()) {
+    setPlayerSelected(null);
   }
 
   movePlayerFromTileElement(tile);
@@ -2341,29 +3902,32 @@ function handleTileIntent(tile) {
 
 animationButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    playWolfAnimation(player, button.dataset.animation, true);
+    const unit = getSelectedPlayerUnit() ?? player;
+    playWolfAnimation(unit, button.dataset.animation, unit === player);
   });
 });
 
 directionButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    player.direction = button.dataset.direction;
-    updateActiveDirection(player.direction);
-    playWolfAnimation(player, player.animationName, true);
-    updatePlayerMovePreview(player);
+    const unit = getSelectedPlayerUnit() ?? player;
+    unit.direction = button.dataset.direction;
+    updateActiveDirection(unit.direction);
+    playWolfAnimation(unit, unit.animationName, unit === player);
+    updatePlayerMovePreview();
   });
 });
 
 buildArena();
 refillAvailableActions();
-renderActionQueue(player);
+renderActionQueue(getSelectedPlayerUnit());
 resizeArena();
 updatePlayerTileLabels();
 updateActiveDirection(player.direction);
 setupDevTestControls();
 updateEnemyIntentPreview();
-playWolfAnimation(player, "idle", true);
-playWolfAnimation(enemy, "idle");
+units.forEach((unit) => {
+  playWolfAnimation(unit, "idle", unit === player);
+});
 
 if (executeQueueButton) {
   executeQueueButton.addEventListener("click", executePlayerActionQueue);
@@ -2374,13 +3938,30 @@ if (restartButton) {
 }
 
 actionQueueList.addEventListener("click", (event) => {
+  event.stopPropagation();
+
+  const unitButton = event.target.closest("[data-player-timeline-unit]");
   const removeButton = event.target.closest("[data-action-index]");
+
+  if (unitButton) {
+    const unit = getPlayerUnitById(unitButton.dataset.playerTimelineUnit);
+
+    if (unit) {
+      setPlayerSelected(unit === getSelectedPlayerUnit() ? null : unit);
+    }
+
+    return;
+  }
 
   if (!removeButton) {
     return;
   }
 
-  removeUnitActionAt(player, Number(removeButton.dataset.actionIndex));
+  const unit = getPlayerUnitById(removeButton.dataset.unitId);
+
+  if (unit) {
+    removeUnitActionAt(unit, Number(removeButton.dataset.actionIndex));
+  }
 });
 
 arena.addEventListener("click", (event) => {
@@ -2388,13 +3969,22 @@ arena.addEventListener("click", (event) => {
     return;
   }
 
-  if (isPlayerSelected && isPointerInsideWolf(player, event)) {
-    setPlayerSelected(false);
+  const tile = getTileFromPointerEvent(event);
+  const clickedFriendlyUnit = getFriendlyUnitAtTile(tile) ?? getFriendlyUnitFromPointerEvent(event);
+
+  if (clickedFriendlyUnit) {
+    setPlayerSelected(clickedFriendlyUnit === getSelectedPlayerUnit() ? null : clickedFriendlyUnit);
     event.stopPropagation();
     return;
   }
 
-  const tile = getTileFromPointerEvent(event);
+  const selectedUnit = getSelectedPlayerUnit();
+
+  if (selectedUnit && isPointerInsideWolf(selectedUnit, event)) {
+    setPlayerSelected(null);
+    event.stopPropagation();
+    return;
+  }
 
   handleTileIntent(tile);
 
@@ -2404,12 +3994,12 @@ arena.addEventListener("click", (event) => {
 });
 
 document.addEventListener("click", (event) => {
-  if (event.target.closest(".player-action-menu")) {
+  if (event.target.closest(".player-action-menu, .action-queue-panel")) {
     return;
   }
 
-  if (isPlayerSelected) {
-    setPlayerSelected(false);
+  if (getSelectedPlayerUnit()) {
+    setPlayerSelected(null);
   }
 });
 
@@ -2442,6 +4032,17 @@ if (toggleTileNumbers) {
     const hidden = document.getElementById("arena").classList.toggle("tile-numbers-hidden");
     toggleTileNumbers.classList.toggle("is-active", !hidden);
     toggleTileNumbers.setAttribute("aria-pressed", String(!hidden));
+  });
+}
+
+const fillMoveActionsButton = document.getElementById("fill-move-actions");
+if (fillMoveActionsButton) {
+  fillMoveActionsButton.addEventListener("click", () => {
+    if (isExecutingActionQueue) {
+      return;
+    }
+
+    fillAvailableActions("Move");
   });
 }
 
