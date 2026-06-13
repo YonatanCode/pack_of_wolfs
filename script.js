@@ -1,13 +1,18 @@
-const GRID_SIZE = 10;
+const DEFAULT_GRID_SIZE = 10;
+const MIN_GRID_SIZE = 4;
+const MAX_GRID_SIZE = 18;
+let GRID_SIZE = DEFAULT_GRID_SIZE;
 const TILE_WIDTH = 32;
 const TILE_HEIGHT = 32;
 const WOLF_FRAME_SIZE = 64;
+const STAG_FRAME_WIDTH = 32;
+const STAG_FRAME_HEIGHT = 41;
 const ISO_X_STEP = TILE_WIDTH / 2;
 const ISO_Y_STEP = TILE_HEIGHT / 4;
-const TILE_MAX_INDEX = 40;
 const TILE_OPAQUE_TOP = 8;
 const TILE_OPAQUE_FULL_TOP = 16;
 const TILE_OPAQUE_FULL_BOTTOM = 24;
+const DEFAULT_UNIT_TYPE = "wolf";
 const PLAYER_MOVE_SPEED = 60;
 const PLAYER_MOVE_ANIMATION_STOP_EARLY_FRAMES = 5;
 const PLAYER_MOVE_ANIMATION_MIN_VISIBLE_FRAMES = 2;
@@ -17,15 +22,25 @@ const UNIT_DEFENDED_DAMAGE = Math.ceil(UNIT_ATTACK_DAMAGE / 3);
 const UNIT_HIT_REACTION_MS = 220;
 const TILE_PATH = "isometric tileset/separated images";
 const WOLF_PATH = "wolf/no effects";
+const STAG_PATH = "stag";
 const WOLF_DIRECTIONS = {
   bottomLeft: 0,
   bottomRight: 1,
   topLeft: 2,
   topRight: 3,
 };
+const STAG_DIRECTIONS = {
+  bottomLeft: "SW",
+  bottomRight: "SE",
+  topLeft: "NW",
+  topRight: "NE",
+};
+const ENEMY_MODES = ["wolves", "stag"];
+const DEFAULT_ENEMY_MODE = "wolves";
 const ACTIONS = ["Move", "Attack", "Defend"];
 const ACTION_SLOT_COUNT = 5;
 const ACTION_QUEUE_SLOT_COUNT = 5;
+const RESHUFFLE_CHARGES_PER_BATTLE = 2;
 const ACTION_ICONS = {
   Move: "assets/icons/move.svg",
   Attack: "assets/icons/attack.svg",
@@ -63,11 +78,74 @@ const ACTION_ANIMATIONS = {
 const ENEMY_PLAN_ACTION_COUNT = 5;
 const ENEMY_AGGRESSIVE_DOCTRINE = ["Move", "Move", "Defend", "Attack", "Attack"];
 const ENEMY_LOW_HEALTH_RATIO = 0.35;
+// A wounded wolf bolts when a player is within this range and only rejoins the
+// pack once it has opened up at least the (larger) safe range — the gap between
+// the two values is intentional hysteresis so it commits to retreating instead
+// of flip-flopping on the boundary.
+const ENEMY_FLEE_TRIGGER_RANGE = 4;
+const ENEMY_FLEE_SAFE_RANGE = 7;
 const CLOSE_ICON = "assets/icons/close.svg";
-const ROTATE_ICON = "assets/icons/rotate.svg";
 const CLOCKWISE_DIRECTIONS = ["topLeft", "topRight", "bottomRight", "bottomLeft"];
-const PLAYER_MOVEMENT_MODES = ["Sneak", "Dodge", "Flank", "Hunt"];
+const PLAYER_MOVEMENT_MODES = ["Dodge", "Flank", "Hunt"];
 const DEFAULT_PLAYER_MOVEMENT_MODE = "Hunt";
+const unitDefinitions = {
+  wolf: {
+    className: "wolf",
+    frameWidth: WOLF_FRAME_SIZE,
+    frameHeight: WOLF_FRAME_SIZE,
+    footX: 35,
+    footY: 40,
+    nudgeX: 4,
+    nudgeY: -1,
+    animations: {
+      idle: { file: "wolf-idle.png", frames: 4, frameMs: 180 },
+      run: { file: "wolf-run.png", frames: 8, frameMs: 95 },
+      bite: { file: "wolf-bite.png", frames: 15, frameMs: 70 },
+      howl: { file: "wolf-howl.png", frames: 9, frameMs: 115 },
+      death: { file: "wolf-death.png", frames: 12, frameMs: 105 },
+    },
+    getAnimationSrc: (animationName) => `${WOLF_PATH}/${unitDefinitions.wolf.animations[animationName].file}`,
+    getBackgroundPosition: (frameIndex, direction) => {
+      const directionRow = WOLF_DIRECTIONS[direction] ?? WOLF_DIRECTIONS.bottomLeft;
+      return `-${frameIndex * WOLF_FRAME_SIZE}px -${directionRow * WOLF_FRAME_SIZE}px`;
+    },
+    getPreloadDirections: () => [null],
+  },
+  stag: {
+    className: "stag",
+    frameWidth: STAG_FRAME_WIDTH,
+    frameHeight: STAG_FRAME_HEIGHT,
+    footX: 16,
+    footY: 36,
+    nudgeX: 0,
+    nudgeY: 0,
+    animations: {
+      idle: {
+        frames: 24,
+        frameMs: 220,
+        frameSequence: [
+          0, 1, 0, 1, 0, 1, 0, 1,
+          0, 1, 0, 1, 0, 1, 0, 1,
+          2, 3, 4, 5, 5, 5, 5, 4, 3, 2,
+          0, 1, 0, 1, 0, 1,
+          0, 1, 0, 1, 0, 1,
+          12, 13, 14, 14, 14, 14, 13, 12,
+          0, 1, 0, 1, 0, 1, 0, 1,
+          0, 1, 0, 1, 0, 1, 0, 1,
+          20, 21, 22, 23, 23, 22, 22, 22, 22, 23, 22, 21, 20,
+        ],
+      },
+      walk: { frames: 11, frameMs: 110 },
+      run: { frames: 10, frameMs: 80 },
+    },
+    getAnimationSrc: (animationName, direction) => {
+      const directionSuffix = STAG_DIRECTIONS[direction] ?? STAG_DIRECTIONS.bottomLeft;
+      return `${STAG_PATH}/critter_stag_${directionSuffix}_${animationName}.png`;
+    },
+    getBackgroundPosition: (frameIndex) => `-${frameIndex * STAG_FRAME_WIDTH}px 0`,
+    getPreloadDirections: () => Object.keys(STAG_DIRECTIONS),
+  },
+};
 
 const EASING = {
   linear: (t) => t,
@@ -81,17 +159,23 @@ const wait = (duration) => new Promise((resolve) => {
 const arena = document.querySelector("#arena");
 const animationButtons = document.querySelectorAll("[data-animation]");
 const directionButtons = document.querySelectorAll("[data-direction]");
+const enemyModeButtons = document.querySelectorAll("[data-enemy-mode]");
 const actionsList = document.querySelector("#actions-list");
 const actionQueueList = document.querySelector("#action-queue-list");
 const executeQueueButton = document.querySelector("#execute-queue");
+const reshuffleButton = document.querySelector("#reshuffle-actions");
 const devToolsToggle = document.querySelector("#toggle-dev-tools");
 const debugControls = document.querySelector(".debug-controls");
 const devTestScenariosList = document.querySelector("#dev-test-scenarios");
 const devTestStatus = document.querySelector("#dev-test-status");
+const arenaSizeInput = document.querySelector("#arena-size-input");
+const applyArenaSizeButton = document.querySelector("#apply-arena-size");
+const arenaSizeStatus = document.querySelector("#arena-size-status");
 const gameResultOverlay = document.querySelector("#game-result-overlay");
 const restartButton = document.querySelector("#restart-button");
 const tileElements = [];
 const unitActionQueues = new WeakMap();
+let reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
 let hoveredTile = null;
 let selectedPlayerUnit = null;
 let isDevToolsEnabled = false;
@@ -99,34 +183,31 @@ let playerActionMenu = null;
 let playerMovePreview = null;
 let playerMovePreviewTile = null;
 let isExecutingActionQueue = false;
+let enemyMode = DEFAULT_ENEMY_MODE;
 
-const boardWidth = (GRID_SIZE + GRID_SIZE) * ISO_X_STEP;
-const boardHeight = (GRID_SIZE + GRID_SIZE - 2) * ISO_Y_STEP + TILE_HEIGHT;
-const xOffset = boardWidth / 2;
+let boardWidth = 0;
+let boardHeight = 0;
+let xOffset = 0;
 const player = createWolf({ row: 9, col: 4, direction: "topRight", team: "player" });
 const playerSupport = createWolf({ row: 9, col: 2, direction: "topRight", team: "player" });
+const playerFlank = createWolf({ row: 9, col: 7, direction: "topRight", team: "player" });
 const enemy = createWolf({ row: 0, col: 4, direction: "bottomLeft", team: "enemy" });
 const enemySupport = createWolf({ row: 0, col: 6, direction: "bottomLeft", team: "enemy" });
-const units = [player, playerSupport, enemy, enemySupport];
+const enemyFlank = createWolf({ row: 0, col: 1, direction: "bottomLeft", team: "enemy" });
+const units = [player, playerSupport, playerFlank, enemy, enemySupport, enemyFlank];
 const enemyPackActionQueue = [];
 let enemyPackFocusTarget = null;
+const unitAnimationPreloads = preloadUnitAnimations();
 
-const wolfAnimations = {
-  idle: { file: "wolf-idle.png", frames: 4, frameMs: 180 },
-  run: { file: "wolf-run.png", frames: 8, frameMs: 95 },
-  bite: { file: "wolf-bite.png", frames: 15, frameMs: 70 },
-  howl: { file: "wolf-howl.png", frames: 9, frameMs: 115 },
-  death: { file: "wolf-death.png", frames: 12, frameMs: 105 },
-};
-const wolfAnimationPreloads = new Map(
-  Object.keys(wolfAnimations).map((animationName) => [
-    animationName,
-    preloadWolfAnimation(animationName),
-  ]),
-);
+updateArenaMetrics();
 
-document.documentElement.style.setProperty("--arena-width", `${boardWidth}px`);
-document.documentElement.style.setProperty("--arena-height", `${boardHeight}px`);
+function updateArenaMetrics() {
+  boardWidth = (GRID_SIZE + GRID_SIZE) * ISO_X_STEP;
+  boardHeight = (GRID_SIZE + GRID_SIZE - 2) * ISO_Y_STEP + TILE_HEIGHT;
+  xOffset = boardWidth / 2;
+  document.documentElement.style.setProperty("--arena-width", `${boardWidth}px`);
+  document.documentElement.style.setProperty("--arena-height", `${boardHeight}px`);
+}
 
 function hasQueuedPlayerActions() {
   return getQueuedPlayerActionTotal() > 0;
@@ -137,16 +218,194 @@ function hasMovingPlayerUnits() {
 }
 
 function getPlayerTimelineUnits() {
-  return [player, playerSupport];
+  return [player, playerSupport, playerFlank];
 }
 
 function getQueuedPlayerActionTotal() {
   return getPlayerTimelineUnits().reduce((total, unit) => total + getUnitActionQueue(unit).length, 0);
 }
 
-function randomTileSrc() {
-  const index = Math.floor(Math.random() * (TILE_MAX_INDEX + 1));
+// --- Terrain generation -----------------------------------------------------
+// Instead of picking a random tile per cell (which looks like visual noise),
+// terrain is generated as coherent patches: a smooth value-noise field is
+// thresholded into grass vs. dirt regions, so neighbouring tiles tend to share
+// the same ground type and patches read as deliberate shapes.
+
+const TERRAIN_GRASS = "grass";
+const TERRAIN_DIRT = "dirt";
+
+// Clean base tiles per terrain type (verified against the tileset: plain brown
+// blocks vs. plain green-topped blocks). Decoration tiles sit only on grass.
+const GRASS_BASE_TILES = [22, 23, 24, 27, 40];
+const DIRT_BASE_TILES = [0, 1, 2, 3, 4, 6, 8, 18];
+const GRASS_DECOR_TILES = [28, 32, 36];
+const GRASS_DECOR_CHANCE = 0.12;
+// Half-green/half-brown tiles used on grass cells that border dirt, so the seam
+// between the two terrain types reads as a blended edge instead of a hard cut.
+const GRASS_EDGE_TILES = [26, 20];
+
+// Lattice cell size in tiles: larger -> bigger, smoother patches.
+const TERRAIN_NOISE_SCALE = 3.5;
+// Share of the field that becomes dirt. Value noise clusters around 0.5, so a
+// threshold below 0.5 keeps grass dominant with scattered brown patches.
+const TERRAIN_DIRT_RATIO = 0.4;
+
+// Per-cell tile index for the current arena. Regenerated by generateTerrain().
+let terrainTiles = [];
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function smoothstep(t) {
+  return t * t * (3 - 2 * t);
+}
+
+function tileSrc(index) {
   return `${TILE_PATH}/tile_${String(index).padStart(3, "0")}.png`;
+}
+
+function pickTerrainTile(type) {
+  if (type === TERRAIN_DIRT) {
+    return DIRT_BASE_TILES[Math.floor(Math.random() * DIRT_BASE_TILES.length)];
+  }
+
+  if (Math.random() < GRASS_DECOR_CHANCE) {
+    return GRASS_DECOR_TILES[Math.floor(Math.random() * GRASS_DECOR_TILES.length)];
+  }
+
+  return GRASS_BASE_TILES[Math.floor(Math.random() * GRASS_BASE_TILES.length)];
+}
+
+function oppositeTerrain(type) {
+  return type === TERRAIN_GRASS ? TERRAIN_DIRT : TERRAIN_GRASS;
+}
+
+// Build a coarse lattice of random values, then sample it with smooth
+// (bilinear + smoothstep) interpolation so the field varies gradually. Returns
+// a grid of terrain TYPES (grass/dirt), not yet resolved to tile sprites.
+function generateTerrainTypes(size) {
+  const latticeSize = Math.ceil(size / TERRAIN_NOISE_SCALE) + 2;
+  const lattice = [];
+
+  for (let y = 0; y <= latticeSize; y += 1) {
+    const rowValues = [];
+    for (let x = 0; x <= latticeSize; x += 1) {
+      rowValues.push(Math.random());
+    }
+    lattice.push(rowValues);
+  }
+
+  const types = [];
+
+  for (let row = 0; row < size; row += 1) {
+    const typeRow = [];
+
+    for (let col = 0; col < size; col += 1) {
+      const sampleX = col / TERRAIN_NOISE_SCALE;
+      const sampleY = row / TERRAIN_NOISE_SCALE;
+      const x0 = Math.floor(sampleX);
+      const y0 = Math.floor(sampleY);
+      const tx = smoothstep(sampleX - x0);
+      const ty = smoothstep(sampleY - y0);
+
+      const top = lerp(lattice[y0][x0], lattice[y0][x0 + 1], tx);
+      const bottom = lerp(lattice[y0 + 1][x0], lattice[y0 + 1][x0 + 1], tx);
+      const value = lerp(top, bottom, ty);
+
+      typeRow.push(value < TERRAIN_DIRT_RATIO ? TERRAIN_DIRT : TERRAIN_GRASS);
+    }
+
+    types.push(typeRow);
+  }
+
+  return types;
+}
+
+const ORTHOGONAL_NEIGHBOURS = [
+  [-1, 0],
+  [1, 0],
+  [0, -1],
+  [0, 1],
+];
+
+// Count orthogonal neighbours of (row, col) that share its terrain type. Cells
+// off the edge of the board are ignored (not counted as same or opposite).
+function countSameTypeNeighbours(types, size, row, col) {
+  const type = types[row][col];
+  let count = 0;
+
+  for (const [dr, dc] of ORTHOGONAL_NEIGHBOURS) {
+    const r = row + dr;
+    const c = col + dc;
+
+    if (r >= 0 && r < size && c >= 0 && c < size && types[r][c] === type) {
+      count += 1;
+    }
+  }
+
+  return count;
+}
+
+// Remove lone single-type tiles: any cell whose every orthogonal neighbour is
+// the opposite type is a speckle, so flip it to match its surroundings. Each
+// pass reads from a snapshot so flips don't cascade mid-pass; repeating until
+// stable lets a freshly-flipped cell expose a new orphan next to it. The guard
+// caps iterations so a pathological field can never loop forever.
+function smoothLoneTiles(types, size) {
+  let changed = true;
+  let guard = 0;
+  const maxPasses = size;
+
+  while (changed && guard < maxPasses) {
+    changed = false;
+    guard += 1;
+
+    const snapshot = types.map((typeRow) => typeRow.slice());
+
+    for (let row = 0; row < size; row += 1) {
+      for (let col = 0; col < size; col += 1) {
+        if (countSameTypeNeighbours(snapshot, size, row, col) === 0) {
+          types[row][col] = oppositeTerrain(snapshot[row][col]);
+          changed = true;
+        }
+      }
+    }
+  }
+
+  return types;
+}
+
+function hasNeighbourOfType(types, size, row, col, targetType) {
+  for (const [dr, dc] of ORTHOGONAL_NEIGHBOURS) {
+    const r = row + dr;
+    const c = col + dc;
+
+    if (r >= 0 && r < size && c >= 0 && c < size && types[r][c] === targetType) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function generateTerrain(size) {
+  const types = generateTerrainTypes(size);
+  smoothLoneTiles(types, size);
+
+  terrainTiles = types.map((typeRow, row) =>
+    typeRow.map((type, col) => {
+      // Grass cells touching dirt get the blended edge tile; everything else
+      // picks a normal tile from its terrain pool.
+      if (type === TERRAIN_GRASS && hasNeighbourOfType(types, size, row, col, TERRAIN_DIRT)) {
+        return GRASS_EDGE_TILES[Math.floor(Math.random() * GRASS_EDGE_TILES.length)];
+      }
+
+      return pickTerrainTile(type);
+    }),
+  );
+
+  return terrainTiles;
 }
 
 function projectTile(row, col) {
@@ -156,11 +415,21 @@ function projectTile(row, col) {
   };
 }
 
-function createWolf({ row, col, direction, team, movementMode = DEFAULT_PLAYER_MOVEMENT_MODE }) {
+function createUnit({
+  row,
+  col,
+  direction,
+  team,
+  type = DEFAULT_UNIT_TYPE,
+  movementMode = DEFAULT_PLAYER_MOVEMENT_MODE,
+  isActive = true,
+}) {
   return {
     element: document.createElement("div"),
     healthBar: null,
     intentTags: null,
+    type,
+    isActive,
     row,
     col,
     direction,
@@ -168,6 +437,8 @@ function createWolf({ row, col, direction, team, movementMode = DEFAULT_PLAYER_M
     team,
     health: UNIT_MAX_HEALTH,
     maxHealth: UNIT_MAX_HEALTH,
+    isFleeing: false,
+    packObjective: null,
     isDefeated: false,
     hasPlayedDeathAnimation: false,
     deathAnimationPromise: null,
@@ -179,6 +450,66 @@ function createWolf({ row, col, direction, team, movementMode = DEFAULT_PLAYER_M
     x: 0,
     y: 0,
   };
+}
+
+function createWolf(options) {
+  return createUnit({ ...options, type: "wolf" });
+}
+
+function getUnitDefinition(unitOrType) {
+  const type = typeof unitOrType === "string" ? unitOrType : unitOrType.type;
+
+  return unitDefinitions[type] ?? unitDefinitions[DEFAULT_UNIT_TYPE];
+}
+
+function getUnitAnimation(unitOrType, animationName) {
+  return getUnitDefinition(unitOrType).animations[animationName] ?? null;
+}
+
+function getUnitAnimationFrameCount(animation) {
+  return animation.frameSequence?.length ?? animation.frames;
+}
+
+function getUnitAnimationFrameIndex(animation, sequenceIndex) {
+  return animation.frameSequence?.[sequenceIndex] ?? sequenceIndex;
+}
+
+function isUnitAnimationSupported(unitOrType, animationName) {
+  return Boolean(getUnitAnimation(unitOrType, animationName));
+}
+
+function getUnitAnimationSrc(unitOrType, animationName, direction = "bottomLeft") {
+  const definition = getUnitDefinition(unitOrType);
+
+  return definition.getAnimationSrc(animationName, direction);
+}
+
+function getUnitAnimationPreloadKey(type, animationName, direction = null) {
+  return [type, animationName, direction].filter(Boolean).join(":");
+}
+
+function preloadUnitAnimations() {
+  const preloads = new Map();
+
+  Object.entries(unitDefinitions).forEach(([type, definition]) => {
+    Object.keys(definition.animations).forEach((animationName) => {
+      definition.getPreloadDirections().forEach((direction) => {
+        const image = new Image();
+        const loaded = new Promise((resolve) => {
+          image.addEventListener("load", resolve, { once: true });
+          image.addEventListener("error", resolve, { once: true });
+        });
+
+        image.src = getUnitAnimationSrc(type, animationName, direction ?? "bottomLeft");
+        preloads.set(getUnitAnimationPreloadKey(type, animationName, direction), {
+          image,
+          ready: image.decode ? image.decode().catch(() => loaded).then(() => undefined) : loaded,
+        });
+      });
+    });
+  });
+
+  return preloads;
 }
 
 function randomAction() {
@@ -241,6 +572,49 @@ function refillAvailableActions() {
   updatePlayerActionControls();
 }
 
+function canReshuffle() {
+  return reshuffleChargesRemaining > 0 && !isExecutingActionQueue;
+}
+
+function updateReshuffleControl() {
+  if (!reshuffleButton) {
+    return;
+  }
+
+  reshuffleButton.disabled = !canReshuffle();
+  reshuffleButton.dataset.chargesRemaining = String(reshuffleChargesRemaining);
+  reshuffleButton.setAttribute(
+    "aria-label",
+    `Reshuffle: discard the pack's actions and draw a fresh hand (${reshuffleChargesRemaining} left)`,
+  );
+
+  const countLabel = reshuffleButton.querySelector(".reshuffle-charge-count");
+
+  if (countLabel) {
+    countLabel.textContent = String(reshuffleChargesRemaining);
+  }
+}
+
+// Spends one battle charge to discard the whole pack's current hand (every
+// wolf's queued actions plus the shared pool) and draw a fresh set. This is a
+// planning-only reset: no turn is consumed and no enemy acts.
+function reshuffleActions() {
+  if (!canReshuffle()) {
+    return;
+  }
+
+  reshuffleChargesRemaining -= 1;
+
+  getPlayerTimelineUnits().forEach(clearUnitActionQueue);
+  actionsList.replaceChildren();
+  refillAvailableActions();
+
+  renderActionQueue(getSelectedPlayerUnit());
+  updatePlayerActionControls();
+  updateEnemyIntentPreview();
+  updateReshuffleControl();
+}
+
 function fillAvailableActions(action) {
   const items = Array.from({ length: ACTION_SLOT_COUNT }, () => createAvailableActionItem(action));
 
@@ -277,6 +651,8 @@ function getAvailableActionTotal() {
 }
 
 function updateActionQueueControls() {
+  updateReshuffleControl();
+
   if (!executeQueueButton) {
     return;
   }
@@ -290,17 +666,21 @@ function updateActionQueueControls() {
 function getPlayerUnitId(unit) {
   if (unit === player) return "player";
   if (unit === playerSupport) return "playerSupport";
+  if (unit === playerFlank) return "playerFlank";
   return "";
 }
 
 function getPlayerUnitById(unitId) {
   if (unitId === "player") return player;
   if (unitId === "playerSupport") return playerSupport;
+  if (unitId === "playerFlank") return playerFlank;
   return null;
 }
 
 function getPlayerUnitLabel(unit) {
-  return unit === playerSupport ? "support wolf" : "lead wolf";
+  if (unit === playerSupport) return "support wolf";
+  if (unit === playerFlank) return "flank wolf";
+  return "lead wolf";
 }
 
 function renderActionQueue() {
@@ -326,7 +706,7 @@ function renderPlayerTimeline() {
     chip.dataset.playerTimelineUnit = unitId;
     chip.setAttribute("aria-label", `Select ${unitLabel} timeline`);
     chip.setAttribute("aria-pressed", String(unit === selectedUnit));
-    chip.textContent = unit === playerSupport ? "P2" : "P1";
+    chip.textContent = unit === playerFlank ? "P3" : unit === playerSupport ? "P2" : "P1";
 
     actions.className = "action-timeline-actions";
     actions.setAttribute("aria-label", `${unitLabel} queued actions`);
@@ -399,12 +779,11 @@ function removeUnitActionAt(unit, index) {
 function createPlayerActionMenu() {
   const menu = document.createElement("div");
   const movementModeSelector = createPlayerMovementModeSelector();
-  const rotateButton = createPlayerRotateButton();
 
   menu.className = "player-action-menu";
   menu.hidden = true;
   menu.setAttribute("aria-label", "Player wolf actions");
-  menu.append(movementModeSelector, rotateButton);
+  menu.append(movementModeSelector);
 
   ACTIONS.forEach((action) => {
     const button = document.createElement("button");
@@ -455,25 +834,6 @@ function createPlayerMovementModeSelector() {
   return selector;
 }
 
-function createPlayerRotateButton() {
-  const button = document.createElement("button");
-  const label = document.createElement("span");
-
-  button.type = "button";
-  button.className = "ui-button action-button player-rotate-button";
-  button.dataset.playerRotate = "clockwise";
-  button.setAttribute("aria-label", "Rotate player wolf clockwise");
-  label.className = "action-label";
-  label.textContent = "Rotate";
-  button.append(createIcon(ROTATE_ICON, "action-icon"), label);
-  button.addEventListener("click", (event) => {
-    event.stopPropagation();
-    rotatePlayerClockwise();
-  });
-
-  return button;
-}
-
 function consumeAvailableAction(action) {
   const matchingItem = Array.from(actionsList.children).find(
     (item) => item.dataset.action === action,
@@ -507,7 +867,6 @@ function consumeAvailableAction(action) {
         item.addEventListener(
           "transitionend",
           () => {
-            item.style.animation = "";
             item.style.transition = "";
           },
           { once: true },
@@ -573,10 +932,6 @@ function updatePlayerActionControls() {
     playerActionMenu.hidden = true;
   }
 
-  playerActionMenu.querySelectorAll("[data-player-rotate]").forEach((button) => {
-    button.disabled = isExecutingActionQueue || !selectedUnit || selectedUnit.movementFrameRequest !== null;
-  });
-
   playerActionMenu.querySelectorAll("[data-player-movement-mode]").forEach((button) => {
     button.disabled = isExecutingActionQueue || !selectedUnit || selectedUnit.movementFrameRequest !== null;
   });
@@ -628,8 +983,9 @@ function setPlayerSelected(unitOrNull) {
   }
 
   renderActionQueue(selectedPlayerUnit);
-  updateActiveDirection((selectedPlayerUnit ?? player).direction);
+  updateActiveDirection(getDevPreviewUnit().direction);
   updatePlayerActionControls();
+  updateAnimationControls();
 }
 
 function rotatePlayerClockwise() {
@@ -645,9 +1001,30 @@ function rotatePlayerClockwise() {
 
   selectedUnit.direction = CLOCKWISE_DIRECTIONS[nextIndex];
   updateActiveDirection(selectedUnit.direction);
-  playWolfAnimation(selectedUnit, selectedUnit.animationName, true);
+  playUnitAnimation(selectedUnit, selectedUnit.animationName, true);
   updatePlayerMovePreview();
   updateEnemyIntentPreview();
+}
+
+function rotateDevPreviewUnitClockwise() {
+  const unit = getDevPreviewUnit();
+
+  if (!unit || isExecutingActionQueue || unit.movementFrameRequest !== null) {
+    updatePlayerActionControls();
+    return;
+  }
+
+  const currentIndex = CLOCKWISE_DIRECTIONS.indexOf(unit.direction);
+  const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % CLOCKWISE_DIRECTIONS.length;
+
+  unit.direction = CLOCKWISE_DIRECTIONS[nextIndex];
+  updateActiveDirection(unit.direction);
+  playUnitAnimation(unit, unit.animationName, true);
+
+  if (unit.team === "player") {
+    updatePlayerMovePreview();
+    updateEnemyIntentPreview();
+  }
 }
 
 function setPlayerMovementMode(mode) {
@@ -699,6 +1076,12 @@ function updateEnemyIntentPreview() {
     return;
   }
 
+  if (enemyMode === "stag") {
+    clearEnemyPackActionQueue();
+    renderEnemyPackIntentTags();
+    return;
+  }
+
   const enemyUnits = units.filter((unit) => unit.team === "enemy");
   const playerUnits = units.filter((unit) => unit.team === "player");
 
@@ -719,7 +1102,7 @@ function updatePlayerTileLabels() {
     if (isFriendlyTile(tile)) {
       label = `Select friendly wolf on tile ${tileNumber}`;
     } else if (isEnemyTile(tile)) {
-      label = `Enemy wolf occupies tile ${tileNumber}`;
+      label = `Enemy unit occupies tile ${tileNumber}`;
     }
 
     tile.setAttribute("aria-label", label);
@@ -753,8 +1136,12 @@ function buildArena() {
   const unitLayer = document.createElement("div");
 
   tileElements.length = 0;
+  playerMovePreviewTile = null;
+  playerActionMenu?.remove();
   tileLayer.className = "tile-layer";
   unitLayer.className = "unit-layer";
+
+  generateTerrain(GRID_SIZE);
 
   for (let row = 0; row < GRID_SIZE; row += 1) {
     for (let col = 0; col < GRID_SIZE; col += 1) {
@@ -776,7 +1163,7 @@ function buildArena() {
       tile.style.top = `${position.y}px`;
       tile.style.zIndex = row + col;
 
-      img.src = randomTileSrc();
+      img.src = tileSrc(terrainTiles[row][col]);
       img.alt = "";
       img.draggable = false;
 
@@ -790,8 +1177,8 @@ function buildArena() {
     }
   }
 
-  units.forEach((unit) => {
-    placeWolf(unitLayer, unit);
+  units.filter(isUnitActive).forEach((unit) => {
+    placeUnit(unitLayer, unit);
     unit.element.classList.add(unit.team);
   });
 
@@ -805,18 +1192,26 @@ function buildArena() {
   updatePlayerMovePreview();
 }
 
-function placeWolf(unitLayer, wolf) {
-  const tilePosition = projectTile(wolf.row, wolf.col);
+function placeUnit(unitLayer, unit) {
+  const definition = getUnitDefinition(unit);
+  const tilePosition = projectTile(unit.row, unit.col);
   const anchorX = tilePosition.x;
   const anchorY = tilePosition.y + TILE_HEIGHT / 2;
 
-  wolf.element.className = "unit wolf";
-  wolf.healthBar = createUnitHealthBar();
-  wolf.intentTags = createUnitIntentTags();
-  setWolfPosition(wolf, anchorX, anchorY);
-  updateWolfDepth(wolf);
-  unitLayer.append(wolf.element, wolf.healthBar, wolf.intentTags);
-  updateUnitHealthBar(wolf);
+  unit.element.hidden = false;
+  unit.element.className = `unit ${definition.className}`;
+  unit.element.style.setProperty("--unit-frame-width", `${definition.frameWidth}px`);
+  unit.element.style.setProperty("--unit-frame-height", `${definition.frameHeight}px`);
+  unit.element.style.setProperty("--unit-foot-x", `${definition.footX}px`);
+  unit.element.style.setProperty("--unit-foot-y", `${definition.footY}px`);
+  unit.element.style.setProperty("--unit-nudge-x", `${definition.nudgeX}px`);
+  unit.element.style.setProperty("--unit-nudge-y", `${definition.nudgeY}px`);
+  unit.healthBar = createUnitHealthBar();
+  unit.intentTags = createUnitIntentTags();
+  setUnitPosition(unit, anchorX, anchorY);
+  updateUnitDepth(unit);
+  unitLayer.append(unit.element, unit.healthBar, unit.intentTags);
+  updateUnitHealthBar(unit);
 }
 
 function createUnitHealthBar() {
@@ -930,6 +1325,7 @@ function damageUnit(wolf, damageAmount) {
 
   if (wolf.health === 0) {
     wolf.isDefeated = true;
+    updateUnitDepth(wolf);
     updateUnitHealthBar(wolf);
     return { damaged: true, defeated: true, damageTaken };
   }
@@ -965,25 +1361,27 @@ function getTileAnchor(row, col) {
   };
 }
 
-function setWolfPosition(wolf, x, y) {
-  wolf.x = x;
-  wolf.y = y;
-  wolf.element.style.left = `${x}px`;
-  wolf.element.style.top = `${y}px`;
-  positionUnitHealthBar(wolf);
-  positionUnitIntentTags(wolf);
+function setUnitPosition(unit, x, y) {
+  unit.x = x;
+  unit.y = y;
+  unit.element.style.left = `${x}px`;
+  unit.element.style.top = `${y}px`;
+  positionUnitHealthBar(unit);
+  positionUnitIntentTags(unit);
 
-  if (wolf === getSelectedPlayerUnit()) {
+  if (unit === getSelectedPlayerUnit()) {
     positionPlayerActionMenu();
   }
 }
 
-function updateWolfDepth(wolf) {
-  wolf.element.style.zIndex = GRID_SIZE * 2 + wolf.row + wolf.col + 20;
-  updateUnitHealthBarDepth(wolf);
-  updateUnitIntentTagsDepth(wolf);
+function updateUnitDepth(unit) {
+  const liveUnitDepth = GRID_SIZE * 2 + unit.row + unit.col + 20;
 
-  if (wolf === getSelectedPlayerUnit()) {
+  unit.element.style.zIndex = unit.isDefeated ? liveUnitDepth - 2 : liveUnitDepth;
+  updateUnitHealthBarDepth(unit);
+  updateUnitIntentTagsDepth(unit);
+
+  if (unit === getSelectedPlayerUnit()) {
     positionPlayerActionMenu();
   }
 }
@@ -992,6 +1390,12 @@ function createPlayerMovePreview() {
   const preview = document.createElement("div");
 
   preview.className = "unit wolf move-preview";
+  preview.style.setProperty("--unit-frame-width", `${WOLF_FRAME_SIZE}px`);
+  preview.style.setProperty("--unit-frame-height", `${WOLF_FRAME_SIZE}px`);
+  preview.style.setProperty("--unit-foot-x", "35px");
+  preview.style.setProperty("--unit-foot-y", "40px");
+  preview.style.setProperty("--unit-nudge-x", "4px");
+  preview.style.setProperty("--unit-nudge-y", "-1px");
   preview.hidden = true;
   preview.setAttribute("aria-hidden", "true");
   return preview;
@@ -1026,7 +1430,7 @@ function setPlayerMovePreviewTile(tile) {
 function setMovePreviewFrame(direction, fallbackUnit = getSelectedPlayerUnit() ?? player) {
   const directionRow = WOLF_DIRECTIONS[direction] ?? WOLF_DIRECTIONS[fallbackUnit.direction];
 
-  playerMovePreview.style.backgroundImage = `url("${getWolfAnimationSrc("idle")}")`;
+  playerMovePreview.style.backgroundImage = `url("${getUnitAnimationSrc("wolf", "idle")}")`;
   playerMovePreview.style.backgroundPosition = `0 -${directionRow * WOLF_FRAME_SIZE}px`;
 }
 
@@ -1100,16 +1504,24 @@ function resizeArena() {
   document.documentElement.style.setProperty("--arena-scale-inverse", (1 / scale).toFixed(4));
 }
 
-function setWolfFrame(wolf, frameIndex, directionRow) {
-  const x = frameIndex * WOLF_FRAME_SIZE;
-  const y = directionRow * WOLF_FRAME_SIZE;
+function setUnitFrame(unit, frameIndex, direction = unit.direction) {
+  const definition = getUnitDefinition(unit);
 
-  wolf.element.style.backgroundPosition = `-${x}px -${y}px`;
+  unit.element.style.backgroundPosition = definition.getBackgroundPosition(frameIndex, direction);
 }
 
-function updateActiveButton(animationName) {
+function getDevPreviewUnit() {
+  return enemyMode === "stag" ? enemy : getSelectedPlayerUnit() ?? player;
+}
+
+function updateAnimationControls(unit = getDevPreviewUnit()) {
   animationButtons.forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.animation === animationName);
+    const animationName = button.dataset.animation;
+    const isSupported = isUnitAnimationSupported(unit, animationName);
+
+    button.disabled = !isSupported || isExecutingActionQueue;
+    button.classList.toggle("is-active", isSupported && unit.animationName === animationName);
+    button.setAttribute("aria-disabled", String(button.disabled));
   });
 }
 
@@ -1176,8 +1588,8 @@ function getTileFromPointerEvent(event) {
   return getTileAtPoint(getArenaPoint(event));
 }
 
-function isPointerInsideWolf(wolf, event) {
-  const rect = wolf.element.getBoundingClientRect();
+function isPointerInsideUnit(unit, event) {
+  const rect = unit.element.getBoundingClientRect();
 
   return (
     event.clientX >= rect.left &&
@@ -1191,7 +1603,7 @@ function getFriendlyUnitFromPointerEvent(event) {
   const point = getArenaPoint(event);
 
   return getAliveUnitsByTeam("player")
-    .filter((unit) => isPointerInsideWolf(unit, event))
+    .filter((unit) => isPointerInsideUnit(unit, event))
     .sort((unit, otherUnit) => {
       return (
         Math.hypot(point.x - unit.x, point.y - unit.y) -
@@ -1231,8 +1643,12 @@ function isAdjacentTile(rowA, colA, rowB, colB) {
   });
 }
 
+function isUnitActive(unit) {
+  return unit.isActive !== false;
+}
+
 function isUnitAlive(unit) {
-  return !unit.isDefeated && unit.health > 0;
+  return isUnitActive(unit) && !unit.isDefeated && unit.health > 0;
 }
 
 function getAliveUnitsByTeam(team) {
@@ -1249,7 +1665,12 @@ function areOpposingUnits(unitA, unitB) {
 
 function getUnitsAtPosition(row, col, { includeDefeated = false } = {}) {
   return units.filter((unit) => {
-    return unit.row === row && unit.col === col && (includeDefeated || isUnitAlive(unit));
+    return (
+      isUnitActive(unit) &&
+      unit.row === row &&
+      unit.col === col &&
+      (includeDefeated || isUnitAlive(unit))
+    );
   });
 }
 
@@ -1391,14 +1812,14 @@ function getEnemyPackActionsForUnit(unit) {
     .map((entry) => entry.action);
 }
 
-function renderEnemyPackIntentTags(enemyUnits = units.filter((unit) => unit.team === "enemy")) {
+function renderEnemyPackIntentTags(enemyUnits = units.filter((unit) => unit.team === "enemy" && isUnitActive(unit))) {
   enemyUnits.forEach((unit) => {
     renderUnitIntentTags(unit, getEnemyPackActionsForUnit(unit));
   });
 }
 
 function planEnemyPackTurn(enemyUnits, playerUnits) {
-  const aliveEnemies = enemyUnits.filter(isUnitAlive);
+  const aliveEnemies = enemyUnits.filter((unit) => isUnitAlive(unit) && unit.type === "wolf");
   const alivePlayers = playerUnits.filter(isUnitAlive);
 
   clearEnemyPackActionQueue();
@@ -1414,6 +1835,9 @@ function planEnemyPackTurn(enemyUnits, playerUnits) {
     unit,
     { row: unit.row, col: unit.col, direction: unit.direction },
   ]));
+
+  assignEnemyPackObjectives(aliveEnemies, enemyPackFocusTarget, alivePlayers, plannedStates);
+
   const reservedMoveTargets = new Set();
   const doctrinePool = [...ENEMY_AGGRESSIVE_DOCTRINE];
 
@@ -1425,6 +1849,7 @@ function planEnemyPackTurn(enemyUnits, playerUnits) {
       reservedMoveTargets,
       enemyPackActionQueue,
       doctrinePool,
+      alivePlayers,
     );
 
     if (!assignment) {
@@ -1466,6 +1891,142 @@ function getPackFocusTargetScore(target, enemyUnits) {
   return target.health * 5 + nearestDistance * 2 - (attackOpportunity ? 8 : 0);
 }
 
+function getNearestPlayerDistanceFrom(row, col, players) {
+  return players.reduce((nearest, player) => {
+    return Math.min(nearest, getGridDistance(row, col, player.row, player.col));
+  }, Infinity);
+}
+
+// A wounded wolf peels off instead of charging — mirroring how the player kites a
+// low-HP unit. Hysteresis (trigger vs safe range) lives in ENEMY_FLEE_* so it
+// commits to the retreat; it still pounces when an equally-wounded player is in reach.
+function shouldEnemyFlee(unit, players) {
+  if (players.length === 0) {
+    return false;
+  }
+
+  const canFinishAdjacentTarget = players.some((player) => {
+    return isAdjacentTile(unit.row, unit.col, player.row, player.col) && player.health <= unit.health;
+  });
+
+  if (canFinishAdjacentTarget) {
+    return false;
+  }
+
+  if (unit.health / unit.maxHealth > ENEMY_LOW_HEALTH_RATIO) {
+    return false;
+  }
+
+  const nearestDistance = getNearestPlayerDistanceFrom(unit.row, unit.col, players);
+
+  return unit.isFleeing
+    ? nearestDistance < ENEMY_FLEE_SAFE_RANGE
+    : nearestDistance <= ENEMY_FLEE_TRIGGER_RANGE;
+}
+
+// The tiles surrounding the focus target that a wolf could actually stand on —
+// on the board and not already occupied by another player. These become the
+// encirclement slots so the pack spreads around the target instead of stacking.
+function getReachableSurroundDeltas(focusTarget, players) {
+  return ATTACK_TILE_DELTAS.filter((delta) => {
+    const row = focusTarget.row + delta.row;
+    const col = focusTarget.col + delta.col;
+
+    return (
+      isGridPosition(row, col) &&
+      !players.some((player) => player.row === row && player.col === col)
+    );
+  });
+}
+
+// Decide each wolf's intent for the turn: flee if wounded and threatened, otherwise
+// engage from a distinct surround slot. Closest wolves claim the nearest open slots
+// so the pack encircles rather than funnelling onto one tile.
+function assignEnemyPackObjectives(enemyUnits, focusTarget, players, plannedStates) {
+  const engagingUnits = [];
+
+  enemyUnits.forEach((unit) => {
+    const fleeing = shouldEnemyFlee(unit, players);
+
+    unit.isFleeing = fleeing;
+    unit.packObjective = fleeing
+      ? { mode: "flee" }
+      : { mode: "engage", slotDelta: { row: 0, col: 0 } };
+
+    if (!fleeing) {
+      engagingUnits.push(unit);
+    }
+  });
+
+  if (!focusTarget) {
+    return;
+  }
+
+  const availableDeltas = getReachableSurroundDeltas(focusTarget, players);
+  const usedSlotKeys = new Set();
+  const orderedUnits = [...engagingUnits].sort((unit, otherUnit) => {
+    const state = plannedStates.get(unit);
+    const otherState = plannedStates.get(otherUnit);
+
+    return (
+      getGridDistance(state.row, state.col, focusTarget.row, focusTarget.col) -
+      getGridDistance(otherState.row, otherState.col, focusTarget.row, focusTarget.col)
+    );
+  });
+
+  orderedUnits.forEach((unit) => {
+    const state = plannedStates.get(unit);
+    let bestDelta = null;
+    let bestDistance = Infinity;
+
+    availableDeltas.forEach((delta) => {
+      const slotKey = getGridPositionKey(delta.row, delta.col);
+
+      if (usedSlotKeys.has(slotKey)) {
+        return;
+      }
+
+      const distance = getGridDistance(
+        state.row,
+        state.col,
+        focusTarget.row + delta.row,
+        focusTarget.col + delta.col,
+      );
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestDelta = delta;
+      }
+    });
+
+    if (bestDelta) {
+      usedSlotKeys.add(getGridPositionKey(bestDelta.row, bestDelta.col));
+      unit.packObjective = { mode: "engage", slotDelta: { row: bestDelta.row, col: bestDelta.col } };
+    }
+  });
+}
+
+// The board tile an engaging wolf is steering toward: its assigned surround slot,
+// or the focus tile itself when it has no slot (off-board slot / no focus).
+function getEnemyPackGoalPosition(unit, focusTarget) {
+  if (!focusTarget) {
+    return null;
+  }
+
+  const objective = unit.packObjective;
+
+  if (!objective || objective.mode !== "engage" || !objective.slotDelta) {
+    return { row: focusTarget.row, col: focusTarget.col };
+  }
+
+  const row = focusTarget.row + objective.slotDelta.row;
+  const col = focusTarget.col + objective.slotDelta.col;
+
+  return isGridPosition(row, col)
+    ? { row, col }
+    : { row: focusTarget.row, col: focusTarget.col };
+}
+
 function getBestEnemyPackAction(
   enemyUnits,
   focusTarget,
@@ -1473,9 +2034,11 @@ function getBestEnemyPackAction(
   reservedMoveTargets,
   plannedActions,
   doctrinePool,
+  players,
 ) {
   const attackAssignments = doctrinePool.includes("Attack")
     ? enemyUnits
+      .filter((unit) => unit.packObjective?.mode !== "flee")
       .map((unit) => {
         const plannedState = plannedStates.get(unit);
 
@@ -1506,6 +2069,7 @@ function getBestEnemyPackAction(
         plannedStates,
         reservedMoveTargets,
         plannedActions,
+        players,
       ))
       .filter(Boolean)
       .sort((assignment, otherAssignment) => otherAssignment.score - assignment.score)[0] ?? null;
@@ -1538,14 +2102,26 @@ function getEnemyPackDefendAssignment(enemyUnits, plannedActions) {
     .sort((assignment, otherAssignment) => assignment.score - otherAssignment.score)[0] ?? null;
 }
 
-function getEnemyPackMoveAssignment(unit, focusTarget, plannedStates, reservedMoveTargets, plannedActions) {
+function getEnemyPackMoveAssignment(unit, focusTarget, plannedStates, reservedMoveTargets, plannedActions, players) {
   const plannedState = plannedStates.get(unit);
 
   if (!plannedState) {
     return null;
   }
 
-  const currentDistance = getGridDistance(plannedState.row, plannedState.col, focusTarget.row, focusTarget.col);
+  const isFleeing = unit.packObjective?.mode === "flee";
+  const goal = isFleeing ? null : getEnemyPackGoalPosition(unit, focusTarget);
+
+  if (!isFleeing && !goal) {
+    return null;
+  }
+
+  // Engaging wolves close on their surround slot; fleeing wolves try to grow the
+  // gap to the nearest player. Both are scored as "improvement" so the same greedy
+  // queue filler handles either intent.
+  const currentMetric = isFleeing
+    ? getNearestPlayerDistanceFrom(plannedState.row, plannedState.col, players)
+    : getGridDistance(plannedState.row, plannedState.col, goal.row, goal.col);
   let bestAssignment = null;
 
   MOVEMENT_DIRECTIONS.forEach((direction) => {
@@ -1564,39 +2140,31 @@ function getEnemyPackMoveAssignment(unit, focusTarget, plannedStates, reservedMo
       return;
     }
 
-    const distance = getGridDistance(target.row, target.col, focusTarget.row, focusTarget.col);
-    const improvement = currentDistance - distance;
+    const goalDistance = isFleeing
+      ? 0
+      : getGridDistance(target.row, target.col, goal.row, goal.col);
+    const improvement = isFleeing
+      ? getNearestPlayerDistanceFrom(target.row, target.col, players) - currentMetric
+      : currentMetric - goalDistance;
 
     if (improvement <= 0) {
       return;
     }
 
-    const assignment = {
-      action: "Move",
-      direction,
-      facingDirection: getFacingDirectionForMove(
-        plannedState.row,
-        plannedState.col,
-        target.row,
-        target.col,
-        plannedState.direction,
-      ),
-      score: improvement * 10 -
-        distance -
-        getDirectionTurnCost(plannedState.direction, getFacingDirectionForMove(
-          plannedState.row,
-          plannedState.col,
-          target.row,
-          target.col,
-          plannedState.direction,
-        )) -
-        getPlannedActionCountForUnit(unit, plannedActions) * 5,
-      target,
-      unit,
-    };
+    const facingDirection = getFacingDirectionForMove(
+      plannedState.row,
+      plannedState.col,
+      target.row,
+      target.col,
+      plannedState.direction,
+    );
+    const score = improvement * 10 -
+      goalDistance -
+      getDirectionTurnCost(plannedState.direction, facingDirection) -
+      getPlannedActionCountForUnit(unit, plannedActions) * 5;
 
-    if (!bestAssignment || assignment.score > bestAssignment.score) {
-      bestAssignment = assignment;
+    if (!bestAssignment || score > bestAssignment.score) {
+      bestAssignment = { action: "Move", direction, facingDirection, score, target, unit };
     }
   });
 
@@ -1630,6 +2198,10 @@ function getTileInDirectionForPackPlan(row, col, direction, tileCount, planningU
 
 function getPackPlanBlockingUnitAtPosition(row, col, planningUnit, plannedStates) {
   return units.find((unit) => {
+    if (!isUnitActive(unit)) {
+      return false;
+    }
+
     const plannedState = plannedStates.get(unit);
 
     if (plannedState) {
@@ -1698,7 +2270,7 @@ function planEnemyTurn(enemyUnit, targetUnit) {
 
     if (isFirstPlannedAction) {
       enemyUnit.direction = movePlan.direction;
-      playWolfAnimation(enemyUnit, enemyUnit.animationName);
+      playUnitAnimation(enemyUnit, enemyUnit.animationName);
     }
 
     plannedRow = movePlan.target.row;
@@ -1763,121 +2335,110 @@ function resolveAttack(attacker) {
   return { target, ...damageResult };
 }
 
-function getWolfAnimationSrc(animationName) {
-  return `${WOLF_PATH}/${wolfAnimations[animationName].file}`;
+function getUnitAnimationPreload(unit, animationName, direction = unit.direction) {
+  const definition = getUnitDefinition(unit);
+  const preloadDirection = definition.getPreloadDirections()[0] === null ? null : direction;
+
+  return unitAnimationPreloads.get(getUnitAnimationPreloadKey(unit.type, animationName, preloadDirection));
 }
 
-function preloadWolfAnimation(animationName) {
-  const image = new Image();
-  const loaded = new Promise((resolve) => {
-    image.addEventListener("load", resolve, { once: true });
-    image.addEventListener("error", resolve, { once: true });
-  });
+function setUnitAnimationSprite(unit, animationName, direction = unit.direction) {
+  const preload = getUnitAnimationPreload(unit, animationName, direction);
+  const src = preload?.image.currentSrc || preload?.image.src || getUnitAnimationSrc(unit, animationName, direction);
 
-  image.src = getWolfAnimationSrc(animationName);
-
-  return {
-    image,
-    ready: image.decode ? image.decode().catch(() => loaded).then(() => undefined) : loaded,
-  };
+  unit.element.style.backgroundImage = `url("${src}")`;
 }
 
-function setWolfAnimationSprite(wolf, animationName) {
-  const preload = wolfAnimationPreloads.get(animationName);
-  const src = preload?.image.currentSrc || preload?.image.src || getWolfAnimationSrc(animationName);
-
-  wolf.element.style.backgroundImage = `url("${src}")`;
+function waitForUnitAnimation(unit, animationName, direction = unit.direction) {
+  return getUnitAnimationPreload(unit, animationName, direction)?.ready ?? Promise.resolve();
 }
 
-function waitForWolfAnimation(animationName) {
-  return wolfAnimationPreloads.get(animationName)?.ready ?? Promise.resolve();
-}
-
-function stopWolfAnimation(wolf) {
-  if (wolf.animationFrameRequest !== null) {
-    cancelAnimationFrame(wolf.animationFrameRequest);
-    wolf.animationFrameRequest = null;
+function stopUnitAnimation(unit) {
+  if (unit.animationFrameRequest !== null) {
+    cancelAnimationFrame(unit.animationFrameRequest);
+    unit.animationFrameRequest = null;
   }
 
-  if (wolf.animationComplete) {
-    wolf.animationComplete();
-    wolf.animationComplete = null;
+  if (unit.animationComplete) {
+    unit.animationComplete();
+    unit.animationComplete = null;
   }
 }
 
-function playWolfAnimation(wolf, animationName, shouldUpdateButtons = false) {
-  const animation = wolfAnimations[animationName];
+function playUnitAnimation(unit, animationName, shouldUpdateButtons = false) {
+  const animation = getUnitAnimation(unit, animationName);
 
   if (!animation) {
+    updateAnimationControls();
     return;
   }
 
-  if (wolf.isDefeated && animationName !== "death") {
+  if (unit.isDefeated && animationName !== "death") {
     return;
   }
 
-  stopWolfAnimation(wolf);
+  stopUnitAnimation(unit);
 
-  wolf.animationName = animationName;
-  wolf.animationStartedAt = performance.now();
-  setWolfAnimationSprite(wolf, animationName);
-  setWolfFrame(wolf, 0, WOLF_DIRECTIONS[wolf.direction]);
+  unit.animationName = animationName;
+  unit.animationStartedAt = performance.now();
+  setUnitAnimationSprite(unit, animationName);
+  setUnitFrame(unit, 0);
 
   if (shouldUpdateButtons) {
-    updateActiveButton(animationName);
+    updateAnimationControls(unit);
   }
 
   const animate = (timestamp) => {
-    const elapsed = timestamp - wolf.animationStartedAt;
+    const elapsed = timestamp - unit.animationStartedAt;
     const absoluteFrame = Math.floor(elapsed / animation.frameMs);
-    const frameIndex = absoluteFrame % animation.frames;
-    const directionRow = WOLF_DIRECTIONS[wolf.direction];
+    const sequenceIndex = absoluteFrame % getUnitAnimationFrameCount(animation);
+    const frameIndex = getUnitAnimationFrameIndex(animation, sequenceIndex);
 
-    setWolfFrame(wolf, frameIndex, directionRow);
-    wolf.animationFrameRequest = requestAnimationFrame(animate);
+    setUnitAnimationSprite(unit, animationName);
+    setUnitFrame(unit, frameIndex);
+    unit.animationFrameRequest = requestAnimationFrame(animate);
   };
 
-  wolf.animationFrameRequest = requestAnimationFrame(animate);
+  unit.animationFrameRequest = requestAnimationFrame(animate);
 }
 
-async function playWolfAnimationCycles(
-  wolf,
+async function playUnitAnimationCycles(
+  unit,
   animationName,
   cycleCount = 1,
-  { shouldUpdateButtons = false, direction = wolf.direction } = {},
+  { shouldUpdateButtons = false, direction = unit.direction } = {},
 ) {
-  const animation = wolfAnimations[animationName];
+  const animation = getUnitAnimation(unit, animationName);
 
   if (!animation) {
     return Promise.resolve();
   }
 
-  stopWolfAnimation(wolf);
-  await waitForWolfAnimation(animationName);
+  stopUnitAnimation(unit);
+  await waitForUnitAnimation(unit, animationName, direction);
 
-  const directionRow = WOLF_DIRECTIONS[direction] ?? WOLF_DIRECTIONS[wolf.direction];
-  const totalFrames = animation.frames * cycleCount;
+  const totalFrames = getUnitAnimationFrameCount(animation) * cycleCount;
 
-  wolf.animationName = animationName;
-  wolf.animationStartedAt = performance.now();
-  setWolfAnimationSprite(wolf, animationName);
-  setWolfFrame(wolf, 0, directionRow);
+  unit.animationName = animationName;
+  unit.animationStartedAt = performance.now();
+  setUnitAnimationSprite(unit, animationName, direction);
+  setUnitFrame(unit, 0, direction);
 
   if (shouldUpdateButtons) {
-    updateActiveButton(animationName);
+    updateAnimationControls(unit);
   }
 
   return new Promise((resolve) => {
     const finish = () => {
-      wolf.animationComplete = null;
-      wolf.animationFrameRequest = null;
+      unit.animationComplete = null;
+      unit.animationFrameRequest = null;
       resolve();
     };
 
-    wolf.animationComplete = finish;
+    unit.animationComplete = finish;
 
     const animate = (timestamp) => {
-      const elapsed = timestamp - wolf.animationStartedAt;
+      const elapsed = timestamp - unit.animationStartedAt;
       const absoluteFrame = Math.floor(elapsed / animation.frameMs);
 
       if (absoluteFrame >= totalFrames) {
@@ -1885,13 +2446,14 @@ async function playWolfAnimationCycles(
         return;
       }
 
-      const frameIndex = absoluteFrame % animation.frames;
+      const sequenceIndex = absoluteFrame % getUnitAnimationFrameCount(animation);
+      const frameIndex = getUnitAnimationFrameIndex(animation, sequenceIndex);
 
-      setWolfFrame(wolf, frameIndex, directionRow);
-      wolf.animationFrameRequest = requestAnimationFrame(animate);
+      setUnitFrame(unit, frameIndex, direction);
+      unit.animationFrameRequest = requestAnimationFrame(animate);
     };
 
-    wolf.animationFrameRequest = requestAnimationFrame(animate);
+    unit.animationFrameRequest = requestAnimationFrame(animate);
   });
 }
 
@@ -1923,12 +2485,20 @@ async function playUnitDeath(unit) {
       unit.movementFrameRequest = null;
     }
 
-    await playWolfAnimationCycles(unit, "death", 1, {
+    if (!isUnitAnimationSupported(unit, "death")) {
+      stopUnitAnimation(unit);
+      unit.element.hidden = true;
+      unit.animationName = "idle";
+      unit.hasPlayedDeathAnimation = true;
+      return;
+    }
+
+    await playUnitAnimationCycles(unit, "death", 1, {
       direction: unit.direction,
     });
 
-    setWolfAnimationSprite(unit, "death");
-    setWolfFrame(unit, wolfAnimations.death.frames - 1, WOLF_DIRECTIONS[unit.direction]);
+    setUnitAnimationSprite(unit, "death");
+    setUnitFrame(unit, getUnitAnimation(unit, "death").frames - 1);
     unit.animationName = "death";
     unit.hasPlayedDeathAnimation = true;
   })();
@@ -1947,9 +2517,11 @@ function showGameResult(didWin) {
 
 function resetGame() {
   if (gameResultOverlay) gameResultOverlay.hidden = true;
+  reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
   resetDevTest();
   refillAvailableActions();
   updateEnemyIntentPreview();
+  updateReshuffleControl();
 }
 
 async function executePlayerActionQueue() {
@@ -1958,10 +2530,15 @@ async function executePlayerActionQueue() {
     return;
   }
 
-  planEnemyPackTurn(
-    units.filter((unit) => unit.team === "enemy"),
-    units.filter((unit) => unit.team === "player"),
-  );
+  if (enemyMode === "wolves") {
+    planEnemyPackTurn(
+      units.filter((unit) => unit.team === "enemy" && unit.type === "wolf"),
+      units.filter((unit) => unit.team === "player"),
+    );
+  } else {
+    clearEnemyPackActionQueue();
+    renderEnemyPackIntentTags();
+  }
   isExecutingActionQueue = true;
   setPlayerSelected(null);
   updatePlayerActionControls();
@@ -1993,11 +2570,12 @@ async function executePlayerActionQueue() {
     renderActionQueue(getSelectedPlayerUnit());
     updateEnemyIntentPreview();
     updatePlayerActionControls();
+    syncEnemyModeControls();
     getAliveUnitsByTeam("player").forEach((unit) => {
-      playWolfAnimation(unit, "idle", unit === player);
+      playUnitAnimation(unit, "idle", unit === player);
     });
     getAliveUnitsByTeam("enemy").forEach((unit) => {
-      playWolfAnimation(unit, "idle");
+      playUnitAnimation(unit, "idle");
     });
 
     if (!hasAliveUnitsByTeam("player")) {
@@ -2054,6 +2632,7 @@ async function executeActionTick(combatants) {
 
     return moveUnitToTile(unit, target.row, target.col, {
       direction: target.direction ?? startStates.get(unit).direction,
+      skipBlockingCheck: true,
       shouldUpdateButtons,
     });
   }));
@@ -2088,13 +2667,13 @@ async function executeActionTick(combatants) {
       shakeArenaSoon();
     }
 
-    await playWolfAnimationCycles(unit, actionAnimation.animationName, actionAnimation.cycles, {
+    await playUnitAnimationCycles(unit, actionAnimation.animationName, actionAnimation.cycles, {
       shouldUpdateButtons,
       direction: actionDirection,
     });
 
     if (action === "Attack") {
-      playWolfAnimation(unit, "idle", shouldUpdateButtons);
+      playUnitAnimation(unit, "idle", shouldUpdateButtons);
       const liveTarget = getLiveAttackTarget(unit, attackTarget, startStates);
       const targetIsDefending = tickActions.some((t) => t.unit === liveTarget && t.action === "Defend");
       damageIntents.push({
@@ -2141,6 +2720,11 @@ function shiftCombatantAction(combatant) {
 }
 
 function getTickMoveTargets(tickActions, startStates) {
+  const movingUnits = new Set(
+    tickActions
+      .filter(({ action }) => action === "Move")
+      .map(({ unit }) => unit),
+  );
   const movePlans = tickActions
     .filter(({ action }) => action === "Move")
     .map(({ unit }) => {
@@ -2153,9 +2737,13 @@ function getTickMoveTargets(tickActions, startStates) {
       let plan = null;
 
       if (unit.team === "player") {
-        plan = getPlayerMovePlanFromSnapshot(unit, getFriendlyFocusTarget(unit), startStates);
+        plan = getPlayerMovePlanFromSnapshot(unit, getFriendlyFocusTarget(unit), startStates, {
+          ignoredBlockingUnits: movingUnits,
+        });
       } else if (unit.team === "enemy") {
-        plan = getHuntMovePlanFromSnapshot(unit, getEnemyPackFocusTarget(), startStates);
+        plan = getEnemyPackMovePlanFromSnapshot(unit, startStates, {
+          ignoredBlockingUnits: movingUnits,
+        });
       } else {
         const path = getMovePathFromSnapshot(
           startState.row,
@@ -2164,6 +2752,7 @@ function getTickMoveTargets(tickActions, startStates) {
           MOVE_ACTION_TILE_COUNT,
           unit,
           startStates,
+          { ignoredBlockingUnits: movingUnits },
         );
         const target = path[path.length - 1] ?? { row: startState.row, col: startState.col };
 
@@ -2189,28 +2778,226 @@ function getTickMoveTargets(tickActions, startStates) {
   });
 
   applyAttackIntentEngagementStops(movePlans, startStates);
-  stopMovePlansBeforePathCollisions(movePlans, startStates);
+  return resolveMovePlans(movePlans, startStates);
+}
 
-  const targetCounts = new Map();
+function resolveMovePlans(movePlans, startStates) {
+  const liveUnits = units.filter((unit) => isUnitAlive(unit) && startStates.has(unit));
+  const positions = new Map(liveUnits.map((unit) => {
+    const startState = startStates.get(unit);
 
-  movePlans.forEach(({ target }) => {
-    const key = getGridPositionKey(target.row, target.col);
-    targetCounts.set(key, (targetCounts.get(key) ?? 0) + 1);
-  });
+    return [unit, { row: startState.row, col: startState.col }];
+  }));
+  const activeUnits = new Set(
+    movePlans
+      .filter((plan) => plan.path.length > 1)
+      .map((plan) => plan.unit),
+  );
+  const maxStep = Math.max(1, ...movePlans.map((plan) => plan.path.length));
 
-  return new Map(movePlans.map(({ unit, target }) => {
-    const targetKey = getGridPositionKey(target.row, target.col);
+  for (let step = 1; step < maxStep; step += 1) {
+    const attempts = getMoveStepAttempts(movePlans, positions, activeUnits, step);
 
-    if (
-      targetCounts.get(targetKey) > 1 &&
-      !isAttackIntentEngagementTarget(unit, target, movePlans)
-    ) {
-      const startState = startStates.get(unit);
-      return [unit, { row: startState.row, col: startState.col }];
+    if (attempts.length === 0) {
+      continue;
     }
 
-    return [unit, target];
+    const blockedUnits = getBlockedMoveStepUnits(attempts, positions, liveUnits);
+
+    attempts.forEach((attempt) => {
+      if (blockedUnits.has(attempt.unit)) {
+        activeUnits.delete(attempt.unit);
+        return;
+      }
+
+      positions.set(attempt.unit, { row: attempt.to.row, col: attempt.to.col });
+    });
+  }
+
+  return new Map(movePlans.map((plan) => {
+    const startState = startStates.get(plan.unit);
+    const resolvedPosition = positions.get(plan.unit) ?? startState;
+    const didMove = !areSameGridPosition(resolvedPosition, startState);
+    const direction = didMove
+      ? getFacingDirectionForMove(
+        startState.row,
+        startState.col,
+        resolvedPosition.row,
+        resolvedPosition.col,
+        startState.direction,
+      )
+      : startState.direction;
+
+    plan.target = {
+      row: resolvedPosition.row,
+      col: resolvedPosition.col,
+      direction,
+    };
+    plan.path = getResolvedMovePath(plan.path, resolvedPosition);
+
+    return [plan.unit, plan.target];
   }));
+}
+
+function getMoveStepAttempts(movePlans, positions, activeUnits, step) {
+  return movePlans
+    .filter((plan) => activeUnits.has(plan.unit))
+    .map((plan) => {
+      const from = positions.get(plan.unit);
+      const to = plan.path[step];
+
+      if (!from || !to || areSameGridPosition(from, to)) {
+        activeUnits.delete(plan.unit);
+        return null;
+      }
+
+      return {
+        from,
+        plan,
+        to: { row: to.row, col: to.col },
+        unit: plan.unit,
+      };
+    })
+    .filter(Boolean);
+}
+
+function getBlockedMoveStepUnits(attempts, positions, liveUnits) {
+  const attemptsByUnit = new Map(attempts.map((attempt) => [attempt.unit, attempt]));
+  const blockedUnits = new Set();
+
+  getMoveAttemptsByTarget(attempts).forEach((targetAttempts) => {
+    if (targetAttempts.length <= 1) {
+      return;
+    }
+
+    const winningAttempt = getContestedMoveTargetWinner(targetAttempts);
+
+    targetAttempts.forEach(({ unit }) => {
+      if (unit !== winningAttempt.unit) {
+        blockedUnits.add(unit);
+      }
+    });
+  });
+
+  blockSwappingMoveAttempts(attempts, blockedUnits);
+  blockStationaryOccupiedMoveAttempts(attempts, positions, liveUnits, attemptsByUnit, blockedUnits);
+  propagateBlockedVacateAttempts(attempts, positions, liveUnits, attemptsByUnit, blockedUnits);
+
+  return blockedUnits;
+}
+
+function getContestedMoveTargetWinner(attempts) {
+  return [...attempts].sort(compareMoveTargetContestAttempts)[0];
+}
+
+function compareMoveTargetContestAttempts(attempt, otherAttempt) {
+  return (
+    getUnitMoveContestPriority(attempt.unit) - getUnitMoveContestPriority(otherAttempt.unit) ||
+    units.indexOf(attempt.unit) - units.indexOf(otherAttempt.unit)
+  );
+}
+
+function getUnitMoveContestPriority(unit) {
+  return unit.team === "player" ? 0 : 1;
+}
+
+function getMoveAttemptsByTarget(attempts) {
+  const attemptsByTarget = new Map();
+
+  attempts.forEach((attempt) => {
+    const key = getGridPositionKey(attempt.to.row, attempt.to.col);
+    const targetAttempts = attemptsByTarget.get(key) ?? [];
+
+    targetAttempts.push(attempt);
+    attemptsByTarget.set(key, targetAttempts);
+  });
+
+  return attemptsByTarget;
+}
+
+function blockSwappingMoveAttempts(attempts, blockedUnits) {
+  for (let index = 0; index < attempts.length; index += 1) {
+    for (let otherIndex = index + 1; otherIndex < attempts.length; otherIndex += 1) {
+      const attempt = attempts[index];
+      const otherAttempt = attempts[otherIndex];
+
+      if (
+        areSameGridPosition(attempt.from, otherAttempt.to) &&
+        areSameGridPosition(attempt.to, otherAttempt.from)
+      ) {
+        blockedUnits.add(attempt.unit);
+        blockedUnits.add(otherAttempt.unit);
+      }
+    }
+  }
+}
+
+function blockStationaryOccupiedMoveAttempts(
+  attempts,
+  positions,
+  liveUnits,
+  attemptsByUnit,
+  blockedUnits,
+) {
+  attempts.forEach((attempt) => {
+    const occupant = getUnitAtResolvedPosition(attempt.to, positions, liveUnits);
+
+    if (!occupant || occupant === attempt.unit) {
+      return;
+    }
+
+    const occupantAttempt = attemptsByUnit.get(occupant);
+
+    if (!occupantAttempt || !areSameGridPosition(occupantAttempt.from, attempt.to)) {
+      blockedUnits.add(attempt.unit);
+    }
+  });
+}
+
+function propagateBlockedVacateAttempts(
+  attempts,
+  positions,
+  liveUnits,
+  attemptsByUnit,
+  blockedUnits,
+) {
+  let didBlockUnit = true;
+
+  while (didBlockUnit) {
+    didBlockUnit = false;
+
+    attempts.forEach((attempt) => {
+      if (blockedUnits.has(attempt.unit)) {
+        return;
+      }
+
+      const occupant = getUnitAtResolvedPosition(attempt.to, positions, liveUnits);
+      const occupantAttempt = occupant ? attemptsByUnit.get(occupant) : null;
+
+      if (occupantAttempt && blockedUnits.has(occupant)) {
+        blockedUnits.add(attempt.unit);
+        didBlockUnit = true;
+      }
+    });
+  }
+}
+
+function getUnitAtResolvedPosition(position, positions, liveUnits) {
+  return liveUnits.find((unit) => {
+    const unitPosition = positions.get(unit);
+
+    return unitPosition && areSameGridPosition(unitPosition, position);
+  }) ?? null;
+}
+
+function getResolvedMovePath(path, resolvedPosition) {
+  const resolvedIndex = path.findIndex((position) => areSameGridPosition(position, resolvedPosition));
+
+  if (resolvedIndex === -1) {
+    return [{ row: resolvedPosition.row, col: resolvedPosition.col }];
+  }
+
+  return path.slice(0, resolvedIndex + 1);
 }
 
 function isAttackIntentEngagementTarget(unit, target, movePlans) {
@@ -2317,7 +3104,8 @@ function applyAttackIntentEngagementStops(movePlans, startStates) {
         continue;
       }
 
-      const endpoints = getBestAttackIntentEngagementEndpoints(plan, otherPlan, startStates);
+      const endpoints = getAttackIntentContestEndpoints(plan, otherPlan, startStates) ??
+        getBestAttackIntentEngagementEndpoints(plan, otherPlan, startStates);
 
       if (!endpoints) {
         continue;
@@ -2331,9 +3119,48 @@ function applyAttackIntentEngagementStops(movePlans, startStates) {
   }
 }
 
+function getAttackIntentContestEndpoints(plan, otherPlan, startStates) {
+  const collisionStep = getPathCollisionStep(plan.path, otherPlan.path);
+
+  if (collisionStep === null) {
+    return null;
+  }
+
+  const position = getPathStep(plan.path, collisionStep);
+  const otherPosition = getPathStep(otherPlan.path, collisionStep);
+
+  if (!areSameGridPosition(position, otherPosition)) {
+    return null;
+  }
+
+  const winningAttempt = getContestedMoveTargetWinner([
+    { unit: plan.unit, to: position },
+    { unit: otherPlan.unit, to: otherPosition },
+  ]);
+  const step = winningAttempt.unit === plan.unit ? collisionStep : collisionStep - 1;
+  const otherStep = winningAttempt.unit === otherPlan.unit ? collisionStep : collisionStep - 1;
+  const endpoint = getPathStepOrStart(plan.path, step, startStates.get(plan.unit));
+  const otherEndpoint = getPathStepOrStart(
+    otherPlan.path,
+    otherStep,
+    startStates.get(otherPlan.unit),
+  );
+
+  if (
+    !isAdjacentTile(endpoint.row, endpoint.col, otherEndpoint.row, otherEndpoint.col) ||
+    !isValidEngagementEndpoint(endpoint, plan.unit, otherEndpoint, startStates, otherPlan.unit) ||
+    !isValidEngagementEndpoint(otherEndpoint, otherPlan.unit, endpoint, startStates, plan.unit)
+  ) {
+    return null;
+  }
+
+  return { step, otherStep };
+}
+
 function getBestAttackIntentEngagementEndpoints(plan, otherPlan, startStates) {
   let bestEndpoints = null;
   let bestScore = -1;
+  let bestBalance = Infinity;
 
   for (let step = 0; step < plan.path.length; step += 1) {
     const position = getPathStepOrStart(plan.path, step, startStates.get(plan.unit));
@@ -2353,10 +3180,21 @@ function getBestAttackIntentEngagementEndpoints(plan, otherPlan, startStates) {
         continue;
       }
 
-      const score = step + otherStep;
+      if (
+        getPathCollisionStep(
+          getPathThroughStep(plan.path, step),
+          getPathThroughStep(otherPlan.path, otherStep),
+        ) !== null
+      ) {
+        continue;
+      }
 
-      if (score > bestScore) {
+      const score = step + otherStep;
+      const balance = Math.abs(step - otherStep);
+
+      if (score > bestScore || (score === bestScore && balance < bestBalance)) {
         bestScore = score;
+        bestBalance = balance;
         bestEndpoints = { step, otherStep };
       }
     }
@@ -2413,19 +3251,92 @@ function getPlayerMovePlanFromSnapshot(
   playerUnit,
   targetUnit,
   startStates,
-  { actionQueue = getUnitActionQueue(playerUnit) } = {},
+  {
+    actionQueue = getUnitActionQueue(playerUnit),
+    ignoredBlockingUnits = new Set(),
+  } = {},
 ) {
   return getMovementModeMovePlanFromSnapshot(
     playerUnit,
     targetUnit,
     startStates,
     playerUnit.movementMode,
-    { actionQueue },
+    { actionQueue, ignoredBlockingUnits },
   );
 }
 
-function getHuntMovePlanFromSnapshot(movingUnit, targetUnit, startStates) {
-  return getMovementModeMovePlanFromSnapshot(movingUnit, targetUnit, startStates, "Hunt");
+function getHuntMovePlanFromSnapshot(
+  movingUnit,
+  targetUnit,
+  startStates,
+  { ignoredBlockingUnits = new Set() } = {},
+) {
+  return getMovementModeMovePlanFromSnapshot(movingUnit, targetUnit, startStates, "Hunt", {
+    ignoredBlockingUnits,
+  });
+}
+
+// Resolves a single enemy wolf's move at tick time from its turn objective:
+// fleeing wolves Dodge away from the nearest player, engaging wolves Hunt toward
+// their assigned surround slot. Falls back to the legacy "hunt the shared focus"
+// behaviour whenever no objective was planned (e.g. dev-test queued actions).
+function getEnemyPackMovePlanFromSnapshot(movingUnit, startStates, { ignoredBlockingUnits = new Set() } = {}) {
+  const focusTarget = getEnemyPackFocusTarget();
+  const objective = movingUnit.packObjective;
+
+  if (!objective) {
+    return getHuntMovePlanFromSnapshot(movingUnit, focusTarget, startStates, { ignoredBlockingUnits });
+  }
+
+  if (objective.mode === "flee") {
+    const nearestPlayer = getNearestUnitByDistance(
+      movingUnit,
+      getAliveUnitsByTeam("player"),
+      startStates,
+    );
+
+    if (!nearestPlayer) {
+      return getHuntMovePlanFromSnapshot(movingUnit, focusTarget, startStates, { ignoredBlockingUnits });
+    }
+
+    return getMovementModeMovePlanFromSnapshot(movingUnit, nearestPlayer, startStates, "Dodge", {
+      ignoredBlockingUnits,
+    });
+  }
+
+  const goal = getEnemyPackGoalPosition(movingUnit, focusTarget);
+
+  if (!goal) {
+    return getHuntMovePlanFromSnapshot(movingUnit, focusTarget, startStates, { ignoredBlockingUnits });
+  }
+
+  const goalState = {
+    row: goal.row,
+    col: goal.col,
+    direction: (startStates.get(movingUnit) ?? movingUnit).direction,
+  };
+
+  return getModeMovePlanFromTargetState(movingUnit, goalState, startStates, "Hunt", {
+    ignoredBlockingUnits,
+  });
+}
+
+function getNearestUnitByDistance(unit, candidates, startStates) {
+  const fromState = startStates.get(unit) ?? unit;
+  let nearest = null;
+  let nearestDistance = Infinity;
+
+  candidates.forEach((candidate) => {
+    const state = startStates.get(candidate) ?? candidate;
+    const distance = getGridDistance(fromState.row, fromState.col, state.row, state.col);
+
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearest = candidate;
+    }
+  });
+
+  return nearest;
 }
 
 function getMovementModeMovePlanFromSnapshot(
@@ -2433,7 +3344,10 @@ function getMovementModeMovePlanFromSnapshot(
   targetUnit,
   startStates,
   movementMode,
-  { actionQueue = getUnitActionQueue(movingUnit) } = {},
+  {
+    actionQueue = getUnitActionQueue(movingUnit),
+    ignoredBlockingUnits = new Set(),
+  } = {},
 ) {
   const startState = startStates.get(movingUnit);
   const targetStartState = startStates.get(targetUnit);
@@ -2448,7 +3362,40 @@ function getMovementModeMovePlanFromSnapshot(
     return fallbackPlan;
   }
 
-  const context = getUnitMoveContext(movingUnit, targetUnit, startStates, actionQueue);
+  return getModeMovePlanFromTargetState(movingUnit, targetStartState, startStates, movementMode, {
+    actionQueue,
+    ignoredBlockingUnits,
+  });
+}
+
+// Mode-based move planning toward a bare board position (not necessarily a unit).
+// Lets the pack steer a wolf to its encirclement slot, or a fleeing wolf away from
+// a chosen threat, while reusing the existing Hunt/Dodge/Flank scoring.
+function getModeMovePlanFromTargetState(
+  movingUnit,
+  targetStartState,
+  startStates,
+  movementMode,
+  {
+    actionQueue = getUnitActionQueue(movingUnit),
+    ignoredBlockingUnits = new Set(),
+  } = {},
+) {
+  const startState = startStates.get(movingUnit);
+  const fallbackPath = [{ row: startState.row, col: startState.col }];
+  const fallbackPlan = {
+    unit: movingUnit,
+    path: fallbackPath,
+    target: { ...fallbackPath[0], direction: startState.direction },
+  };
+
+  if (!targetStartState) {
+    return fallbackPlan;
+  }
+
+  const context = getUnitMoveContext(movingUnit, targetStartState, startStates, actionQueue, {
+    ignoredBlockingUnits,
+  });
   const candidate = getMoveCandidateForMode(movementMode, context);
 
   return candidate
@@ -2460,9 +3407,14 @@ function getMovementModeMovePlanFromSnapshot(
     : fallbackPlan;
 }
 
-function getUnitMoveContext(movingUnit, targetUnit, startStates, actionQueue) {
+function getUnitMoveContext(
+  movingUnit,
+  targetStartState,
+  startStates,
+  actionQueue,
+  { ignoredBlockingUnits = new Set() } = {},
+) {
   const startState = startStates.get(movingUnit);
-  const targetStartState = startStates.get(targetUnit);
   const currentDistance = getGridDistance(
     startState.row,
     startState.col,
@@ -2479,8 +3431,11 @@ function getUnitMoveContext(movingUnit, targetUnit, startStates, actionQueue) {
     startState.col,
     movingUnit,
     startStates,
+    { ignoredBlockingUnits },
   );
-  const candidates = getUnitMoveCandidatesFromSnapshot(movingUnit, targetStartState, startStates);
+  const candidates = getUnitMoveCandidatesFromSnapshot(movingUnit, targetStartState, startStates, {
+    ignoredBlockingUnits,
+  });
 
   return {
     actionQueue,
@@ -2494,7 +3449,12 @@ function getUnitMoveContext(movingUnit, targetUnit, startStates, actionQueue) {
   };
 }
 
-function getUnitMoveCandidatesFromSnapshot(movingUnit, targetStartState, startStates) {
+function getUnitMoveCandidatesFromSnapshot(
+  movingUnit,
+  targetStartState,
+  startStates,
+  { ignoredBlockingUnits = new Set() } = {},
+) {
   const startState = startStates.get(movingUnit);
   const candidates = [];
 
@@ -2506,6 +3466,7 @@ function getUnitMoveCandidatesFromSnapshot(movingUnit, targetStartState, startSt
       MOVE_ACTION_TILE_COUNT,
       movingUnit,
       startStates,
+      { ignoredBlockingUnits },
     );
 
     path.slice(1).forEach((target, targetIndex) => {
@@ -2533,6 +3494,7 @@ function getUnitMoveCandidatesFromSnapshot(movingUnit, targetStartState, startSt
           target.col,
           movingUnit,
           startStates,
+          { ignoredBlockingUnits },
         ),
         frontRisk: isEnemyFrontArcPosition(target.row, target.col, targetStartState),
         isAdjacent: isAdjacentTile(
@@ -2566,14 +3528,31 @@ function getMoveCandidateForMode(mode, context) {
   }
 }
 
-function getHuntMoveCandidate({ candidates, currentDistance }) {
-  return candidates
-    .filter((candidate) => candidate.distance < currentDistance)
+function getHuntMoveCandidate(context) {
+  const currentIsAdjacent = isAdjacentTile(
+    context.startState.row,
+    context.startState.col,
+    context.targetStartState.row,
+    context.targetStartState.col,
+  );
+
+  return context.candidates
+    .filter((candidate) => {
+      return (
+        candidate.distance < context.currentDistance ||
+        (
+          !currentIsAdjacent &&
+          candidate.isAdjacent &&
+          candidate.distance <= context.currentDistance
+        )
+      );
+    })
     .sort(compareHuntMoveCandidates)[0] ?? null;
 }
 
 function compareHuntMoveCandidates(candidate, otherCandidate) {
   return (
+    Number(otherCandidate.isAdjacent) - Number(candidate.isAdjacent) ||
     candidate.distance - otherCandidate.distance ||
     candidate.turnCost - otherCandidate.turnCost ||
     candidate.steps - otherCandidate.steps
@@ -2719,7 +3698,13 @@ function isEnemyFrontArcPosition(row, col, targetStartState) {
   return Math.abs(row - frontRow) <= 1 && Math.abs(col - frontCol) <= 1;
 }
 
-function getEscapeRouteCountFromSnapshot(row, col, movingUnit, startStates) {
+function getEscapeRouteCountFromSnapshot(
+  row,
+  col,
+  movingUnit,
+  startStates,
+  { ignoredBlockingUnits = new Set() } = {},
+) {
   return Object.values(MOVEMENT_TILE_DELTAS).filter((delta) => {
     const nextRow = row + delta.row;
     const nextCol = col + delta.col;
@@ -2727,7 +3712,7 @@ function getEscapeRouteCountFromSnapshot(row, col, movingUnit, startStates) {
 
     return (
       isGridPosition(nextRow, nextCol) &&
-      (!blockingUnit || blockingUnit === movingUnit)
+      !isSnapshotMoveBlockedByUnit(blockingUnit, movingUnit, ignoredBlockingUnits)
     );
   }).length;
 }
@@ -2745,7 +3730,15 @@ function getDirectionTurnCost(fromDirection, toDirection) {
   return Math.min(distance, CLOCKWISE_DIRECTIONS.length - distance);
 }
 
-function getMovePathFromSnapshot(row, col, direction, tileCount, movingUnit, startStates) {
+function getMovePathFromSnapshot(
+  row,
+  col,
+  direction,
+  tileCount,
+  movingUnit,
+  startStates,
+  { ignoredBlockingUnits = new Set() } = {},
+) {
   const delta = MOVEMENT_TILE_DELTAS[direction];
   let targetRow = row;
   let targetCol = col;
@@ -2762,7 +3755,7 @@ function getMovePathFromSnapshot(row, col, direction, tileCount, movingUnit, sta
 
     if (
       !isGridPosition(nextRow, nextCol) ||
-      (blockingUnit && blockingUnit !== movingUnit)
+      isSnapshotMoveBlockedByUnit(blockingUnit, movingUnit, ignoredBlockingUnits)
     ) {
       break;
     }
@@ -2773,6 +3766,14 @@ function getMovePathFromSnapshot(row, col, direction, tileCount, movingUnit, sta
   }
 
   return path;
+}
+
+function isSnapshotMoveBlockedByUnit(blockingUnit, movingUnit, ignoredBlockingUnits) {
+  return (
+    blockingUnit &&
+    blockingUnit !== movingUnit &&
+    !ignoredBlockingUnits.has(blockingUnit)
+  );
 }
 
 function stopMovePlansBeforePathCollisions(movePlans, startStates) {
@@ -2826,6 +3827,10 @@ function getPathStep(path, step) {
   return path[Math.min(step, path.length - 1)];
 }
 
+function getPathThroughStep(path, step) {
+  return path.slice(0, Math.max(1, step + 1));
+}
+
 function getPathStepOrStart(path, step, startState) {
   if (step < 0) {
     return { row: startState.row, col: startState.col };
@@ -2846,6 +3851,10 @@ function getGridPositionKey(row, col) {
 
 function getBlockingUnitAtSnapshotPosition(row, col, startStates) {
   return units.find((unit) => {
+    if (!isUnitActive(unit)) {
+      return false;
+    }
+
     const startState = startStates.get(unit);
 
     return (
@@ -2996,8 +4005,17 @@ function shakeArenaSoon() {
   }, 600);
 }
 
-function moveUnitToTile(unit, row, col, { direction = null, shouldUpdateButtons = false } = {}) {
-  const blockingUnit = getBlockingUnitAtPosition(row, col);
+function moveUnitToTile(
+  unit,
+  row,
+  col,
+  {
+    direction = null,
+    shouldUpdateButtons = false,
+    skipBlockingCheck = false,
+  } = {},
+) {
+  const blockingUnit = skipBlockingCheck ? null : getBlockingUnitAtPosition(row, col);
 
   if (blockingUnit && blockingUnit !== unit) {
     return Promise.resolve(false);
@@ -3013,11 +4031,12 @@ function moveUnitToTile(unit, row, col, { direction = null, shouldUpdateButtons 
   const deltaY = target.y - start.y;
   const distance = Math.hypot(deltaX, deltaY);
   const duration = Math.max(180, (distance / PLAYER_MOVE_SPEED) * 1000);
+  const moveAnimation = getUnitAnimation(unit, "run") ?? getUnitAnimation(unit, "walk") ?? getUnitAnimation(unit, "idle");
   const minRunAnimationDuration =
-    wolfAnimations.run.frameMs * PLAYER_MOVE_ANIMATION_MIN_VISIBLE_FRAMES;
+    moveAnimation.frameMs * PLAYER_MOVE_ANIMATION_MIN_VISIBLE_FRAMES;
   const runAnimationStopAt = Math.max(
     minRunAnimationDuration,
-    duration - wolfAnimations.run.frameMs * PLAYER_MOVE_ANIMATION_STOP_EARLY_FRAMES,
+    duration - moveAnimation.frameMs * PLAYER_MOVE_ANIMATION_STOP_EARLY_FRAMES,
   );
   const startedAt = performance.now();
   let hasStoppedRunAnimation = false;
@@ -3030,14 +4049,14 @@ function moveUnitToTile(unit, row, col, { direction = null, shouldUpdateButtons 
   unit.row = row;
   unit.col = col;
   updatePlayerTileLabels();
-  updateWolfDepth(unit);
+  updateUnitDepth(unit);
 
   if (unit === getSelectedPlayerUnit()) {
     updatePlayerMovePreview();
     updateActiveDirection(unit.direction);
   }
 
-  playWolfAnimation(unit, "run", shouldUpdateButtons);
+  playUnitAnimation(unit, isUnitAnimationSupported(unit, "run") ? "run" : "walk", shouldUpdateButtons);
 
   return new Promise((resolve) => {
     const move = (timestamp) => {
@@ -3047,11 +4066,11 @@ function moveUnitToTile(unit, row, col, { direction = null, shouldUpdateButtons 
       const x = start.x + deltaX * easedProgress;
       const y = start.y + deltaY * easedProgress;
 
-      setWolfPosition(unit, x, y);
+      setUnitPosition(unit, x, y);
 
       if (!hasStoppedRunAnimation && elapsed >= runAnimationStopAt) {
         hasStoppedRunAnimation = true;
-        playWolfAnimation(unit, "idle", shouldUpdateButtons);
+        playUnitAnimation(unit, "idle", shouldUpdateButtons);
       }
 
       if (progress < 1) {
@@ -3060,7 +4079,7 @@ function moveUnitToTile(unit, row, col, { direction = null, shouldUpdateButtons 
       }
 
       unit.movementFrameRequest = null;
-      setWolfPosition(unit, target.x, target.y);
+      setUnitPosition(unit, target.x, target.y);
       updateActionQueueControls();
       resolve(true);
     };
@@ -3092,20 +4111,85 @@ function getDevTestCombatants() {
   ];
 }
 
+function clampArenaSize(value) {
+  const parsedValue = Number(value);
+
+  if (!Number.isFinite(parsedValue)) {
+    return GRID_SIZE;
+  }
+
+  return Math.min(MAX_GRID_SIZE, Math.max(MIN_GRID_SIZE, Math.round(parsedValue)));
+}
+
+function clampGridCoordinate(value) {
+  return Math.min(GRID_SIZE - 1, Math.max(0, value));
+}
+
+function getDefaultDevUnitSetup(team, role = "primary") {
+  const centerCol = clampGridCoordinate(Math.floor((GRID_SIZE - 1) / 2));
+  const roleOffsets = {
+    primary: 0,
+    support: team === "player" ? -2 : 2,
+    flank: team === "player" ? 3 : -3,
+  };
+  const col = clampGridCoordinate(centerCol + (roleOffsets[role] ?? 0));
+
+  return {
+    row: team === "player" ? GRID_SIZE - 1 : 0,
+    col,
+    direction: team === "player" ? "topRight" : "bottomLeft",
+  };
+}
+
+function setUnitType(unit, type) {
+  const nextType = unitDefinitions[type] ? type : DEFAULT_UNIT_TYPE;
+
+  if (unit.type === nextType) {
+    return;
+  }
+
+  stopUnitAnimation(unit);
+  unit.type = nextType;
+  unit.animationName = "idle";
+}
+
+function setUnitActive(unit, isActive) {
+  unit.isActive = isActive;
+  unit.element.hidden = !isActive;
+
+  if (!isActive) {
+    stopUnitAnimation(unit);
+    clearUnitActionQueue(unit);
+
+    if (unit.healthBar) {
+      unit.healthBar.hidden = true;
+    }
+
+    if (unit.intentTags) {
+      unit.intentTags.hidden = true;
+    }
+  }
+}
+
 function resetUnitForDev(unit, setup = {}) {
-  const row = setup.row ?? unit.row;
-  const col = setup.col ?? unit.col;
+  const type = setup.type ?? unit.type ?? DEFAULT_UNIT_TYPE;
+  const isActive = setup.isActive ?? setup.active ?? unit.isActive ?? true;
+  const row = clampGridCoordinate(setup.row ?? unit.row);
+  const col = clampGridCoordinate(setup.col ?? unit.col);
   const direction = setup.direction ?? unit.direction;
   const movementMode = setup.movementMode ?? unit.movementMode ?? DEFAULT_PLAYER_MOVEMENT_MODE;
   const health = setup.health ?? UNIT_MAX_HEALTH;
   const anchor = getTileAnchor(row, col);
+
+  setUnitType(unit, type);
+  setUnitActive(unit, isActive);
 
   if (unit.movementFrameRequest !== null) {
     cancelAnimationFrame(unit.movementFrameRequest);
     unit.movementFrameRequest = null;
   }
 
-  stopWolfAnimation(unit);
+  stopUnitAnimation(unit);
   unit.element.classList.remove("is-hit");
   unit.row = row;
   unit.col = col;
@@ -3113,20 +4197,32 @@ function resetUnitForDev(unit, setup = {}) {
   unit.movementMode = movementMode;
   unit.health = Math.max(0, Math.min(unit.maxHealth, health));
   unit.isDefeated = unit.health === 0;
+  unit.isFleeing = false;
+  unit.packObjective = null;
   unit.hasPlayedDeathAnimation = false;
   unit.deathAnimationPromise = null;
   clearUnitActionQueue(unit);
-  setWolfPosition(unit, anchor.x, anchor.y);
-  updateWolfDepth(unit);
+  setUnitPosition(unit, anchor.x, anchor.y);
+  updateUnitDepth(unit);
   updateUnitHealthBar(unit);
 
+  if (!isActive) {
+    return;
+  }
+
   if (unit.isDefeated) {
-    setWolfAnimationSprite(unit, "death");
-    setWolfFrame(unit, wolfAnimations.death.frames - 1, WOLF_DIRECTIONS[unit.direction]);
-    unit.animationName = "death";
-    unit.hasPlayedDeathAnimation = true;
+    if (isUnitAnimationSupported(unit, "death")) {
+      setUnitAnimationSprite(unit, "death");
+      setUnitFrame(unit, getUnitAnimation(unit, "death").frames - 1);
+      unit.animationName = "death";
+      unit.hasPlayedDeathAnimation = true;
+    } else {
+      unit.element.hidden = true;
+      unit.animationName = "idle";
+      unit.hasPlayedDeathAnimation = true;
+    }
   } else {
-    playWolfAnimation(unit, "idle", unit === player);
+    playUnitAnimation(unit, "idle", unit === getDevPreviewUnit());
   }
 
   if (unit === getSelectedPlayerUnit()) {
@@ -3134,46 +4230,67 @@ function resetUnitForDev(unit, setup = {}) {
   }
 }
 
-function resetDevTest(playerSetup = {}, enemySetup = {}, playerSupportSetup = null, enemySupportSetup = null) {
+function resetDevTest(
+  playerSetup = {},
+  enemySetup = {},
+  playerSupportSetup = null,
+  enemySupportSetup = null,
+  playerFlankSetup = null,
+  enemyFlankSetup = null,
+) {
+  const isStagMode = enemyMode === "stag";
+
   isExecutingActionQueue = false;
   clearEnemyPackActionQueue();
+  enemyPackFocusTarget = null;
   setPlayerSelected(null);
   resetUnitForDev(player, {
-    row: 9,
-    col: 4,
-    direction: "topRight",
+    ...getDefaultDevUnitSetup("player"),
     movementMode: DEFAULT_PLAYER_MOVEMENT_MODE,
     health: UNIT_MAX_HEALTH,
     ...playerSetup,
   });
   resetUnitForDev(playerSupport, {
-    row: 9,
-    col: 2,
-    direction: "topRight",
+    ...getDefaultDevUnitSetup("player", "support"),
     movementMode: DEFAULT_PLAYER_MOVEMENT_MODE,
     health: UNIT_MAX_HEALTH,
     ...(playerSupportSetup ?? {}),
   });
+  resetUnitForDev(playerFlank, {
+    ...getDefaultDevUnitSetup("player", "flank"),
+    movementMode: DEFAULT_PLAYER_MOVEMENT_MODE,
+    health: UNIT_MAX_HEALTH,
+    ...(playerFlankSetup ?? {}),
+  });
   resetUnitForDev(enemy, {
-    row: 0,
-    col: 4,
-    direction: "bottomLeft",
+    ...getDefaultDevUnitSetup("enemy"),
+    type: isStagMode ? "stag" : "wolf",
+    isActive: true,
     health: UNIT_MAX_HEALTH,
     ...enemySetup,
   });
   resetUnitForDev(enemySupport, {
-    row: 0,
-    col: 6,
-    direction: "bottomLeft",
+    ...getDefaultDevUnitSetup("enemy", "support"),
+    type: "wolf",
+    isActive: !isStagMode,
     health: UNIT_MAX_HEALTH,
     ...(enemySupportSetup ?? {}),
   });
+  resetUnitForDev(enemyFlank, {
+    ...getDefaultDevUnitSetup("enemy", "flank"),
+    type: "wolf",
+    isActive: !isStagMode,
+    health: UNIT_MAX_HEALTH,
+    ...(enemyFlankSetup ?? {}),
+  });
   updatePlayerTileLabels();
-  updateActiveDirection(player.direction);
+  updateActiveDirection(getDevPreviewUnit().direction);
   renderActionQueue(getSelectedPlayerUnit());
   renderUnitIntentTags(enemy);
   renderUnitIntentTags(enemySupport);
+  renderUnitIntentTags(enemyFlank);
   updatePlayerActionControls();
+  updateAnimationControls();
 
   return getDevTestState();
 }
@@ -3196,7 +4313,7 @@ function queueDevTestActions(playerActions = [], enemyActions = []) {
 }
 
 function queueDevTestPackActions(packActions = []) {
-  const unitMap = { player, playerSupport, enemy, enemySupport };
+  const unitMap = { player, playerSupport, playerFlank, enemy, enemySupport, enemyFlank };
 
   clearEnemyPackActionQueue();
   units.forEach((unit) => {
@@ -3224,6 +4341,7 @@ async function runDevTestTick() {
     isExecutingActionQueue = false;
     updatePlayerActionControls();
     updateActionQueueControls();
+    syncEnemyModeControls();
   }
 
   return getDevTestState();
@@ -3246,6 +4364,7 @@ async function runDevTestTurn() {
     renderEnemyPackIntentTags();
     updatePlayerActionControls();
     updateActionQueueControls();
+    syncEnemyModeControls();
 
     if (!hasAliveUnitsByTeam("player")) {
       showGameResult(false);
@@ -3259,22 +4378,29 @@ async function runDevTestTurn() {
 
 function getDevTestUnitState(unit) {
   return {
+    type: unit.type,
+    isActive: isUnitActive(unit),
     row: unit.row,
     col: unit.col,
     direction: unit.direction,
     health: unit.health,
     isDefeated: unit.isDefeated,
     animationName: unit.animationName,
+    zIndex: Number(unit.element.style.zIndex || 0),
     actionQueue: [...getUnitActionQueue(unit)],
   };
 }
 
 function getDevTestState() {
   return {
+    gridSize: GRID_SIZE,
+    enemyMode,
     player: getDevTestUnitState(player),
     playerSupport: getDevTestUnitState(playerSupport),
+    playerFlank: getDevTestUnitState(playerFlank),
     enemy: getDevTestUnitState(enemy),
     enemySupport: getDevTestUnitState(enemySupport),
+    enemyFlank: getDevTestUnitState(enemyFlank),
     playerQueuedActionTotal: getQueuedPlayerActionTotal(),
     enemyPackQueue: enemyPackActionQueue.map((entry) => ({
       action: entry.action,
@@ -3414,7 +4540,7 @@ const DEV_TEST_SCENARIOS = [
       return runDevTestTick();
     },
     expect: (state) => (
-      state.player.row === 5 &&
+      state.player.row === 4 &&
       state.player.col === 4 &&
       state.enemy.row === 3 &&
       state.enemy.col === 4
@@ -3436,6 +4562,130 @@ const DEV_TEST_SCENARIOS = [
       state.player.col === 4 &&
       state.enemy.row === 4 &&
       state.enemy.col === 4
+    ),
+  },
+  {
+    id: "friendly-follow-vacated",
+    label: "Follow vacated tile",
+    run: async () => {
+      resetDevTest(
+        { row: 8, col: 4, direction: "topRight", movementMode: "Hunt" },
+        { row: 0, col: 4, direction: "bottomLeft" },
+        { row: 9, col: 4, direction: "topRight", movementMode: "Hunt" },
+        { health: 0 },
+      );
+      getUnitActionQueue(player).push("Move");
+      getUnitActionQueue(playerSupport).push("Move");
+      return runDevTestTick();
+    },
+    expect: (state) => (
+      state.player.row === 5 &&
+      state.player.col === 4 &&
+      state.playerSupport.row === 6 &&
+      state.playerSupport.col === 4
+    ),
+  },
+  {
+    id: "friendly-stationary-blocker",
+    label: "Stationary blocker",
+    run: async () => {
+      resetDevTest(
+        { row: 8, col: 4, direction: "topRight", movementMode: "Hunt" },
+        { row: 0, col: 4, direction: "bottomLeft" },
+        { row: 9, col: 4, direction: "topRight", movementMode: "Hunt" },
+        { health: 0 },
+      );
+      getUnitActionQueue(playerSupport).push("Move");
+      return runDevTestTick();
+    },
+    expect: (state) => (
+      state.player.row === 8 &&
+      state.player.col === 4 &&
+      state.playerSupport.row === 9 &&
+      state.playerSupport.col === 4
+    ),
+  },
+  {
+    id: "same-tile-contest-partial",
+    label: "Same-tile contest",
+    run: async () => {
+      resetDevTest(
+        { row: 8, col: 4, direction: "topRight", movementMode: "Hunt" },
+        { row: 2, col: 4, direction: "bottomLeft" },
+        {},
+        { health: 0 },
+      );
+      queueDevTestActions(["Move"], ["Move"]);
+      return runDevTestTick();
+    },
+    expect: (state) => (
+      state.player.row === 5 &&
+      state.player.col === 4 &&
+      state.enemy.row === 4 &&
+      state.enemy.col === 4
+    ),
+  },
+  {
+    id: "approach-contest-player-wins",
+    label: "Approach contest",
+    run: async () => {
+      resetDevTest(
+        { row: 5, col: 4, direction: "topRight", movementMode: "Hunt" },
+        { row: 3, col: 4, direction: "bottomLeft" },
+        {},
+        { health: 0 },
+      );
+      queueDevTestActions(["Move"], ["Move"]);
+      return runDevTestTick();
+    },
+    expect: (state) => (
+      state.player.row === 4 &&
+      state.player.col === 4 &&
+      state.enemy.row === 3 &&
+      state.enemy.col === 4
+    ),
+  },
+  {
+    id: "approach-contest-attack",
+    label: "Approach + attack",
+    run: async () => {
+      resetDevTest(
+        { row: 5, col: 4, direction: "topRight", movementMode: "Hunt" },
+        { row: 3, col: 4, direction: "bottomLeft" },
+        {},
+        { health: 0 },
+      );
+      queueDevTestActions(["Move", "Attack"], ["Move", "Attack"]);
+      return runDevTestTurn();
+    },
+    expect: (state) => (
+      state.player.row === 4 &&
+      state.player.col === 4 &&
+      state.enemy.row === 3 &&
+      state.enemy.col === 4 &&
+      state.player.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE &&
+      state.enemy.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE
+    ),
+  },
+  {
+    id: "hunt-flanks-friendly-blocker",
+    label: "Hunt flanks blocker",
+    run: async () => {
+      resetDevTest(
+        { row: 4, col: 4, direction: "topRight", movementMode: "Hunt" },
+        { row: 3, col: 4, direction: "bottomLeft" },
+        { row: 8, col: 4, direction: "topRight", movementMode: "Hunt" },
+        { health: 0 },
+      );
+      getUnitActionQueue(playerSupport).push("Move", "Move", "Attack");
+      return runDevTestTurn();
+    },
+    expect: (state) => (
+      state.player.row === 4 &&
+      state.player.col === 4 &&
+      state.playerSupport.row === 4 &&
+      (state.playerSupport.col === 3 || state.playerSupport.col === 5) &&
+      state.enemy.health === UNIT_MAX_HEALTH - UNIT_ATTACK_DAMAGE
     ),
   },
   {
@@ -3539,6 +4789,24 @@ const DEV_TEST_SCENARIOS = [
       state.player.health === 0 &&
       state.player.isDefeated &&
       state.enemy.health === 10
+    ),
+  },
+  {
+    id: "corpse-layer",
+    label: "Corpse layer",
+    run: async () => {
+      resetDevTest(
+        { row: 5, col: 4, direction: "topRight" },
+        { row: 5, col: 4, direction: "bottomLeft", health: 0, type: "wolf" },
+      );
+      return getDevTestState();
+    },
+    expect: (state) => (
+      state.player.row === state.enemy.row &&
+      state.player.col === state.enemy.col &&
+      !state.player.isDefeated &&
+      state.enemy.isDefeated &&
+      state.player.zIndex > state.enemy.zIndex
     ),
   },
   {
@@ -3705,6 +4973,20 @@ const DEV_TEST_SCENARIOS = [
   },
 ];
 
+const INTERACTION_DEV_TEST_SCENARIO_IDS = [
+  "friendly-follow-vacated",
+  "friendly-stationary-blocker",
+  "same-tile-contest-partial",
+  "approach-contest-player-wins",
+  "approach-contest-attack",
+  "hunt-flanks-friendly-blocker",
+  "crossing-paths",
+  "adjacent-swap",
+  "corpse-layer",
+  "post-move-contact",
+  "intent-target-fallback",
+];
+
 async function runDevTestScenario(scenarioId) {
   const scenario = DEV_TEST_SCENARIOS.find((item) => item.id === scenarioId);
 
@@ -3742,42 +5024,245 @@ function setupDevTestControls() {
     return;
   }
 
-  const buttons = DEV_TEST_SCENARIOS.map((scenario) => {
+  const scenarios = getInteractionDevTestScenarios();
+  const buttons = scenarios.map((scenario) => {
     const button = document.createElement("button");
 
     button.type = "button";
     button.className = "ui-button dev-test-button";
-    button.textContent = scenario.label;
     button.dataset.devTestScenario = scenario.id;
+
+    const labelSpan = document.createElement("span");
+    labelSpan.textContent = scenario.label;
+
+    const indicatorSpan = document.createElement("span");
+    indicatorSpan.className = "dev-test-indicator";
+
+    button.append(labelSpan, indicatorSpan);
+
     button.addEventListener("click", async () => {
       if (isExecutingActionQueue) {
         return;
       }
 
       setDevTestStatus(`Running ${scenario.label}...`);
-      devTestScenariosList.querySelectorAll("button").forEach((item) => {
-        item.disabled = true;
-      });
+      setDevTestButtonsDisabled(true);
 
       try {
         const result = await runDevTestScenario(scenario.id);
+        setDevTestButtonResult(button, indicatorSpan, result.passed);
         setDevTestStatus(
           `${result.passed ? "PASS" : "FAIL"}: ${scenario.label}`,
           result.passed ? "is-pass" : "is-fail",
         );
       } catch (error) {
+        setDevTestButtonResult(button, indicatorSpan, false);
         setDevTestStatus(`ERROR: ${error.message}`, "is-fail");
       } finally {
-        devTestScenariosList.querySelectorAll("button").forEach((item) => {
-          item.disabled = false;
-        });
+        setDevTestButtonsDisabled(false);
       }
     });
 
     return button;
   });
 
-  devTestScenariosList.replaceChildren(...buttons);
+  const runAllButton = createRunAllInteractionChecksButton(buttons, scenarios);
+  const toolbar = document.createElement("div");
+
+  toolbar.className = "dev-test-toolbar";
+  toolbar.append(runAllButton);
+  devTestScenariosList.replaceChildren(toolbar, ...buttons);
+}
+
+function getInteractionDevTestScenarios() {
+  return INTERACTION_DEV_TEST_SCENARIO_IDS
+    .map((scenarioId) => DEV_TEST_SCENARIOS.find((scenario) => scenario.id === scenarioId))
+    .filter(Boolean);
+}
+
+function createRunAllInteractionChecksButton(buttons, scenarios) {
+  const button = document.createElement("button");
+
+  button.type = "button";
+  button.className = "ui-button dev-test-run-all";
+  button.textContent = "Run all";
+
+  button.addEventListener("click", async () => {
+    if (isExecutingActionQueue) {
+      return;
+    }
+
+    setDevTestStatus("Running interaction checks...");
+    setDevTestButtonsDisabled(true);
+    clearDevTestButtonResults(buttons);
+
+    let failedResult = null;
+
+    try {
+      for (let index = 0; index < scenarios.length; index += 1) {
+        const scenario = scenarios[index];
+        const scenarioButton = buttons[index];
+        const indicator = scenarioButton.querySelector(".dev-test-indicator");
+
+        setDevTestStatus(`Running ${scenario.label}...`);
+
+        try {
+          const result = await runDevTestScenario(scenario.id);
+
+          setDevTestButtonResult(scenarioButton, indicator, result.passed);
+
+          if (!result.passed && !failedResult) {
+            failedResult = result;
+          }
+        } catch (error) {
+          setDevTestButtonResult(scenarioButton, indicator, false);
+          failedResult = {
+            label: scenario.label,
+            passed: false,
+            error,
+          };
+          break;
+        }
+      }
+
+      if (failedResult) {
+        const errorSuffix = failedResult.error ? `: ${failedResult.error.message}` : "";
+
+        setDevTestStatus(`FAIL: ${failedResult.label}${errorSuffix}`, "is-fail");
+        return;
+      }
+
+      setDevTestStatus(`PASS: ${scenarios.length} interaction checks`, "is-pass");
+    } finally {
+      setDevTestButtonsDisabled(false);
+    }
+  });
+
+  return button;
+}
+
+function clearDevTestButtonResults(buttons) {
+  buttons.forEach((button) => {
+    const indicator = button.querySelector(".dev-test-indicator");
+
+    button.classList.remove("is-pass", "is-fail");
+
+    if (indicator) {
+      indicator.textContent = "";
+    }
+  });
+}
+
+function setDevTestButtonResult(button, indicator, passed) {
+  button.classList.remove("is-pass", "is-fail");
+  button.classList.add(passed ? "is-pass" : "is-fail");
+
+  if (indicator) {
+    indicator.textContent = passed ? "✓" : "✗";
+  }
+}
+
+function setDevTestButtonsDisabled(disabled) {
+  devTestScenariosList.querySelectorAll("button").forEach((button) => {
+    button.disabled = disabled;
+  });
+}
+
+function syncArenaSizeControl(message = "") {
+  if (arenaSizeInput) {
+    arenaSizeInput.min = String(MIN_GRID_SIZE);
+    arenaSizeInput.max = String(MAX_GRID_SIZE);
+    arenaSizeInput.value = String(GRID_SIZE);
+  }
+
+  if (arenaSizeStatus) {
+    arenaSizeStatus.textContent = message || `${GRID_SIZE} x ${GRID_SIZE} tiles`;
+  }
+}
+
+function setArenaTileCount(tileCount) {
+  if (isExecutingActionQueue || hasMovingPlayerUnits()) {
+    syncArenaSizeControl("Wait for movement to finish");
+    return false;
+  }
+
+  const nextGridSize = clampArenaSize(tileCount);
+
+  if (nextGridSize === GRID_SIZE) {
+    syncArenaSizeControl(`${GRID_SIZE} x ${GRID_SIZE} tiles`);
+    return true;
+  }
+
+  GRID_SIZE = nextGridSize;
+  updateArenaMetrics();
+  setHoveredTile(null);
+  setPlayerSelected(null);
+  buildArena();
+  resetDevTest();
+  refillAvailableActions();
+  updateEnemyIntentPreview();
+  resizeArena();
+  syncArenaSizeControl(`${GRID_SIZE} x ${GRID_SIZE} tiles`);
+  return true;
+}
+
+function setupArenaSizeControls() {
+  syncArenaSizeControl();
+
+  if (!arenaSizeInput || !applyArenaSizeButton) {
+    return;
+  }
+
+  applyArenaSizeButton.addEventListener("click", () => {
+    setArenaTileCount(arenaSizeInput.value);
+  });
+
+  arenaSizeInput.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+    setArenaTileCount(arenaSizeInput.value);
+  });
+}
+
+function syncEnemyModeControls() {
+  enemyModeButtons.forEach((button) => {
+    const isActive = button.dataset.enemyMode === enemyMode;
+
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+    button.disabled = isExecutingActionQueue;
+  });
+}
+
+function setEnemyMode(nextMode) {
+  if (isExecutingActionQueue || !ENEMY_MODES.includes(nextMode)) {
+    syncEnemyModeControls();
+    return false;
+  }
+
+  enemyMode = nextMode;
+  setPlayerSelected(null);
+  resetDevTest();
+  buildArena();
+  updateEnemyIntentPreview();
+  updatePlayerActionControls();
+  updateActiveDirection(getDevPreviewUnit().direction);
+  updateAnimationControls();
+  syncEnemyModeControls();
+  return true;
+}
+
+function setupEnemyModeControls() {
+  syncEnemyModeControls();
+
+  enemyModeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      setEnemyMode(button.dataset.enemyMode);
+    });
+  });
 }
 
 window.devTest = {
@@ -3788,6 +5273,8 @@ window.devTest = {
   runTurn: runDevTestTurn,
   runScenario: runDevTestScenario,
   scenarios: DEV_TEST_SCENARIOS.map(({ id, label }) => ({ id, label })),
+  setEnemyMode,
+  setArenaSize: setArenaTileCount,
   state: getDevTestState,
 };
 
@@ -3837,11 +5324,11 @@ function isEnemyTile(tile) {
 }
 
 function isEnemyPosition(row, col) {
-  return units.some((unit) => unit.team === "enemy" && unit.row === row && unit.col === col);
+  return units.some((unit) => isUnitAlive(unit) && unit.team === "enemy" && unit.row === row && unit.col === col);
 }
 
 function isFriendlyPosition(row, col) {
-  return units.some((unit) => unit.team === "player" && unit.row === row && unit.col === col);
+  return units.some((unit) => isUnitAlive(unit) && unit.team === "player" && unit.row === row && unit.col === col);
 }
 
 function setDevToolsEnabled(enabled) {
@@ -3902,35 +5389,52 @@ function handleTileIntent(tile) {
 
 animationButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    const unit = getSelectedPlayerUnit() ?? player;
-    playWolfAnimation(unit, button.dataset.animation, unit === player);
+    const unit = getDevPreviewUnit();
+    playUnitAnimation(unit, button.dataset.animation, true);
   });
 });
 
 directionButtons.forEach((button) => {
   button.addEventListener("click", () => {
-    const unit = getSelectedPlayerUnit() ?? player;
+    const unit = getDevPreviewUnit();
     unit.direction = button.dataset.direction;
     updateActiveDirection(unit.direction);
-    playWolfAnimation(unit, unit.animationName, unit === player);
-    updatePlayerMovePreview();
+    playUnitAnimation(unit, unit.animationName, true);
+    if (unit.team === "player") {
+      updatePlayerMovePreview();
+    }
   });
 });
 
+const devRotateButton = document.getElementById("dev-rotate");
+if (devRotateButton) {
+  devRotateButton.addEventListener("click", () => rotateDevPreviewUnitClockwise());
+}
+
 buildArena();
 refillAvailableActions();
+updateReshuffleControl();
 renderActionQueue(getSelectedPlayerUnit());
 resizeArena();
 updatePlayerTileLabels();
 updateActiveDirection(player.direction);
 setupDevTestControls();
+setupArenaSizeControls();
+setupEnemyModeControls();
 updateEnemyIntentPreview();
+updateAnimationControls();
 units.forEach((unit) => {
-  playWolfAnimation(unit, "idle", unit === player);
+  if (isUnitActive(unit)) {
+    playUnitAnimation(unit, "idle", unit === getDevPreviewUnit());
+  }
 });
 
 if (executeQueueButton) {
   executeQueueButton.addEventListener("click", executePlayerActionQueue);
+}
+
+if (reshuffleButton) {
+  reshuffleButton.addEventListener("click", reshuffleActions);
 }
 
 if (restartButton) {
@@ -3980,7 +5484,7 @@ arena.addEventListener("click", (event) => {
 
   const selectedUnit = getSelectedPlayerUnit();
 
-  if (selectedUnit && isPointerInsideWolf(selectedUnit, event)) {
+  if (selectedUnit && isPointerInsideUnit(selectedUnit, event)) {
     setPlayerSelected(null);
     event.stopPropagation();
     return;
