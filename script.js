@@ -1897,6 +1897,76 @@ function getGridDistance(rowA, colA, rowB, colB) {
   return Math.abs(rowA - rowB) + Math.abs(colA - colB);
 }
 
+// Orthogonal steps for the walkable BFS. 4-neighbour is deliberate: on open
+// ground the step-count equals Manhattan distance, so movement away from
+// obstacles is identical to the old getGridDistance scoring — only tiles whose
+// shortest walkable route bends around water get a higher number.
+const WALKABLE_FIELD_DELTAS = [
+  { row: -1, col: 0 },
+  { row: 1, col: 0 },
+  { row: 0, col: -1 },
+  { row: 0, col: 1 },
+];
+
+// Flood the walkable board from (targetRow, targetCol) and return a size×size
+// grid of step-counts to the target. Walls are pond tiles and board edges ONLY
+// — units are NOT walls (movement resolution handles unit collisions; treating
+// units as distance-walls causes odd mutual avoidance). Unreached tiles stay
+// Infinity. Used so the move scorer can route units around impassable terrain
+// instead of stalling in a local Manhattan minimum.
+function buildWalkableDistanceField(targetRow, targetCol, size = GRID_SIZE) {
+  const field = Array.from({ length: size }, () => new Array(size).fill(Infinity));
+
+  if (
+    targetRow < 0 ||
+    targetRow >= size ||
+    targetCol < 0 ||
+    targetCol >= size ||
+    isPondTile(targetRow, targetCol)
+  ) {
+    return field;
+  }
+
+  field[targetRow][targetCol] = 0;
+  let frontier = [{ row: targetRow, col: targetCol }];
+
+  while (frontier.length > 0) {
+    const nextFrontier = [];
+
+    frontier.forEach(({ row, col }) => {
+      const nextDistance = field[row][col] + 1;
+
+      WALKABLE_FIELD_DELTAS.forEach((delta) => {
+        const nextRow = row + delta.row;
+        const nextCol = col + delta.col;
+
+        if (
+          nextRow < 0 ||
+          nextRow >= size ||
+          nextCol < 0 ||
+          nextCol >= size ||
+          isPondTile(nextRow, nextCol) ||
+          field[nextRow][nextCol] <= nextDistance
+        ) {
+          return;
+        }
+
+        field[nextRow][nextCol] = nextDistance;
+        nextFrontier.push({ row: nextRow, col: nextCol });
+      });
+    });
+
+    frontier = nextFrontier;
+  }
+
+  return field;
+}
+
+// Safe lookup into a walkable distance field; off-field tiles read as Infinity.
+function getFieldDistance(field, row, col) {
+  return field?.[row]?.[col] ?? Infinity;
+}
+
 function getBestMoveDirectionToward(row, col, targetRow, targetCol, planningUnit) {
   const currentDistance = getGridDistance(row, col, targetRow, targetCol);
   let bestDirection = null;
@@ -3815,12 +3885,12 @@ function getUnitMoveContext(
   { ignoredBlockingUnits = new Set() } = {},
 ) {
   const startState = startStates.get(movingUnit);
-  const currentDistance = getGridDistance(
-    startState.row,
-    startState.col,
-    targetStartState.row,
-    targetStartState.col,
-  );
+  // Walkable BFS field rooted at the target. Both currentDistance and every
+  // candidate.distance read from THIS field so comparisons stay consistent —
+  // this is what lets a unit route around water instead of freezing in front
+  // of it (a detour tile genuinely scores closer than the blocked start tile).
+  const distanceField = buildWalkableDistanceField(targetStartState.row, targetStartState.col);
+  const currentDistance = getFieldDistance(distanceField, startState.row, startState.col);
   const currentFrontRisk = isEnemyFrontArcPosition(
     startState.row,
     startState.col,
@@ -3835,6 +3905,7 @@ function getUnitMoveContext(
   );
   const candidates = getUnitMoveCandidatesFromSnapshot(movingUnit, targetStartState, startStates, {
     ignoredBlockingUnits,
+    distanceField,
   });
 
   return {
@@ -3853,9 +3924,14 @@ function getUnitMoveCandidatesFromSnapshot(
   movingUnit,
   targetStartState,
   startStates,
-  { ignoredBlockingUnits = new Set() } = {},
+  { ignoredBlockingUnits = new Set(), distanceField = null } = {},
 ) {
   const startState = startStates.get(movingUnit);
+  // Fall back to a freshly-built field if a caller didn't supply one, so this
+  // function stays correct in isolation; getUnitMoveContext passes the shared
+  // field rooted at the same target.
+  const field = distanceField
+    ?? buildWalkableDistanceField(targetStartState.row, targetStartState.col);
   const candidates = [];
 
   MOVEMENT_DIRECTIONS.forEach((direction) => {
@@ -3879,12 +3955,7 @@ function getUnitMoveCandidatesFromSnapshot(
         startState.direction,
       );
       const turnCost = getDirectionTurnCost(startState.direction, facingDirection);
-      const distance = getGridDistance(
-        target.row,
-        target.col,
-        targetStartState.row,
-        targetStartState.col,
-      );
+      const distance = getFieldDistance(field, target.row, target.col);
 
       candidates.push({
         direction: facingDirection,
@@ -6077,6 +6148,73 @@ if (stepHitButton) {
     playerActions: ["Move"],
     enemyActions: ["Attack"],
     status: "Step in → enemy hits (-3)",
+  }));
+}
+
+const pathfindingDemoStatus = document.getElementById("pathfinding-demo-status");
+
+function setPathfindingDemoStatus(message) {
+  if (pathfindingDemoStatus) {
+    pathfindingDemoStatus.textContent = message;
+  }
+}
+
+// Pathfinding demo: drops a mover and its idle target on OPPOSITE sides of the
+// static pond (rows 4-7 / cols 8-11) with the target dead ahead, then runs a
+// full turn so the shared move scorer has to route the mover AROUND the water.
+// Pre-fix the mover froze in front of the pond; post-fix it rounds it.
+const PATHFINDING_DEMO_GRID_SIZE = 18;
+async function runPathfindingDemo({ mover, status }) {
+  if (isExecutingActionQueue) {
+    return;
+  }
+
+  // Force an 18x18 board: at 18 the pond is a free-standing obstacle with open
+  // ground on BOTH sides, so rounding it is a genuine choice (at 12 the pond
+  // hugs the right edge, forcing a one-sided detour). Also keeps the hard-coded
+  // positions on-grid and the pond present.
+  if (GRID_SIZE !== PATHFINDING_DEMO_GRID_SIZE) {
+    setArenaTileCount(PATHFINDING_DEMO_GRID_SIZE);
+  }
+
+  // A single 1v1 pair keeps the routing unit unambiguous (no pack swarm).
+  if (enemyMode !== "wolves") {
+    setEnemyMode("wolves");
+  }
+
+  const inactive = { isActive: false };
+  const below = { row: 8, col: 9, direction: "topRight" }; // south of the pond
+  const above = { row: 3, col: 9, direction: "bottomLeft" }; // north of the pond
+  const queuedMoves = ["Move", "Move", "Move", "Move", "Move"]; // 5 ticks ≈ 15 tiles, ample for the detour
+
+  if (mover === "enemy") {
+    // Enemy wolf (north) hunts the idle player (south) around the pond.
+    resetDevTest(below, above, inactive, inactive, inactive, inactive);
+    queueDevTestActions([], queuedMoves);
+  } else {
+    // Player in Hunt mode (south) chases the idle enemy (north) around the pond.
+    resetDevTest({ ...below, movementMode: "Hunt" }, above, inactive, inactive, inactive, inactive);
+    queueDevTestActions(queuedMoves, []);
+  }
+
+  setPathfindingDemoStatus(`${status} — watch it round the pond…`);
+  await runDevTestTurn();
+  setPathfindingDemoStatus(status);
+}
+
+const pathfindingPlayerButton = document.getElementById("demo-pathfinding-player");
+if (pathfindingPlayerButton) {
+  pathfindingPlayerButton.addEventListener("click", () => runPathfindingDemo({
+    mover: "player",
+    status: "Player Hunt rounds the pond",
+  }));
+}
+
+const pathfindingEnemyButton = document.getElementById("demo-pathfinding-enemy");
+if (pathfindingEnemyButton) {
+  pathfindingEnemyButton.addEventListener("click", () => runPathfindingDemo({
+    mover: "enemy",
+    status: "Enemy AI rounds the pond",
   }));
 }
 
