@@ -1,4 +1,4 @@
-const DEFAULT_GRID_SIZE = 10;
+const DEFAULT_GRID_SIZE = 12;
 const MIN_GRID_SIZE = 4;
 const MAX_GRID_SIZE = 18;
 let GRID_SIZE = DEFAULT_GRID_SIZE;
@@ -170,6 +170,8 @@ const devToolsToggle = document.querySelector("#toggle-dev-tools");
 const debugControls = document.querySelector(".debug-controls");
 const devTestScenariosList = document.querySelector("#dev-test-scenarios");
 const devTestStatus = document.querySelector("#dev-test-status");
+const copyBattleDebugButton = document.querySelector("#copy-battle-debug");
+const battleDebugStatus = document.querySelector("#battle-debug-status");
 const arenaSizeInput = document.querySelector("#arena-size-input");
 const applyArenaSizeButton = document.querySelector("#apply-arena-size");
 const arenaSizeStatus = document.querySelector("#arena-size-status");
@@ -186,13 +188,15 @@ let playerMovePreview = null;
 let playerMovePreviewTile = null;
 let isExecutingActionQueue = false;
 let enemyMode = DEFAULT_ENEMY_MODE;
+let activeBattleDebugLog = null;
+let lastBattleDebugReport = "";
 
 let boardWidth = 0;
 let boardHeight = 0;
 let xOffset = 0;
-const player = createWolf({ row: 9, col: 4, direction: "topRight", team: "player" });
-const playerSupport = createWolf({ row: 9, col: 2, direction: "topRight", team: "player" });
-const playerFlank = createWolf({ row: 9, col: 7, direction: "topRight", team: "player" });
+const player = createWolf({ row: GRID_SIZE - 1, col: 4, direction: "topRight", team: "player" });
+const playerSupport = createWolf({ row: GRID_SIZE - 1, col: 2, direction: "topRight", team: "player" });
+const playerFlank = createWolf({ row: GRID_SIZE - 1, col: 7, direction: "topRight", team: "player" });
 const enemy = createWolf({ row: 0, col: 4, direction: "bottomLeft", team: "enemy" });
 const enemySupport = createWolf({ row: 0, col: 6, direction: "bottomLeft", team: "enemy" });
 const enemyFlank = createWolf({ row: 0, col: 1, direction: "bottomLeft", team: "enemy" });
@@ -2082,13 +2086,32 @@ function getBestEnemyPackAction(
       .map((unit) => {
         const plannedState = plannedStates.get(unit);
 
-        if (!plannedState || !isAdjacentTile(plannedState.row, plannedState.col, focusTarget.row, focusTarget.col)) {
+        if (!plannedState) {
           return null;
         }
 
+        const adjacentTargets = players.filter((playerUnit) => {
+          return isAdjacentTile(plannedState.row, plannedState.col, playerUnit.row, playerUnit.col);
+        });
+
+        if (adjacentTargets.length === 0) {
+          return null;
+        }
+
+        const target = adjacentTargets.includes(focusTarget)
+          ? focusTarget
+          : adjacentTargets.sort((playerUnit, otherPlayerUnit) => {
+            return (
+              playerUnit.health - otherPlayerUnit.health ||
+              getGridDistance(unit.row, unit.col, playerUnit.row, playerUnit.col) -
+                getGridDistance(unit.row, unit.col, otherPlayerUnit.row, otherPlayerUnit.col)
+            );
+          })[0];
+
         return {
           action: "Attack",
-          score: getGridDistance(unit.row, unit.col, focusTarget.row, focusTarget.col) +
+          score: (target === focusTarget ? 0 : 4) +
+            getGridDistance(unit.row, unit.col, target.row, target.col) +
             getPlannedActionCountForUnit(unit, plannedActions) * 5,
           unit,
         };
@@ -2585,6 +2608,212 @@ function applyTurnEndRecovery() {
   });
 }
 
+function getBattleDebugUnitId(unit) {
+  if (unit === player) return "P1";
+  if (unit === playerSupport) return "P2";
+  if (unit === playerFlank) return "P3";
+  if (unit === enemy) return "E1";
+  if (unit === enemySupport) return "E2";
+  if (unit === enemyFlank) return "E3";
+  return unit.team === "player" ? "P?" : "E?";
+}
+
+function getBattleDebugUnitLabel(unit) {
+  if (unit === player) return `lead ${unit.type}`;
+  if (unit === playerSupport) return `support ${unit.type}`;
+  if (unit === playerFlank) return `flank ${unit.type}`;
+  if (unit === enemy) return `enemy ${unit.type}`;
+  if (unit === enemySupport) return `enemy support ${unit.type}`;
+  if (unit === enemyFlank) return `enemy flank ${unit.type}`;
+  return `${unit.team} ${unit.type}`;
+}
+
+function getBattleDebugUnitName(unit) {
+  return `${getBattleDebugUnitId(unit)} ${getBattleDebugUnitLabel(unit)}`;
+}
+
+function formatBattleDebugPosition(position) {
+  return `${position.row},${position.col}`;
+}
+
+function getBattleDebugQueue(unit) {
+  if (unit.team === "enemy") {
+    return enemyPackActionQueue
+      .filter((entry) => entry.unit === unit)
+      .map((entry) => entry.action);
+  }
+
+  return [...getUnitActionQueue(unit)];
+}
+
+function getBattleDebugUnitSnapshot(unit) {
+  return {
+    id: getBattleDebugUnitId(unit),
+    label: getBattleDebugUnitLabel(unit),
+    row: unit.row,
+    col: unit.col,
+    direction: unit.direction,
+    health: unit.health,
+    maxHealth: unit.maxHealth,
+    movementMode: unit.team === "player" ? unit.movementMode : "",
+    isDefeated: unit.isDefeated,
+    queue: getBattleDebugQueue(unit),
+  };
+}
+
+function getBattleDebugUnitSnapshots() {
+  return units
+    .filter(isUnitActive)
+    .map(getBattleDebugUnitSnapshot);
+}
+
+function formatBattleDebugUnitLine(snapshot, { includeQueue = false } = {}) {
+  const defeated = snapshot.isDefeated ? " defeated" : "";
+  const movementMode = snapshot.movementMode ? ` mode ${snapshot.movementMode}` : "";
+  const queue = includeQueue ? ` queue: ${snapshot.queue.length ? snapshot.queue.join(", ") : "-"}` : "";
+
+  return `${snapshot.id} ${snapshot.label} hp ${snapshot.health}/${snapshot.maxHealth}${defeated} at ${formatBattleDebugPosition(snapshot)} facing ${snapshot.direction}${movementMode}${queue}`;
+}
+
+function beginBattleDebugLog() {
+  activeBattleDebugLog = {
+    enemyMode,
+    gridSize: GRID_SIZE,
+    before: getBattleDebugUnitSnapshots(),
+    ticks: [],
+    after: [],
+  };
+}
+
+function recordBattleDebugTick(tickActions, startStates, moveTargets, damageResult) {
+  if (!activeBattleDebugLog) {
+    return;
+  }
+
+  const lines = tickActions.map(({ unit, action }) => {
+    const start = startStates.get(unit);
+    const end = { row: unit.row, col: unit.col };
+    const movement = `${formatBattleDebugPosition(start)} -> ${formatBattleDebugPosition(end)}`;
+
+    if (action === "Move") {
+      return `${getBattleDebugUnitName(unit)} Move ${movement}`;
+    }
+
+    if (action === "Attack") {
+      const hits = damageResult.hits.filter((hit) => hit.attacker === unit);
+      const missed = damageResult.misses.includes(unit);
+
+      if (hits.length > 0) {
+        return hits
+          .map((hit) => `${getBattleDebugUnitName(unit)} Attack ${movement} hit ${getBattleDebugUnitName(hit.target)} for ${hit.damage}`)
+          .join("; ");
+      }
+
+      return `${getBattleDebugUnitName(unit)} Attack ${movement}${missed ? " missed" : " no target"}`;
+    }
+
+    return `${getBattleDebugUnitName(unit)} ${action} ${movement}`;
+  });
+
+  activeBattleDebugLog.ticks.push(lines);
+}
+
+function formatBattleDebugReport(log) {
+  const lines = [
+    "Battle note:",
+    "",
+    "Comment:",
+    "",
+    `Mode: ${log.enemyMode} | Grid: ${log.gridSize}x${log.gridSize}`,
+    "",
+    "Before:",
+    ...log.before.map((snapshot) => formatBattleDebugUnitLine(snapshot, { includeQueue: true })),
+    "",
+    "Actions played:",
+  ];
+
+  if (log.ticks.length === 0) {
+    lines.push("- No actions recorded.");
+  } else {
+    log.ticks.forEach((tickLines, index) => {
+      lines.push(`Tick ${index + 1}: ${tickLines.join(" | ")}`);
+    });
+  }
+
+  lines.push(
+    "",
+    "After:",
+    ...log.after.map((snapshot) => formatBattleDebugUnitLine(snapshot)),
+  );
+
+  return lines.join("\n");
+}
+
+function updateBattleDebugControls(message = "") {
+  if (copyBattleDebugButton) {
+    copyBattleDebugButton.disabled = !lastBattleDebugReport;
+  }
+
+  if (battleDebugStatus) {
+    battleDebugStatus.textContent = message || (lastBattleDebugReport ? "Last turn ready to copy." : "Play a turn to capture a note.");
+  }
+}
+
+function finishBattleDebugLog() {
+  if (!activeBattleDebugLog) {
+    updateBattleDebugControls();
+    return;
+  }
+
+  activeBattleDebugLog.after = getBattleDebugUnitSnapshots();
+  lastBattleDebugReport = formatBattleDebugReport(activeBattleDebugLog);
+  window.lastBattleDebugReport = lastBattleDebugReport;
+  activeBattleDebugLog = null;
+  updateBattleDebugControls("Last turn ready to copy.");
+}
+
+function copyTextWithSelectionFallback(text) {
+  const textarea = document.createElement("textarea");
+
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.top = "-999px";
+  textarea.style.opacity = "0";
+  document.body.append(textarea);
+  textarea.select();
+
+  try {
+    return document.execCommand("copy");
+  } finally {
+    textarea.remove();
+  }
+}
+
+async function copyLastBattleDebugReport() {
+  if (!lastBattleDebugReport) {
+    updateBattleDebugControls("Play a turn first.");
+    return;
+  }
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(lastBattleDebugReport);
+    } else if (!copyTextWithSelectionFallback(lastBattleDebugReport)) {
+      throw new Error("Clipboard copy failed");
+    }
+
+    updateBattleDebugControls("Copied last turn.");
+  } catch (error) {
+    if (copyTextWithSelectionFallback(lastBattleDebugReport)) {
+      updateBattleDebugControls("Copied last turn.");
+      return;
+    }
+
+    updateBattleDebugControls("Copy failed. Report is available as window.lastBattleDebugReport.");
+  }
+}
+
 async function executePlayerActionQueue() {
   if (isExecutingActionQueue || !hasQueuedPlayerActions() || hasMovingPlayerUnits()) {
     updateActionQueueControls();
@@ -2600,6 +2829,7 @@ async function executePlayerActionQueue() {
     clearEnemyPackActionQueue();
     renderEnemyPackIntentTags();
   }
+  beginBattleDebugLog();
   isExecutingActionQueue = true;
   setPlayerSelected(null);
   updatePlayerActionControls();
@@ -2628,6 +2858,7 @@ async function executePlayerActionQueue() {
   } finally {
     isExecutingActionQueue = false;
     applyTurnEndRecovery();
+    finishBattleDebugLog();
     refillAvailableActions();
     renderActionQueue(getSelectedPlayerUnit());
     updateEnemyIntentPreview();
@@ -2746,7 +2977,8 @@ async function executeActionTick(combatants) {
     }
   }));
 
-  await resolveTickDamage(damageIntents);
+  const damageResult = await resolveTickDamage(damageIntents);
+  recordBattleDebugTick(tickActions, startStates, moveTargets, damageResult);
 
   tickActions.forEach(({ renderQueue }) => {
     renderQueue?.();
@@ -4044,6 +4276,11 @@ async function resolveTickDamage(damageIntents) {
 
     return Promise.resolve();
   }));
+
+  return {
+    hits: validIntents.map(({ attacker, target, damage }) => ({ attacker, target, damage })),
+    misses: Array.from(missedAttackers),
+  };
 }
 
 function isAttackDamageStillValid(attacker, target) {
@@ -4566,8 +4803,8 @@ const DEV_TEST_SCENARIOS = [
       return runDevTestTick();
     },
     expect: (state) => (
-      state.player.row === 8 &&
-      state.player.col === 4 &&
+      // Fled out of the starting tile and took no damage.
+      !(state.player.row === 5 && state.player.col === 4) &&
       state.player.health === 10 &&
       state.enemy.health === 10
     ),
@@ -4999,6 +5236,34 @@ const DEV_TEST_SCENARIOS = [
       state.enemyPackFocusTarget !== null &&
       state.enemyPackFocusTarget.row === state.playerSupport.row &&
       state.enemyPackFocusTarget.col === state.playerSupport.col
+    ),
+  },
+  {
+    id: "pack-attack-non-focus-adjacent",
+    label: "Pack: attack non-focus adjacent",
+    run: async () => {
+      resetDevTest(
+        {},
+        { row: 7, col: 2, health: 3 },
+        { health: 1 },
+        { row: 8, col: 4, health: 3 },
+        {},
+        { row: 8, col: 7, health: UNIT_MAX_HEALTH },
+      );
+      planEnemyPackTurn(
+        units.filter((u) => u.team === "enemy"),
+        units.filter((u) => u.team === "player"),
+      );
+      return getDevTestState();
+    },
+    expect: (state) => (
+      state.enemyPackFocusTarget !== null &&
+      state.enemyPackFocusTarget.row === state.playerSupport.row &&
+      state.enemyPackQueue.some((entry) => (
+        entry.action === "Attack" &&
+        entry.unitRow === state.enemyFlank.row &&
+        entry.unitCol === state.enemyFlank.col
+      ))
     ),
   },
   {
@@ -5521,6 +5786,11 @@ if (reshuffleButton) {
 
 if (restartButton) {
   restartButton.addEventListener("click", resetGame);
+}
+
+if (copyBattleDebugButton) {
+  copyBattleDebugButton.addEventListener("click", copyLastBattleDebugReport);
+  updateBattleDebugControls();
 }
 
 actionQueueList.addEventListener("click", (event) => {

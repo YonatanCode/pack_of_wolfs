@@ -10,7 +10,7 @@
 The screen is split into 3 zones:
 
 ### Left/Center: Battlefield
-- Isometric grid battlefield (default 10×10, resizable in dev tools)
+- Isometric grid battlefield with configurable tile dimensions
 - Player units (bottom side), enemy units (top side)
 - Castle on each end
 - Units show HP bars and intent tags (action previews above sprite)

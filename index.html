@@ -50,6 +50,13 @@
           </div>
           <output id="resolution-demo-status" class="dev-inline-status">Watch the popup over the attacker.</output>
         </section>
+        <section class="dev-control-section" aria-label="Battle debug note">
+          <h2>Battle Note</h2>
+          <div class="control-group">
+            <button type="button" id="copy-battle-debug" class="ui-button" disabled>Copy last turn</button>
+          </div>
+          <output id="battle-debug-status" class="battle-debug-status">Play a turn to capture a note.</output>
+        </section>
         <section class="dev-control-section" aria-label="Animation">
           <h2>Animation</h2>
           <div class="control-group">
@@ -78,11 +85,11 @@
           <h2>Arena</h2>
           <label class="dev-field" for="arena-size-input">
             <span>Tiles per side</span>
-            <input type="number" id="arena-size-input" min="4" max="18" step="1" value="10" inputmode="numeric" />
+            <input type="number" id="arena-size-input" min="4" max="18" step="1" value="12" inputmode="numeric" />
           </label>
           <div class="control-group">
             <button type="button" id="apply-arena-size" class="ui-button">Apply</button>
-            <output id="arena-size-status" class="dev-inline-status">10 x 10 tiles</output>
+            <output id="arena-size-status" class="dev-inline-status">12 x 12 tiles</output>
           </div>
         </section>
         <section class="dev-control-section" aria-label="Actions">
