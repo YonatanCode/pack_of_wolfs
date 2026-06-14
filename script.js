@@ -5638,5 +5638,70 @@ if (devToolsToggle) {
   });
 }
 
+// Resolution demos: set up a clean 1v1 and play one tick so you can watch how
+// move-before-attack resolves and whether a "Miss" popup appears over the attacker.
+const resolutionDemoStatus = document.getElementById("resolution-demo-status");
+
+function setResolutionDemoStatus(message) {
+  if (resolutionDemoStatus) {
+    resolutionDemoStatus.textContent = message;
+  }
+}
+
+async function runResolutionDemo({ player: playerSetup, enemy: enemySetup, playerActions = [], enemyActions = [], status }) {
+  if (isExecutingActionQueue) {
+    return;
+  }
+
+  // Guarantee an enemy wolf to attack, and isolate to a single 1v1 pair.
+  if (enemyMode !== "wolves") {
+    setEnemyMode("wolves");
+  }
+
+  const inactive = { isActive: false };
+
+  resetDevTest(playerSetup, enemySetup, inactive, inactive, inactive, inactive);
+  queueDevTestActions(playerActions, enemyActions);
+  setResolutionDemoStatus(`${status} — watch…`);
+  await runDevTestTick();
+  setResolutionDemoStatus(status);
+}
+
+const dodgeMissButton = document.getElementById("demo-dodge-miss");
+if (dodgeMissButton) {
+  dodgeMissButton.addEventListener("click", () => runResolutionDemo({
+    // Player is adjacent, flees (Dodge mode); the enemy's queued attack whiffs.
+    player: { row: 5, col: 4, direction: "bottomLeft", movementMode: "Dodge" },
+    enemy: { row: 4, col: 4, direction: "bottomLeft" },
+    playerActions: ["Move"],
+    enemyActions: ["Attack"],
+    status: 'Dodge → enemy "Miss"',
+  }));
+}
+
+const swingMissButton = document.getElementById("demo-swing-miss");
+if (swingMissButton) {
+  swingMissButton.addEventListener("click", () => runResolutionDemo({
+    // Player swings with no enemy in range → "Miss" over the player.
+    player: { row: 8, col: 4, direction: "topRight" },
+    enemy: { row: 0, col: 4, direction: "bottomLeft" },
+    playerActions: ["Attack"],
+    enemyActions: [],
+    status: 'Swing at air → player "Miss"',
+  }));
+}
+
+const stepHitButton = document.getElementById("demo-step-hit");
+if (stepHitButton) {
+  stepHitButton.addEventListener("click", () => runResolutionDemo({
+    // Player steps into adjacency this tick; the enemy's queued attack connects.
+    player: { row: 8, col: 4, direction: "topRight" },
+    enemy: { row: 4, col: 4, direction: "bottomLeft" },
+    playerActions: ["Move"],
+    enemyActions: ["Attack"],
+    status: "Step in → enemy hits (-3)",
+  }));
+}
+
 window.addEventListener("resize", resizeArena);
 window.addEventListener("resize", positionPlayerActionMenu);
