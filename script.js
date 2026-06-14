@@ -17,6 +17,8 @@ const PLAYER_MOVE_SPEED = 60;
 const PLAYER_MOVE_ANIMATION_STOP_EARLY_FRAMES = 5;
 const PLAYER_MOVE_ANIMATION_MIN_VISIBLE_FRAMES = 2;
 const UNIT_MAX_HEALTH = 10;
+const UNIT_RECOVERY_SAFE_TURNS = 2;
+const UNIT_RECOVERY_HEAL_AMOUNT = 1;
 const UNIT_ATTACK_DAMAGE = 3;
 const UNIT_DEFENDED_DAMAGE = Math.ceil(UNIT_ATTACK_DAMAGE / 3);
 const UNIT_HIT_REACTION_MS = 220;
@@ -437,6 +439,8 @@ function createUnit({
     team,
     health: UNIT_MAX_HEALTH,
     maxHealth: UNIT_MAX_HEALTH,
+    turnsSinceHit: 0,
+    tookDamageThisTurn: false,
     isFleeing: false,
     packObjective: null,
     isDefeated: false,
@@ -1343,6 +1347,24 @@ function showUnitDamagePopup(wolf, damageAmount) {
 
   popup.className = "unit-damage-popup";
   popup.textContent = `-${damageAmount}`;
+  popup.style.left = `${wolf.x}px`;
+  popup.style.top = `${wolf.y}px`;
+  popup.style.zIndex = Number(wolf.element.style.zIndex || 0) + 3;
+  popup.setAttribute("aria-hidden", "true");
+  popup.addEventListener("animationend", () => popup.remove(), { once: true });
+
+  wolf.element.parentElement.append(popup);
+}
+
+function showUnitHealPopup(wolf, healAmount) {
+  if (!wolf.element.parentElement || healAmount <= 0) {
+    return;
+  }
+
+  const popup = document.createElement("div");
+
+  popup.className = "unit-damage-popup unit-heal-popup";
+  popup.textContent = `+${healAmount}`;
   popup.style.left = `${wolf.x}px`;
   popup.style.top = `${wolf.y}px`;
   popup.style.zIndex = Number(wolf.element.style.zIndex || 0) + 3;
@@ -2524,6 +2546,27 @@ function resetGame() {
   updateReshuffleControl();
 }
 
+function applyTurnEndRecovery() {
+  [...getAliveUnitsByTeam("player"), ...getAliveUnitsByTeam("enemy")].forEach((unit) => {
+    if (unit.tookDamageThisTurn) {
+      unit.turnsSinceHit = 0;
+      unit.tookDamageThisTurn = false;
+      return;
+    }
+
+    unit.turnsSinceHit += 1;
+
+    if (unit.turnsSinceHit >= UNIT_RECOVERY_SAFE_TURNS && unit.health < unit.maxHealth) {
+      const previousHealth = unit.health;
+
+      unit.health = Math.min(unit.maxHealth, unit.health + UNIT_RECOVERY_HEAL_AMOUNT);
+      unit.turnsSinceHit = 0;
+      updateUnitHealthBar(unit);
+      showUnitHealPopup(unit, unit.health - previousHealth);
+    }
+  });
+}
+
 async function executePlayerActionQueue() {
   if (isExecutingActionQueue || !hasQueuedPlayerActions() || hasMovingPlayerUnits()) {
     updateActionQueueControls();
@@ -2566,6 +2609,7 @@ async function executePlayerActionQueue() {
     }
   } finally {
     isExecutingActionQueue = false;
+    applyTurnEndRecovery();
     refillAvailableActions();
     renderActionQueue(getSelectedPlayerUnit());
     updateEnemyIntentPreview();
@@ -3948,6 +3992,10 @@ async function resolveTickDamage(damageIntents) {
   });
 
   damageResults.forEach(({ target, damageTaken }) => {
+    if (damageTaken > 0) {
+      target.tookDamageThisTurn = true;
+    }
+
     showUnitDamagePopup(target, damageTaken);
   });
 
@@ -4197,6 +4245,8 @@ function resetUnitForDev(unit, setup = {}) {
   unit.movementMode = movementMode;
   unit.health = Math.max(0, Math.min(unit.maxHealth, health));
   unit.isDefeated = unit.health === 0;
+  unit.turnsSinceHit = 0;
+  unit.tookDamageThisTurn = false;
   unit.isFleeing = false;
   unit.packObjective = null;
   unit.hasPlayedDeathAnimation = false;

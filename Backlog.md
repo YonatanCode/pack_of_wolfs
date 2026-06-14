@@ -21,7 +21,7 @@ This file tracks possible mechanics, UX improvements, content ideas, and design 
 
 | Priority | Topic | Type | Status | Idea | Design note / open question |
 | --- | --- | --- | --- | --- | --- |
-| P1 | Combat / Recovery | Mechanic | Ready | A unit not hit for two turns gains +1 health (capped at max). | Decided: +1 (not +2), trigger = 2 consecutive un-hit turns, "turn" = one executePlayerActionQueue cycle. Implementation primer + code anchors in [health-recovery-handoff.md](health-recovery-handoff.md). Open: applies to all units or player only; heal popup or silent. |
+| P1 | Combat / Recovery | Mechanic | Done | A unit not hit for two turns gains +1 health (capped at max). | Shipped: +1 heal after 2 consecutive un-hit turns ("turn" = one executePlayerActionQueue cycle), applies to all units, green "+1" popup. Counter resets after each heal and on any damage; fully-absorbed (0-damage) hits do not reset (chokepoint uses damageTaken > 0). Hooks: createUnit + resetUnitForDev (turnsSinceHit/tookDamageThisTurn), resolveTickDamage (mark hit), applyTurnEndRecovery() in executePlayerActionQueue finally. |
 | P1 | Map / Positioning | Feature | Explore | Add obstacles to the map. | Obstacles could improve tactical lanes, movement planning, and prediction. Need to decide if they block movement, attacks, vision, or all three. |
 | TBD | Fun Factor / AI | Design Problem | Explore | Prevent all wolves from just getting into the same repetitive or degenerate behavior. | Original note was incomplete: "prevent all wolfs just getting..." Clarify the exact bad pattern, then solve with AI goals, spacing rules, obstacles, or incentives. |
 | P1 | UX / Learning | Feature | Idea | Add onboarding. | Could be a short guided first turn, contextual tips, or a dedicated tutorial flow. |
@@ -40,7 +40,7 @@ This file tracks possible mechanics, UX improvements, content ideas, and design 
 
 ### Core Mechanics
 
-- Health recovery after two safe turns
+- Health recovery after two safe turns (done)
 - Obstacles
 - Small hill obstacle
 - More tile types
