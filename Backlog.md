@@ -27,7 +27,7 @@ This file tracks possible mechanics, UX improvements, content ideas, and design 
 | P1 | UX / Learning | Feature | Idea | Add onboarding. | Could be a short guided first turn, contextual tips, or a dedicated tutorial flow. |
 | P2 | Narrative | Content | Idea | Add background story. | Keep story light and useful: motivation, tone, and stakes without slowing down the tactical loop. |
 | P2 | Visual Identity | Polish | Explore | Make each wolf look more distinct using the same asset, with code altering its look slightly. | Possible variations: tint, scale, markings, accessories, idle timing, shadow, or outline. Must remain readable on the battlefield. |
-| P0 | Turn Resolution | Design Problem | Explore | Resolve whether move-before-attack logic is cool, confusing, or unfair. | Need to test if current resolution creates satisfying prediction moments or feels like attacks fail for unclear reasons. |
+| P0 | Turn Resolution | Design Problem | Done | Resolve whether move-before-attack logic is cool, confusing, or unfair. | Verdict: keep it. Attacks resolve against POST-move positions, so it's symmetric & readable — stepping into adjacency connects (move-into-range HITS), stepping out dodges (move-away MISSES). The old confusing "walked up, nothing happened" case was already removed by the interaction-resolver rewrite (aa53498); getLiveAttackTarget falls back to live adjacency. Only real gap was legibility: a whiffed attack was silent. Shipped a "Miss" popup (resolveTickDamage flags intents that fail isAttackDamageStillValid → showUnitMissPopup over the attacker). Updated two stale dev-test scenarios that still encoded pre-rewrite behavior: move-away-miss→move-away-dodge (Dodge-mode flee, no damage), move-into-range-miss→move-into-range-hit (steps in, takes UNIT_ATTACK_DAMAGE). Both pass headless. |
 | P1 | UI / Navigation | Feature | Idea | Add a menu. | Define scope: pause menu, start menu, settings menu, level select, restart/options, or all of these. |
 | TBD | Levels / Tutorial | Content / Design | Explore | Work on the Stag level. Decide whether it should be part of the tutorial or a standalone level. | If the Stag teaches a core mechanic, it may belong in onboarding. If it introduces a new strategic twist, it may work better as level 2. |
 | P1 | Powerups / Combat | Mechanic | Explore | Add logic for double-move powerups where 2 attacks become one strong attack. | Clarify trigger: collecting a powerup, queuing two attacks, or spending two move actions. Need readable feedback so the player understands the combined attack. |
@@ -47,7 +47,7 @@ This file tracks possible mechanics, UX improvements, content ideas, and design 
 - Double-move / combined attack powerups
 - Alpha health action
 - Reshuffle action redraw (done)
-- Move-before-attack resolution
+- Move-before-attack resolution (done)
 
 ### Fun And Balance
 

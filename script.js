@@ -1374,6 +1374,24 @@ function showUnitHealPopup(wolf, healAmount) {
   wolf.element.parentElement.append(popup);
 }
 
+function showUnitMissPopup(wolf) {
+  if (!wolf.element.parentElement) {
+    return;
+  }
+
+  const popup = document.createElement("div");
+
+  popup.className = "unit-damage-popup unit-miss-popup";
+  popup.textContent = "Miss";
+  popup.style.left = `${wolf.x}px`;
+  popup.style.top = `${wolf.y}px`;
+  popup.style.zIndex = Number(wolf.element.style.zIndex || 0) + 3;
+  popup.setAttribute("aria-hidden", "true");
+  popup.addEventListener("animationend", () => popup.remove(), { once: true });
+
+  wolf.element.parentElement.append(popup);
+}
+
 function getTileAnchor(row, col) {
   const tilePosition = projectTile(row, col);
 
@@ -3978,11 +3996,21 @@ async function resolveTickDamage(damageIntents) {
   const validIntents = damageIntents.filter(({ attacker, target }) => {
     return isAttackDamageStillValid(attacker, target);
   });
+  // An attacker swung but the target slipped out of range (dodged) or was already
+  // down — surface a "Miss" so a no-damage attack never reads as a silent bug.
+  const missedAttackers = new Set(
+    damageIntents
+      .filter(({ attacker, target }) => !isAttackDamageStillValid(attacker, target))
+      .map(({ attacker }) => attacker)
+      .filter((attacker) => attacker && isUnitAlive(attacker)),
+  );
   const damageByTarget = new Map();
 
   validIntents.forEach(({ target, damage }) => {
     damageByTarget.set(target, (damageByTarget.get(target) ?? 0) + damage);
   });
+
+  missedAttackers.forEach((attacker) => showUnitMissPopup(attacker));
 
   const damageResults = Array.from(damageByTarget.entries()).map(([target, damage]) => {
     return {
@@ -4525,11 +4553,13 @@ const DEV_TEST_SCENARIOS = [
     ),
   },
   {
-    id: "move-away-miss",
-    label: "Move-away miss",
+    id: "move-away-dodge",
+    label: "Move-away dodge",
+    // A Dodge-mode unit that flees out of adjacency this tick avoids a queued attack
+    // (attack resolves against post-move positions). This is the "I saw that coming" dodge.
     run: async () => {
       resetDevTest(
-        { row: 5, col: 4, direction: "bottomLeft" },
+        { row: 5, col: 4, direction: "bottomLeft", movementMode: "Dodge" },
         { row: 4, col: 4, direction: "bottomLeft" },
       );
       queueDevTestActions(["Move"], ["Attack"]);
@@ -4543,8 +4573,10 @@ const DEV_TEST_SCENARIOS = [
     ),
   },
   {
-    id: "move-into-range-miss",
-    label: "Move-in miss",
+    id: "move-into-range-hit",
+    label: "Move-in hit",
+    // A unit that steps into adjacency this tick IS hit by an opponent's queued attack
+    // (attack resolves against post-move positions, not the pre-move snapshot).
     run: async () => {
       resetDevTest(
         { row: 8, col: 4, direction: "topRight" },
@@ -4556,7 +4588,7 @@ const DEV_TEST_SCENARIOS = [
     expect: (state) => (
       state.player.row === 5 &&
       state.player.col === 4 &&
-      state.player.health === 10
+      state.player.health === 10 - UNIT_ATTACK_DAMAGE
     ),
   },
   {
