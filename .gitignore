@@ -16,7 +16,9 @@ dist-ssr
 .vscode/*
 !.vscode/extensions.json
 .idea
-.claude/
+# Keep local Claude settings private, but share project skills with the repo.
+.claude/*
+!.claude/skills/
 .DS_Store
 *.suo
 *.ntvs*
