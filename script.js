@@ -5528,6 +5528,38 @@ const DEV_TEST_SCENARIOS = [
       state.enemyPackQueue.every((entry) => entry.unitRow === 0 && entry.unitCol === 4)
     ),
   },
+  {
+    // Regression: an engaging wolf must end its move ON its surround slot (the
+    // attack-range tile beside the player), not one tile short. The pond removes
+    // the cardinal slot below the player so the slot is the diagonal (4,7);
+    // pre-fix the wolf stopped at (5,7), out of range, and its Attack whiffed.
+    id: "pack-engage-reaches-slot",
+    label: "Pack: engage reaches slot",
+    run: async () => {
+      setArenaTileCount(18);
+      resetDevTest(
+        { row: 3, col: 8, direction: "topLeft", movementMode: "Dodge" },
+        { row: 7, col: 7, direction: "topRight" },
+        { isActive: false },
+        { isActive: false },
+        { isActive: false },
+        { isActive: false },
+      );
+      planEnemyPackTurn(
+        units.filter((unit) => unit.team === "enemy"),
+        units.filter((unit) => unit.team === "player"),
+      );
+      const state = await runDevTestTick();
+      setArenaTileCount(DEFAULT_GRID_SIZE); // restore so later scenarios are unaffected
+      return state;
+    },
+    expect: (state) => isAdjacentTile(
+      state.enemy.row,
+      state.enemy.col,
+      state.player.row,
+      state.player.col,
+    ),
+  },
 ];
 
 const INTERACTION_DEV_TEST_SCENARIO_IDS = [
