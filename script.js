@@ -1897,6 +1897,76 @@ function getGridDistance(rowA, colA, rowB, colB) {
   return Math.abs(rowA - rowB) + Math.abs(colA - colB);
 }
 
+// Orthogonal steps for the walkable BFS. 4-neighbour is deliberate: on open
+// ground the step-count equals Manhattan distance, so movement away from
+// obstacles is identical to the old getGridDistance scoring — only tiles whose
+// shortest walkable route bends around water get a higher number.
+const WALKABLE_FIELD_DELTAS = [
+  { row: -1, col: 0 },
+  { row: 1, col: 0 },
+  { row: 0, col: -1 },
+  { row: 0, col: 1 },
+];
+
+// Flood the walkable board from (targetRow, targetCol) and return a size×size
+// grid of step-counts to the target. Walls are pond tiles and board edges ONLY
+// — units are NOT walls (movement resolution handles unit collisions; treating
+// units as distance-walls causes odd mutual avoidance). Unreached tiles stay
+// Infinity. Used so the move scorer can route units around impassable terrain
+// instead of stalling in a local Manhattan minimum.
+function buildWalkableDistanceField(targetRow, targetCol, size = GRID_SIZE) {
+  const field = Array.from({ length: size }, () => new Array(size).fill(Infinity));
+
+  if (
+    targetRow < 0 ||
+    targetRow >= size ||
+    targetCol < 0 ||
+    targetCol >= size ||
+    isPondTile(targetRow, targetCol)
+  ) {
+    return field;
+  }
+
+  field[targetRow][targetCol] = 0;
+  let frontier = [{ row: targetRow, col: targetCol }];
+
+  while (frontier.length > 0) {
+    const nextFrontier = [];
+
+    frontier.forEach(({ row, col }) => {
+      const nextDistance = field[row][col] + 1;
+
+      WALKABLE_FIELD_DELTAS.forEach((delta) => {
+        const nextRow = row + delta.row;
+        const nextCol = col + delta.col;
+
+        if (
+          nextRow < 0 ||
+          nextRow >= size ||
+          nextCol < 0 ||
+          nextCol >= size ||
+          isPondTile(nextRow, nextCol) ||
+          field[nextRow][nextCol] <= nextDistance
+        ) {
+          return;
+        }
+
+        field[nextRow][nextCol] = nextDistance;
+        nextFrontier.push({ row: nextRow, col: nextCol });
+      });
+    });
+
+    frontier = nextFrontier;
+  }
+
+  return field;
+}
+
+// Safe lookup into a walkable distance field; off-field tiles read as Infinity.
+function getFieldDistance(field, row, col) {
+  return field?.[row]?.[col] ?? Infinity;
+}
+
 function getBestMoveDirectionToward(row, col, targetRow, targetCol, planningUnit) {
   const currentDistance = getGridDistance(row, col, targetRow, targetCol);
   let bestDirection = null;
