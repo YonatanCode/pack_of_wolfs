@@ -3786,9 +3786,19 @@ function getEnemyPackMovePlanFromSnapshot(movingUnit, startStates, { ignoredBloc
     direction: (startStates.get(movingUnit) ?? movingUnit).direction,
   };
 
-  return getModeMovePlanFromTargetState(movingUnit, goalState, startStates, "Hunt", {
-    ignoredBlockingUnits,
-  });
+  // A real surround slot is a tile the wolf should OCCUPY — it's already the
+  // attack-range tile beside the player, so "Occupy" lands the wolf ON it. When
+  // getEnemyPackGoalPosition falls back to the focus tile itself, Hunt toward
+  // the player instead (stand ADJACENT, don't pile onto the player's tile).
+  const isSlotGoal = goal.row !== focusTarget.row || goal.col !== focusTarget.col;
+
+  return getModeMovePlanFromTargetState(
+    movingUnit,
+    goalState,
+    startStates,
+    isSlotGoal ? "Occupy" : "Hunt",
+    { ignoredBlockingUnits },
+  );
 }
 
 function getNearestUnitByDistance(unit, candidates, startStates) {
@@ -3993,6 +4003,8 @@ function getMoveCandidateForMode(mode, context) {
       return getDodgeMoveCandidate(context);
     case "Sneak":
       return getSneakMoveCandidate(context);
+    case "Occupy":
+      return getOccupyMoveCandidate(context);
     case "Hunt":
     default:
       return getHuntMoveCandidate(context);
@@ -4024,6 +4036,26 @@ function getHuntMoveCandidate(context) {
 function compareHuntMoveCandidates(candidate, otherCandidate) {
   return (
     Number(otherCandidate.isAdjacent) - Number(candidate.isAdjacent) ||
+    candidate.distance - otherCandidate.distance ||
+    candidate.turnCost - otherCandidate.turnCost ||
+    candidate.steps - otherCandidate.steps
+  );
+}
+
+// Steering toward a goal TILE the unit should stand ON (an enemy surround slot),
+// versus Hunt's "stand adjacent to a unit". Picks the reachable candidate
+// closest to the goal by walkable distance — the goal tile itself is distance 0,
+// so the unit lands on it instead of stopping one tile short (which is what
+// Hunt's isAdjacent-first tiebreak would otherwise do). Ties: fewer turns, then
+// fewer steps.
+function getOccupyMoveCandidate(context) {
+  return context.candidates
+    .filter((candidate) => candidate.distance < context.currentDistance)
+    .sort(compareOccupyMoveCandidates)[0] ?? null;
+}
+
+function compareOccupyMoveCandidates(candidate, otherCandidate) {
+  return (
     candidate.distance - otherCandidate.distance ||
     candidate.turnCost - otherCandidate.turnCost ||
     candidate.steps - otherCandidate.steps
