@@ -3885,12 +3885,12 @@ function getUnitMoveContext(
   { ignoredBlockingUnits = new Set() } = {},
 ) {
   const startState = startStates.get(movingUnit);
-  const currentDistance = getGridDistance(
-    startState.row,
-    startState.col,
-    targetStartState.row,
-    targetStartState.col,
-  );
+  // Walkable BFS field rooted at the target. Both currentDistance and every
+  // candidate.distance read from THIS field so comparisons stay consistent —
+  // this is what lets a unit route around water instead of freezing in front
+  // of it (a detour tile genuinely scores closer than the blocked start tile).
+  const distanceField = buildWalkableDistanceField(targetStartState.row, targetStartState.col);
+  const currentDistance = getFieldDistance(distanceField, startState.row, startState.col);
   const currentFrontRisk = isEnemyFrontArcPosition(
     startState.row,
     startState.col,
@@ -3905,6 +3905,7 @@ function getUnitMoveContext(
   );
   const candidates = getUnitMoveCandidatesFromSnapshot(movingUnit, targetStartState, startStates, {
     ignoredBlockingUnits,
+    distanceField,
   });
 
   return {
@@ -3923,9 +3924,14 @@ function getUnitMoveCandidatesFromSnapshot(
   movingUnit,
   targetStartState,
   startStates,
-  { ignoredBlockingUnits = new Set() } = {},
+  { ignoredBlockingUnits = new Set(), distanceField = null } = {},
 ) {
   const startState = startStates.get(movingUnit);
+  // Fall back to a freshly-built field if a caller didn't supply one, so this
+  // function stays correct in isolation; getUnitMoveContext passes the shared
+  // field rooted at the same target.
+  const field = distanceField
+    ?? buildWalkableDistanceField(targetStartState.row, targetStartState.col);
   const candidates = [];
 
   MOVEMENT_DIRECTIONS.forEach((direction) => {
@@ -3949,12 +3955,7 @@ function getUnitMoveCandidatesFromSnapshot(
         startState.direction,
       );
       const turnCost = getDirectionTurnCost(startState.direction, facingDirection);
-      const distance = getGridDistance(
-        target.row,
-        target.col,
-        targetStartState.row,
-        targetStartState.col,
-      );
+      const distance = getFieldDistance(field, target.row, target.col);
 
       candidates.push({
         direction: facingDirection,
