@@ -183,7 +183,6 @@ const tutorialCloseButton = document.querySelector("#tutorial-close");
 const tutorialCoachCatcher = document.querySelector("#tutorial-coach");
 const tutorialSpotlight = document.querySelector("#tutorial-spotlight");
 const tutorialCoachCard = document.querySelector("#tutorial-coach-card");
-const tutorialCoachTitle = document.querySelector("#tutorial-coach-title");
 const tutorialCoachBody = document.querySelector("#tutorial-coach-body");
 const tutorialCoachProgress = document.querySelector("#tutorial-coach-progress");
 const tutorialNextButton = document.querySelector("#tutorial-next");
@@ -198,6 +197,7 @@ let playerActionMenu = null;
 let playerMovePreview = null;
 let playerMovePreviewTile = null;
 let isExecutingActionQueue = false;
+let isGuidedTutorialActive = false;
 let enemyMode = DEFAULT_ENEMY_MODE;
 let activeBattleDebugLog = null;
 let lastBattleDebugReport = "";
@@ -6046,8 +6046,7 @@ if (tutorialToggle && tutorialOverlay) {
   // coachmark tour: steps 2-6 below, each spotlighting one live UI element.
   const GUIDED_STEPS = [
     {
-      label: "Clear",
-      title: "Your wolves",
+      label: "Next",
       body: "These are your wolves — click one to give it orders. (I'll pick one for you.)",
       getTarget: () => getAliveUnitsByTeam("player")[0]?.element ?? null,
       onEnter: () => {
@@ -6057,24 +6056,23 @@ if (tutorialToggle && tutorialOverlay) {
     },
     {
       label: "Rrrrr",
-      title: "Give orders",
       body: "Pick <strong>Move</strong>, <strong>Attack</strong>, or <strong>Defend</strong> from your shared hand — up to 5 per wolf. Low on useful cards? <strong>Reshuffle</strong> to redraw (twice per battle).",
       getTarget: () => document.querySelector(".player-action-menu"),
       onEnter: ensureFirstWolfSelected,
     },
     {
       label: "Woof",
-      title: "Movement style",
       body: "Each Move has a style: <strong>Hunt</strong> (toward the enemy), <strong>Flank</strong> (to their side), or <strong>Dodge</strong> (away).",
       getTarget: () => document.querySelector(".movement-mode-selector"),
       onEnter: ensureFirstWolfSelected,
     },
     {
       label: "Hooooow",
-      title: "Read the enemy",
       body: "Above each enemy wolf you can see the actions they've planned for the turn. Read them and set up your counter.",
       getTarget: () => {
-        const enemy = getAliveUnitsByTeam("enemy")[0];
+        const enemies = getAliveUnitsByTeam("enemy");
+        // Prefer an enemy whose plan includes a Move so the highlighted intent is illustrative.
+        const enemy = enemies.find((unit) => getEnemyPackActionsForUnit(unit).includes("Move")) ?? enemies[0];
         if (!enemy) return null;
         return enemy.intentTags && !enemy.intentTags.hidden ? enemy.intentTags : enemy.element;
       },
@@ -6085,8 +6083,7 @@ if (tutorialToggle && tutorialOverlay) {
     },
     {
       label: "Let's go",
-      title: "Make your move",
-      body: "Plan all your wolves, then hit <strong>Play</strong> — the whole turn resolves at once. Let's go!",
+      body: "Plan all your wolves, then hit <strong>Play</strong> — the whole turn resolves at once.",
       getTarget: () => document.querySelector("#execute-queue"),
       onEnter: () => setPlayerSelected(null),
     },
@@ -6174,7 +6171,6 @@ if (tutorialToggle && tutorialOverlay) {
 
   function renderGuidedStep() {
     const step = GUIDED_STEPS[guidedStepIndex];
-    if (tutorialCoachTitle) tutorialCoachTitle.textContent = step.title;
     if (tutorialCoachBody) tutorialCoachBody.innerHTML = step.body;
     if (tutorialNextButton) tutorialNextButton.textContent = step.label;
     if (tutorialCoachProgress) {
@@ -6189,6 +6185,7 @@ if (tutorialToggle && tutorialOverlay) {
 
   function startGuidedTutorial() {
     setIntroOpen(false);
+    isGuidedTutorialActive = true;
     guidedStepIndex = 0;
     window.addEventListener("resize", layoutCurrentStep);
     renderGuidedStep();
@@ -6204,6 +6201,7 @@ if (tutorialToggle && tutorialOverlay) {
   }
 
   function endGuidedTutorial() {
+    isGuidedTutorialActive = false;
     guidedStepIndex = -1;
     window.removeEventListener("resize", layoutCurrentStep);
     if (tutorialSpotlight) tutorialSpotlight.hidden = true;
@@ -6303,6 +6301,11 @@ arena.addEventListener("click", (event) => {
 });
 
 document.addEventListener("click", (event) => {
+  // The guided tutorial drives selection itself; don't let stray clicks deselect.
+  if (isGuidedTutorialActive) {
+    return;
+  }
+
   if (event.target.closest(".player-action-menu, .action-queue-panel")) {
     return;
   }
