@@ -12,6 +12,7 @@
   <body>
     <main class="stage" aria-label="Turnbus isometric arena prototype">
       <button type="button" id="toggle-dev-tools" class="ui-button dev-tools-toggle" aria-pressed="false">Dev tools</button>
+      <button type="button" id="toggle-tutorial" class="ui-button tutorial-toggle" aria-haspopup="dialog">Tutorial</button>
       <div id="arena" class="arena tile-numbers-hidden" aria-label="Battlefield grid"></div>
       <aside class="action-panel" aria-label="Available actions">
         <h2>Actions</h2>
@@ -28,6 +29,25 @@
         </button>
         <ol id="action-queue-list" class="action-queue-list" aria-label="Player shared action timeline"></ol>
       </section>
+      <div id="tutorial-overlay" class="tutorial-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
+        <div class="tutorial-box">
+          <img class="tutorial-logo" src="assets/pack-of-wolves-logo.svg" alt="Pack of Wolves" width="85" height="38" />
+          <h2 id="tutorial-title" class="tutorial-title">How to Play</h2>
+          <p class="tutorial-goal">Wipe out the enemy pack — last pack standing wins.</p>
+          <p class="tutorial-lead">It's a plan-then-watch battle: line up orders for your wolves, then hit Play and the whole turn resolves at once. Let me show you around.</p>
+          <button type="button" id="tutorial-close" class="ui-button tutorial-close-button">Got it</button>
+        </div>
+      </div>
+      <div id="tutorial-coach" class="tutorial-coach-catcher" hidden></div>
+      <div id="tutorial-spotlight" class="tutorial-spotlight" hidden aria-hidden="true"></div>
+      <div id="tutorial-coach-card" class="tutorial-coach-card" hidden role="dialog" aria-modal="true" aria-label="Tutorial step">
+        <div class="tutorial-coach-top">
+          <span id="tutorial-coach-progress" class="tutorial-coach-progress"></span>
+          <button type="button" id="tutorial-skip" class="tutorial-skip-link">Skip tutorial</button>
+        </div>
+        <p id="tutorial-coach-body" class="tutorial-coach-body"></p>
+        <button type="button" id="tutorial-next" class="ui-button tutorial-next-button">Next</button>
+      </div>
       <div id="game-result-overlay" class="game-result-overlay" hidden aria-live="assertive">
         <div class="game-result-box">
           <p class="game-result-message"></p>

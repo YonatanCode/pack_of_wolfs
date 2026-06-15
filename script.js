@@ -177,6 +177,16 @@ const applyArenaSizeButton = document.querySelector("#apply-arena-size");
 const arenaSizeStatus = document.querySelector("#arena-size-status");
 const gameResultOverlay = document.querySelector("#game-result-overlay");
 const restartButton = document.querySelector("#restart-button");
+const tutorialToggle = document.querySelector("#toggle-tutorial");
+const tutorialOverlay = document.querySelector("#tutorial-overlay");
+const tutorialCloseButton = document.querySelector("#tutorial-close");
+const tutorialCoachCatcher = document.querySelector("#tutorial-coach");
+const tutorialSpotlight = document.querySelector("#tutorial-spotlight");
+const tutorialCoachCard = document.querySelector("#tutorial-coach-card");
+const tutorialCoachBody = document.querySelector("#tutorial-coach-body");
+const tutorialCoachProgress = document.querySelector("#tutorial-coach-progress");
+const tutorialNextButton = document.querySelector("#tutorial-next");
+const tutorialSkipButton = document.querySelector("#tutorial-skip");
 const tileElements = [];
 const unitActionQueues = new WeakMap();
 let reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
@@ -187,6 +197,7 @@ let playerActionMenu = null;
 let playerMovePreview = null;
 let playerMovePreviewTile = null;
 let isExecutingActionQueue = false;
+let isGuidedTutorialActive = false;
 let enemyMode = DEFAULT_ENEMY_MODE;
 let activeBattleDebugLog = null;
 let lastBattleDebugReport = "";
@@ -731,6 +742,17 @@ function fillAvailableActions(action) {
 
 function addAvailableAction(action) {
   actionsList.prepend(createAvailableActionItem(action));
+}
+
+// Deal a fresh hand that contains at least one of every action type, so the
+// guided tutorial can showcase Move, Attack and Defend. Remaining slots are
+// filled randomly. Affects only the shared hand, not queued unit actions.
+function seedTutorialActionHand() {
+  const fillerCount = Math.max(0, ACTION_SLOT_COUNT - ACTIONS.length);
+  const hand = [...ACTIONS, ...Array.from({ length: fillerCount }, randomAction)];
+
+  actionsList.replaceChildren(...hand.map(createAvailableActionItem));
+  updatePlayerActionControls();
 }
 
 function getUnitActionQueue(unit) {
@@ -6030,6 +6052,217 @@ if (restartButton) {
   restartButton.addEventListener("click", resetGame);
 }
 
+if (tutorialToggle && tutorialOverlay) {
+  // Step 1 is the intro popup (#tutorial-overlay). "Got it" launches the guided
+  // coachmark tour below, each step spotlighting one live UI element.
+  const GUIDED_STEPS = [
+    {
+      label: "Next",
+      body: "These are your wolves — click one to give it orders.",
+      getTarget: () => getAliveUnitsByTeam("player")[0]?.element ?? null,
+      onEnter: () => {
+        const unit = getAliveUnitsByTeam("player")[0];
+        if (unit) setPlayerSelected(unit);
+      },
+    },
+    {
+      label: "Next",
+      body: "Give this wolf an order: <strong>Move</strong>, <strong>Attack</strong>, or <strong>Defend</strong> — up to 5 per wolf.",
+      getTarget: () => document.querySelector(".player-action-menu"),
+      onEnter: ensureFirstWolfSelected,
+    },
+    {
+      label: "Rrrrr",
+      body: "Each Move has a style: <strong>Hunt</strong> (toward the enemy), <strong>Flank</strong> (to their side), or <strong>Dodge</strong> (away).",
+      getTarget: () => document.querySelector(".movement-mode-selector"),
+      onEnter: ensureFirstWolfSelected,
+    },
+    {
+      label: "Woof",
+      body: "Those orders come from your <strong>Actions Inventory</strong> — a limited, shared hand dealt fresh actions each round, so plan around what you've got.",
+      getTarget: () => document.querySelector("#actions-list"),
+      onEnter: () => setPlayerSelected(null),
+    },
+    {
+      label: "Sniff sniff",
+      body: "Not the hand you wanted? Spend a <strong>Reshuffle</strong> to redraw.",
+      getTarget: () => document.querySelector("#reshuffle-actions"),
+      onEnter: () => setPlayerSelected(null),
+    },
+    {
+      label: "Hooooow",
+      body: "Above each enemy wolf you can see the actions they've planned for the turn. Read them and set up your counter.",
+      getTarget: () => {
+        const enemies = getAliveUnitsByTeam("enemy");
+        // Prefer an enemy whose plan includes a Move so the highlighted intent is illustrative.
+        const enemy = enemies.find((unit) => getEnemyPackActionsForUnit(unit).includes("Move")) ?? enemies[0];
+        if (!enemy) return null;
+        return enemy.intentTags && !enemy.intentTags.hidden ? enemy.intentTags : enemy.element;
+      },
+      onEnter: () => {
+        setPlayerSelected(null);
+        updateEnemyIntentPreview();
+      },
+    },
+    {
+      label: "Let's go",
+      body: "Plan all your wolves, then hit <strong>Play</strong> — the whole turn resolves at once.",
+      getTarget: () => document.querySelector("#execute-queue"),
+      onEnter: () => setPlayerSelected(null),
+    },
+  ];
+
+  let guidedStepIndex = -1;
+
+  function ensureFirstWolfSelected() {
+    if (getSelectedPlayerUnit()) return;
+    const unit = getAliveUnitsByTeam("player")[0];
+    if (unit) setPlayerSelected(unit);
+  }
+
+  function setIntroOpen(isOpen) {
+    tutorialOverlay.hidden = !isOpen;
+  }
+
+  function isGuidedActive() {
+    return guidedStepIndex >= 0;
+  }
+
+  function positionSpotlight(target) {
+    if (!tutorialSpotlight) return;
+
+    if (!target) {
+      tutorialSpotlight.hidden = true;
+      return;
+    }
+
+    const pad = 8;
+    const rect = target.getBoundingClientRect();
+    tutorialSpotlight.hidden = false;
+    tutorialSpotlight.style.left = `${rect.left - pad}px`;
+    tutorialSpotlight.style.top = `${rect.top - pad}px`;
+    tutorialSpotlight.style.width = `${rect.width + pad * 2}px`;
+    tutorialSpotlight.style.height = `${rect.height + pad * 2}px`;
+  }
+
+  function positionCoachCard(target) {
+    if (!tutorialCoachCard) return;
+
+    const margin = 16;
+    const gap = 18;
+    const card = tutorialCoachCard.getBoundingClientRect();
+    const cw = card.width;
+    const ch = card.height;
+    let left;
+    let top;
+
+    if (!target) {
+      left = (window.innerWidth - cw) / 2;
+      top = (window.innerHeight - ch) / 2;
+    } else {
+      const rect = target.getBoundingClientRect();
+
+      if (rect.right + gap + cw + margin <= window.innerWidth) {
+        left = rect.right + gap;
+        top = rect.top + rect.height / 2 - ch / 2;
+      } else if (rect.left - gap - cw - margin >= 0) {
+        left = rect.left - gap - cw;
+        top = rect.top + rect.height / 2 - ch / 2;
+      } else if (rect.bottom + gap + ch + margin <= window.innerHeight) {
+        top = rect.bottom + gap;
+        left = rect.left + rect.width / 2 - cw / 2;
+      } else {
+        top = rect.top - gap - ch;
+        left = rect.left + rect.width / 2 - cw / 2;
+      }
+    }
+
+    left = Math.max(margin, Math.min(left, window.innerWidth - cw - margin));
+    top = Math.max(margin, Math.min(top, window.innerHeight - ch - margin));
+    tutorialCoachCard.style.left = `${left}px`;
+    tutorialCoachCard.style.top = `${top}px`;
+  }
+
+  function layoutCurrentStep() {
+    if (!isGuidedActive()) return;
+    const step = GUIDED_STEPS[guidedStepIndex];
+    const target = step.getTarget?.() ?? null;
+    if (target) target.scrollIntoView({ block: "center", inline: "center" });
+    positionSpotlight(target);
+    positionCoachCard(target);
+  }
+
+  function renderGuidedStep() {
+    const step = GUIDED_STEPS[guidedStepIndex];
+    if (tutorialCoachBody) tutorialCoachBody.innerHTML = step.body;
+    if (tutorialNextButton) tutorialNextButton.textContent = step.label;
+    if (tutorialCoachProgress) {
+      tutorialCoachProgress.textContent = `${guidedStepIndex + 1} / ${GUIDED_STEPS.length}`;
+    }
+    step.onEnter?.();
+    // Reveal layers, then position after layout settles (onEnter may open the menu).
+    if (tutorialCoachCatcher) tutorialCoachCatcher.hidden = false;
+    if (tutorialCoachCard) tutorialCoachCard.hidden = false;
+    requestAnimationFrame(layoutCurrentStep);
+  }
+
+  function startGuidedTutorial() {
+    setIntroOpen(false);
+    isGuidedTutorialActive = true;
+    guidedStepIndex = 0;
+    seedTutorialActionHand();
+    window.addEventListener("resize", layoutCurrentStep);
+    renderGuidedStep();
+  }
+
+  function advanceGuidedTutorial() {
+    if (guidedStepIndex + 1 >= GUIDED_STEPS.length) {
+      endGuidedTutorial();
+      return;
+    }
+    guidedStepIndex += 1;
+    renderGuidedStep();
+  }
+
+  function endGuidedTutorial() {
+    isGuidedTutorialActive = false;
+    guidedStepIndex = -1;
+    window.removeEventListener("resize", layoutCurrentStep);
+    if (tutorialSpotlight) tutorialSpotlight.hidden = true;
+    if (tutorialCoachCard) tutorialCoachCard.hidden = true;
+    if (tutorialCoachCatcher) tutorialCoachCatcher.hidden = true;
+    setPlayerSelected(null);
+  }
+
+  tutorialToggle.addEventListener("click", () => setIntroOpen(true));
+
+  if (tutorialCloseButton) {
+    tutorialCloseButton.addEventListener("click", startGuidedTutorial);
+  }
+
+  if (tutorialNextButton) {
+    tutorialNextButton.addEventListener("click", advanceGuidedTutorial);
+  }
+
+  if (tutorialSkipButton) {
+    tutorialSkipButton.addEventListener("click", endGuidedTutorial);
+  }
+
+  // The intro overlay can be dismissed by backdrop click (does not start the tour).
+  tutorialOverlay.addEventListener("click", (event) => {
+    if (event.target === tutorialOverlay) setIntroOpen(false);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (isGuidedActive()) {
+      endGuidedTutorial();
+    } else if (!tutorialOverlay.hidden) {
+      setIntroOpen(false);
+    }
+  });
+}
+
 if (copyBattleDebugButton) {
   copyBattleDebugButton.addEventListener("click", copyLastBattleDebugReport);
   updateBattleDebugControls();
@@ -6092,6 +6325,11 @@ arena.addEventListener("click", (event) => {
 });
 
 document.addEventListener("click", (event) => {
+  // The guided tutorial drives selection itself; don't let stray clicks deselect.
+  if (isGuidedTutorialActive) {
+    return;
+  }
+
   if (event.target.closest(".player-action-menu, .action-queue-panel")) {
     return;
   }
