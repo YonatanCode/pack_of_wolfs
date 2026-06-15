@@ -37,6 +37,8 @@ This file tracks possible mechanics, UX improvements, content ideas, and design 
 | P1 | Map / Obstacles | Feature | Explore | Add a small hill to the game as an obstacle. | Decide if the hill blocks movement, changes pathing, grants height advantage, blocks attacks, or acts as a tutorial-friendly obstacle. |
 | TBD | The Standoff / Pressure | Design Problem | Explore | **The Standoff** — what creates the pressure that forces it to break. | In a tick game the unit that moves *second* knows more (it sees where the enemy committed), so both sides are tempted to wait and read — discovered in play: stall with filler actions, let the enemy reveal its destination, then move in clean. That only stays fun if pure waiting *loses*. This entry = the clock: something that punishes inaction so the standoff must resolve. Candidates: tick/turn limit, an objective tile, castle taking damage over time, advancing reinforcements. Pairs with "The Standoff / Pull". |
 | TBD | The Standoff / Pull | Design Problem | Explore | **The Standoff** — the incentives that make you charge in vs. wait for them to come to you. | The choice layer on top of the pressure clock. Want a rock-paper-scissors of timing, no option strictly dominant: **commit early** (claim ground / charge bonus, beats stallers, loses to readers) vs. **read & intercept** (wait, then pounce on the revealed position, beats early committers, loses to bait) vs. **bait/feint** (show one intent then re-commit, beats readers, loses to early committers). Levers to tune it: objectives/chokepoints reward moving first; a "charge/momentum" bonus for move-into-attack vs. a "cold" reactive hit; held units are observable so the AI can refuse to commit; intercept knobs (reaction range, resolve during vs. after the enemy move, commitment lock). Thematic fit: wolves stalk then pounce — maps onto Sneak/Flank vs. a charging Brute. Open: symmetric (AI can also stall-read, harder to write) or player-only first. Pairs with "The Standoff / Pressure". |
+| P1 | Units / Pack Building | Mechanic | Explore | Different wolf types to build your pack from — each moves, attacks, and defends differently, and each grants a different perk when it's the alpha. | Defines distinct archetypes (ties into the Soldier/Runner/Brute intent in Units.md). Per-type differences across all three action verbs (move range/mode, attack range/damage, defend behavior), plus a unique alpha perk per type so *which* wolf you make alpha is a real choice. Open: roster size, how the player picks/composes the pack, whether alpha is assigned pre-battle or swappable in-battle, and how perks read on the battlefield. Pairs with the existing Alpha health-action idea. |
+| P2 | Audio | Polish | Idea | Sound effects and background music. | SFX for core actions (move, attack, defend, hit, death, win/lose) plus ambient/background music. Keep audio readable as feedback, not just decoration; needs a mute/volume control and lightweight, dependency-minimal playback. |
 
 ## Candidate Groupings
 
@@ -48,6 +50,7 @@ This file tracks possible mechanics, UX improvements, content ideas, and design 
 - More tile types
 - Double-move / combined attack powerups
 - Alpha health action
+- Wolf types / pack building (per-type move/attack/defend + alpha perk)
 - Reshuffle action redraw (done)
 - Move-before-attack resolution (done)
 
@@ -67,3 +70,4 @@ This file tracks possible mechanics, UX improvements, content ideas, and design 
 ### World And Tone
 
 - Background story
+- Sound effects and background music
