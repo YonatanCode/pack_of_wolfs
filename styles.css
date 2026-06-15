@@ -1198,6 +1198,14 @@ body {
   font-weight: 600;
 }
 
+.tutorial-logo {
+  align-self: center;
+  width: 240px;
+  max-width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+
 .tutorial-lead {
   margin: 0;
   font-size: 15px;
