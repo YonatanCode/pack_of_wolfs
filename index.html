@@ -12,6 +12,7 @@
   <body>
     <main class="stage" aria-label="Turnbus isometric arena prototype">
       <button type="button" id="toggle-dev-tools" class="ui-button dev-tools-toggle" aria-pressed="false">Dev tools</button>
+      <button type="button" id="toggle-tutorial" class="ui-button tutorial-toggle" aria-haspopup="dialog">Tutorial</button>
       <div id="arena" class="arena tile-numbers-hidden" aria-label="Battlefield grid"></div>
       <aside class="action-panel" aria-label="Available actions">
         <h2>Actions</h2>
@@ -28,6 +29,20 @@
         </button>
         <ol id="action-queue-list" class="action-queue-list" aria-label="Player shared action timeline"></ol>
       </section>
+      <div id="tutorial-overlay" class="tutorial-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
+        <div class="tutorial-box">
+          <h2 id="tutorial-title" class="tutorial-title">How to Play</h2>
+          <p class="tutorial-goal">Wipe out the enemy pack — last pack standing wins.</p>
+          <ol class="tutorial-steps">
+            <li>Click one of your wolves (bottom) to open its command menu.</li>
+            <li>Give it orders from your hand — <strong>Move</strong>, <strong>Attack</strong>, or <strong>Defend</strong>. Up to 5 per wolf.</li>
+            <li>For a Move, pick a style: <strong>Hunt</strong> (toward the enemy), <strong>Flank</strong> (to their side), or <strong>Dodge</strong> (away).</li>
+            <li>Plan all your wolves, then hit <strong>▶ Play</strong> — the whole turn resolves at once. Sit back and watch.</li>
+            <li>Low on useful cards? <strong>Reshuffle</strong> to redraw your hand (twice per battle).</li>
+          </ol>
+          <button type="button" id="tutorial-close" class="ui-button tutorial-close-button">Got it</button>
+        </div>
+      </div>
       <div id="game-result-overlay" class="game-result-overlay" hidden aria-live="assertive">
         <div class="game-result-box">
           <p class="game-result-message"></p>
