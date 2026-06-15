@@ -1171,10 +1171,12 @@ body {
 .tutorial-box {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 18px;
   width: 100%;
   max-width: 560px;
   padding: 32px 36px;
+  text-align: center;
   color: #edf2e9;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: rgba(11, 17, 18, 0.94);
@@ -1203,6 +1205,7 @@ body {
   width: 240px;
   max-width: 100%;
   height: auto;
+  margin: 40px auto;
   image-rendering: pixelated;
 }
 
@@ -1227,7 +1230,7 @@ body {
 }
 
 .tutorial-close-button {
-  align-self: flex-end;
+  align-self: center;
   font-size: 16px;
   padding: 10px 28px;
 }
