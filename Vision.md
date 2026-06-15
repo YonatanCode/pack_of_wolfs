@@ -2,7 +2,7 @@
 ## Core Fantasy
 Outsmart an opponent by predicting and disrupting their plan before it unfolds.
 
-The player should feel clever — like someone who reads the situation a step ahead, sets up the perfect counter, and watches the other side's strategy fall apart through precise, well-timed interruptions. The thrill is in the "I saw that coming" moment.
+The player should feel clever — like someone who reads the situation a step ahead, sets up the perfect counter, and watches the other side's strategy fall apart through precise, well-timed actions. The thrill is in the "I saw that coming" moment.
 
 ---
 
