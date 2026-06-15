@@ -177,6 +177,9 @@ const applyArenaSizeButton = document.querySelector("#apply-arena-size");
 const arenaSizeStatus = document.querySelector("#arena-size-status");
 const gameResultOverlay = document.querySelector("#game-result-overlay");
 const restartButton = document.querySelector("#restart-button");
+const tutorialToggle = document.querySelector("#toggle-tutorial");
+const tutorialOverlay = document.querySelector("#tutorial-overlay");
+const tutorialCloseButton = document.querySelector("#tutorial-close");
 const tileElements = [];
 const unitActionQueues = new WeakMap();
 let reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
@@ -6028,6 +6031,26 @@ if (reshuffleButton) {
 
 if (restartButton) {
   restartButton.addEventListener("click", resetGame);
+}
+
+if (tutorialToggle && tutorialOverlay) {
+  const setTutorialOpen = (isOpen) => {
+    tutorialOverlay.hidden = !isOpen;
+  };
+
+  tutorialToggle.addEventListener("click", () => setTutorialOpen(true));
+
+  if (tutorialCloseButton) {
+    tutorialCloseButton.addEventListener("click", () => setTutorialOpen(false));
+  }
+
+  tutorialOverlay.addEventListener("click", (event) => {
+    if (event.target === tutorialOverlay) setTutorialOpen(false);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !tutorialOverlay.hidden) setTutorialOpen(false);
+  });
 }
 
 if (copyBattleDebugButton) {
