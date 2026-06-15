@@ -663,8 +663,13 @@ body {
   right: 24px;
   width: 180px;
   padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
   color: #edf2e9;
+  background: rgba(11, 17, 18, 0.72);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
   transform: translateY(-50%);
+  backdrop-filter: blur(10px);
 }
 
 .action-panel h2 {
