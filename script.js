@@ -744,6 +744,17 @@ function addAvailableAction(action) {
   actionsList.prepend(createAvailableActionItem(action));
 }
 
+// Deal a fresh hand that contains at least one of every action type, so the
+// guided tutorial can showcase Move, Attack and Defend. Remaining slots are
+// filled randomly. Affects only the shared hand, not queued unit actions.
+function seedTutorialActionHand() {
+  const fillerCount = Math.max(0, ACTION_SLOT_COUNT - ACTIONS.length);
+  const hand = [...ACTIONS, ...Array.from({ length: fillerCount }, randomAction)];
+
+  actionsList.replaceChildren(...hand.map(createAvailableActionItem));
+  updatePlayerActionControls();
+}
+
 function getUnitActionQueue(unit) {
   if (!unitActionQueues.has(unit)) {
     unitActionQueues.set(unit, []);
@@ -6047,7 +6058,7 @@ if (tutorialToggle && tutorialOverlay) {
   const GUIDED_STEPS = [
     {
       label: "Next",
-      body: "These are your wolves — click one to give it orders. (I'll pick one for you.)",
+      body: "These are your wolves — click one to give it orders. I'll pick one for you.",
       getTarget: () => getAliveUnitsByTeam("player")[0]?.element ?? null,
       onEnter: () => {
         const unit = getAliveUnitsByTeam("player")[0];
@@ -6199,6 +6210,7 @@ if (tutorialToggle && tutorialOverlay) {
     setIntroOpen(false);
     isGuidedTutorialActive = true;
     guidedStepIndex = 0;
+    seedTutorialActionHand();
     window.addEventListener("resize", layoutCurrentStep);
     renderGuidedStep();
   }
