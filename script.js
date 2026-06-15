@@ -6058,7 +6058,7 @@ if (tutorialToggle && tutorialOverlay) {
   const GUIDED_STEPS = [
     {
       label: "Next",
-      body: "These are your wolves — click one to give it orders. I'll pick one for you.",
+      body: "These are your wolves — click one to give it orders.",
       getTarget: () => getAliveUnitsByTeam("player")[0]?.element ?? null,
       onEnter: () => {
         const unit = getAliveUnitsByTeam("player")[0];
@@ -6085,7 +6085,7 @@ if (tutorialToggle && tutorialOverlay) {
     },
     {
       label: "Sniff sniff",
-      body: "Not the hand you wanted? Spend a <strong>Reshuffle</strong> to redraw — only twice per battle, so save them for when it counts.",
+      body: "Not the hand you wanted? Spend a <strong>Reshuffle</strong> to redraw.",
       getTarget: () => document.querySelector("#reshuffle-actions"),
       onEnter: () => setPlayerSelected(null),
     },
