@@ -6043,7 +6043,7 @@ if (restartButton) {
 
 if (tutorialToggle && tutorialOverlay) {
   // Step 1 is the intro popup (#tutorial-overlay). "Got it" launches the guided
-  // coachmark tour: steps 2-6 below, each spotlighting one live UI element.
+  // coachmark tour below, each step spotlighting one live UI element.
   const GUIDED_STEPS = [
     {
       label: "Next",
@@ -6055,16 +6055,28 @@ if (tutorialToggle && tutorialOverlay) {
       },
     },
     {
-      label: "Rrrrr",
-      body: "Pick <strong>Move</strong>, <strong>Attack</strong>, or <strong>Defend</strong> from your shared hand — up to 5 per wolf. Low on useful cards? <strong>Reshuffle</strong> to redraw (twice per battle).",
+      label: "Next",
+      body: "Give this wolf an order: <strong>Move</strong>, <strong>Attack</strong>, or <strong>Defend</strong> — up to 5 per wolf.",
       getTarget: () => document.querySelector(".player-action-menu"),
       onEnter: ensureFirstWolfSelected,
     },
     {
-      label: "Woof",
+      label: "Rrrrr",
       body: "Each Move has a style: <strong>Hunt</strong> (toward the enemy), <strong>Flank</strong> (to their side), or <strong>Dodge</strong> (away).",
       getTarget: () => document.querySelector(".movement-mode-selector"),
       onEnter: ensureFirstWolfSelected,
+    },
+    {
+      label: "Woof",
+      body: "Those orders come from your <strong>Actions Inventory</strong> — a limited, shared hand dealt fresh actions each round, so plan around what you've got.",
+      getTarget: () => document.querySelector("#actions-list"),
+      onEnter: () => setPlayerSelected(null),
+    },
+    {
+      label: "Sniff sniff",
+      body: "Not the hand you wanted? Spend a <strong>Reshuffle</strong> to redraw — only twice per battle, so save them for when it counts.",
+      getTarget: () => document.querySelector("#reshuffle-actions"),
+      onEnter: () => setPlayerSelected(null),
     },
     {
       label: "Hooooow",
