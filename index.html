@@ -33,15 +33,20 @@
         <div class="tutorial-box">
           <h2 id="tutorial-title" class="tutorial-title">How to Play</h2>
           <p class="tutorial-goal">Wipe out the enemy pack — last pack standing wins.</p>
-          <ol class="tutorial-steps">
-            <li>Click one of your wolves (bottom) to open its command menu.</li>
-            <li>Give it orders from your hand — <strong>Move</strong>, <strong>Attack</strong>, or <strong>Defend</strong>. Up to 5 per wolf.</li>
-            <li>For a Move, pick a style: <strong>Hunt</strong> (toward the enemy), <strong>Flank</strong> (to their side), or <strong>Dodge</strong> (away).</li>
-            <li>Plan all your wolves, then hit <strong>▶ Play</strong> — the whole turn resolves at once. Sit back and watch.</li>
-            <li>Low on useful cards? <strong>Reshuffle</strong> to redraw your hand (twice per battle).</li>
-          </ol>
+          <p class="tutorial-lead">It's a plan-then-watch battle: line up orders for your wolves, then hit Play and the whole turn resolves at once. Let me show you around.</p>
           <button type="button" id="tutorial-close" class="ui-button tutorial-close-button">Got it</button>
         </div>
+      </div>
+      <div id="tutorial-coach" class="tutorial-coach-catcher" hidden></div>
+      <div id="tutorial-spotlight" class="tutorial-spotlight" hidden aria-hidden="true"></div>
+      <div id="tutorial-coach-card" class="tutorial-coach-card" hidden role="dialog" aria-modal="true" aria-labelledby="tutorial-coach-title">
+        <h2 id="tutorial-coach-title" class="tutorial-coach-title"></h2>
+        <p id="tutorial-coach-body" class="tutorial-coach-body"></p>
+        <div class="tutorial-coach-footer">
+          <span id="tutorial-coach-progress" class="tutorial-coach-progress"></span>
+          <button type="button" id="tutorial-next" class="ui-button tutorial-next-button">Next</button>
+        </div>
+        <button type="button" id="tutorial-skip" class="tutorial-skip-link">Skip tutorial</button>
       </div>
       <div id="game-result-overlay" class="game-result-overlay" hidden aria-live="assertive">
         <div class="game-result-box">
