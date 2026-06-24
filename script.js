@@ -630,8 +630,32 @@ function preloadUnitAnimations() {
   return preloads;
 }
 
-function randomAction() {
-  return ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+// No randomized hand should ever contain more than this many of the same
+// action — too many duplicates makes a draw feel degenerate and removes choice.
+const MAX_SAME_ACTION = 3;
+
+// Tally how many of each action are currently in the shared hand.
+function countAvailableActions() {
+  const counts = {};
+
+  Array.from(actionsList.children).forEach((item) => {
+    const action = item.dataset.action;
+    counts[action] = (counts[action] ?? 0) + 1;
+  });
+
+  return counts;
+}
+
+// Pick a random action, skipping any type that has already hit MAX_SAME_ACTION
+// in the hand being built. `counts` maps action -> how many are placed so far;
+// the caller increments it as each draw lands. If every type is somehow capped
+// (can't happen at the current slot count) we fall back to an unconstrained
+// pick so we never return undefined.
+function randomAction(counts = {}) {
+  const eligible = ACTIONS.filter((action) => (counts[action] ?? 0) < MAX_SAME_ACTION);
+  const pool = eligible.length > 0 ? eligible : ACTIONS;
+
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function createIcon(src, className) {
@@ -680,8 +704,15 @@ function refillAvailableActions() {
     return;
   }
 
+  // Count actions already in the hand so the new draws keep the whole hand
+  // (kept + drawn) within MAX_SAME_ACTION per type, not just the new slots.
+  const counts = countAvailableActions();
+
   const newItems = Array.from({ length: emptySlotCount }, (_, index) => {
-    const item = createAvailableActionItem(randomAction());
+    const action = randomAction(counts);
+    counts[action] = (counts[action] ?? 0) + 1;
+
+    const item = createAvailableActionItem(action);
     item.style.setProperty("--slide-delay", `${(emptySlotCount - 1 - index) * 120}ms`);
     return item;
   });
@@ -749,7 +780,20 @@ function addAvailableAction(action) {
 // filled randomly. Affects only the shared hand, not queued unit actions.
 function seedTutorialActionHand() {
   const fillerCount = Math.max(0, ACTION_SLOT_COUNT - ACTIONS.length);
-  const hand = [...ACTIONS, ...Array.from({ length: fillerCount }, randomAction)];
+
+  // The hand starts with one of every action, so seed the cap counter with
+  // those before drawing the random fillers.
+  const counts = {};
+  ACTIONS.forEach((action) => {
+    counts[action] = 1;
+  });
+
+  const fillers = Array.from({ length: fillerCount }, () => {
+    const action = randomAction(counts);
+    counts[action] = (counts[action] ?? 0) + 1;
+    return action;
+  });
+  const hand = [...ACTIONS, ...fillers];
 
   actionsList.replaceChildren(...hand.map(createAvailableActionItem));
   updatePlayerActionControls();
