@@ -1407,7 +1407,7 @@ function clearCurrentWorldCell(world) {
 let worldState = createWorld();
 
 const worldMapOverlay = document.querySelector("#world-map-overlay");
-const worldMapGrid = document.querySelector("#world-map-grid");
+const worldStage = arena ? arena.parentElement : null;
 const CORNER_ARROWS = {
   topLeft: "↖",
   topRight: "↗",
@@ -1442,6 +1442,12 @@ function startArena(node) {
 }
 
 function hideWorldMap() {
+  if (worldStage) {
+    worldStage.classList.remove("is-zoomed-out");
+  }
+
+  clearWorldNeighbors();
+
   if (worldMapOverlay) {
     worldMapOverlay.hidden = true;
   }
@@ -1452,6 +1458,10 @@ function openWorldMap() {
     gameResultOverlay.hidden = true;
   }
 
+  if (worldStage) {
+    worldStage.classList.add("is-zoomed-out");
+  }
+
   renderWorldMap();
 
   if (worldMapOverlay) {
@@ -1460,7 +1470,7 @@ function openWorldMap() {
 }
 
 // Player picked a corner on the map: walk there. A fresh cell starts a battle;
-// a previously-cleared cell is safe passage, so we just stay on the map.
+// a previously-cleared cell is safe passage, so we re-centre the map on it.
 function chooseCorner(corner) {
   const { node, isBattle } = expandToCorner(worldState, corner);
 
@@ -1471,71 +1481,128 @@ function chooseCorner(corner) {
   }
 }
 
-// Render the known lattice plus the four corner choices around the current
-// cell. The grid is rotated 45° (see CSS) so the four world neighbours read as
-// the four screen corners; cell contents are counter-rotated to stay upright.
-function renderWorldMap() {
-  if (!worldMapGrid) {
+function clearWorldNeighbors() {
+  if (!worldStage) {
     return;
   }
 
-  worldMapGrid.replaceChildren();
+  worldStage.querySelectorAll(".world-neighbor").forEach((el) => el.remove());
+}
 
-  // Every cell to show: known nodes + the four neighbours of the current cell.
-  const cells = new Map();
-  const addCell = (x, y, extra) => {
-    const key = worldCoordKey(x, y);
-    cells.set(key, { x, y, ...cells.get(key), ...extra });
-  };
+// Generate a node's terrain without disturbing the live arena's terrain/pond.
+function terrainTilesForSeed(size, seed) {
+  const savedTerrain = terrainTiles;
+  const savedPond = pondTileKeys;
 
-  Object.values(worldState.nodes).forEach((node) => addCell(node.x, node.y, { node }));
+  generateTerrain(size, seed);
+  const tiles = terrainTiles.map((typeRow) => typeRow.slice());
+
+  terrainTiles = savedTerrain;
+  pondTileKeys = savedPond;
+  return tiles;
+}
+
+// A terrain-only iso layer (no units, anchors, labels, or interactivity) used
+// to preview a neighbouring arena.
+function buildWorldTerrainLayer(tiles) {
+  const layer = document.createElement("div");
+  layer.className = "tile-layer";
+
+  for (let row = 0; row < tiles.length; row += 1) {
+    for (let col = 0; col < tiles[row].length; col += 1) {
+      const tile = document.createElement("div");
+      const img = document.createElement("img");
+      const position = projectTile(row, col);
+
+      tile.className = "tile";
+      tile.style.left = `${position.x}px`;
+      tile.style.top = `${position.y}px`;
+      tile.style.zIndex = row + col;
+      img.src = tileSrc(tiles[row][col]);
+      img.alt = "";
+      img.draggable = false;
+      tile.append(img);
+      layer.append(tile);
+    }
+  }
+
+  return layer;
+}
+
+// Repaint the live (centre) arena's tiles to match a node's terrain, without
+// touching units — used so the centre always shows the cell you're standing on.
+function paintCenterTerrain(node) {
+  if (!node) {
+    return;
+  }
+
+  generateTerrain(GRID_SIZE, node.seed);
+
+  tileElements.forEach((tile) => {
+    const row = Number(tile.dataset.row);
+    const col = Number(tile.dataset.col);
+    const img = tile.querySelector("img");
+
+    if (img && terrainTiles[row] && terrainTiles[row][col] != null) {
+      img.src = tileSrc(terrainTiles[row][col]);
+    }
+  });
+}
+
+// Build one darkened, clickable preview of a neighbouring arena. The seed is
+// derived from the coordinate (matching what the node would get on first
+// visit), so the preview shows the exact terrain you'll fight on.
+function buildWorldNeighbor(corner, x, y) {
+  const node = getWorldNode(worldState, x, y);
+  const cleared = Boolean(node && node.cleared);
+  const seed = node ? node.seed : worldNodeSeed(x, y);
+
+  const el = document.createElement("div");
+  el.className = `arena world-neighbor world-neighbor--${corner}`;
+  el.classList.toggle("is-cleared", cleared);
+  el.setAttribute("role", "button");
+  el.tabIndex = 0;
+  el.setAttribute("aria-label", `${cleared ? "Travel to" : "Fight in"} the ${corner} arena`);
+
+  const inner = document.createElement("div");
+  inner.className = "world-neighbor-board";
+  inner.append(buildWorldTerrainLayer(terrainTilesForSeed(GRID_SIZE, seed)));
+
+  const fog = document.createElement("div");
+  fog.className = "world-neighbor-fog";
+
+  const label = document.createElement("div");
+  label.className = "world-neighbor-label";
+  label.textContent = `${CORNER_ARROWS[corner] ?? ""} ${cleared ? "Travel" : "Fight"}`;
+
+  el.append(inner, fog, label);
+
+  const choose = () => chooseCorner(corner);
+  el.addEventListener("click", choose);
+  el.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      choose();
+    }
+  });
+
+  return el;
+}
+
+// Zoomed-out map: keep the live arena as the centre cell, surround it with the
+// four neighbouring arenas (darkened unless already cleared). CSS positions the
+// neighbours at the four screen corners and shrinks everything together.
+function renderWorldMap() {
+  if (!worldStage) {
+    return;
+  }
+
+  paintCenterTerrain(getCurrentWorldNode(worldState));
+  clearWorldNeighbors();
 
   WORLD_CORNERS.forEach((corner) => {
     const { x, y } = neighborCoord(worldState.x, worldState.y, corner);
-    addCell(x, y, { corner, node: getWorldNode(worldState, x, y) });
-  });
-
-  const list = [...cells.values()];
-  const xs = list.map((c) => c.x);
-  const ys = list.map((c) => c.y);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
-
-  worldMapGrid.style.gridTemplateColumns = `repeat(${maxX - minX + 1}, var(--world-cell-size, 56px))`;
-  worldMapGrid.style.gridTemplateRows = `repeat(${maxY - minY + 1}, var(--world-cell-size, 56px))`;
-
-  list.forEach(({ x, y, node, corner }) => {
-    const isCurrent = x === worldState.x && y === worldState.y;
-    const isCleared = Boolean(node && node.cleared);
-    const isChoice = Boolean(corner) && !isCurrent;
-
-    const cell = document.createElement(isChoice ? "button" : "div");
-    cell.className = "world-cell";
-    cell.style.gridColumn = String(x - minX + 1);
-    cell.style.gridRow = String(maxY - y + 1);
-    cell.classList.toggle("is-current", isCurrent);
-    cell.classList.toggle("is-cleared", isCleared);
-    cell.classList.toggle("is-choice", isChoice);
-    cell.classList.toggle("is-battle", isChoice && !isCleared);
-
-    const content = document.createElement("span");
-    content.className = "world-cell-content";
-
-    if (isCurrent) {
-      content.textContent = "You";
-    } else if (isChoice) {
-      const arrow = CORNER_ARROWS[corner] ?? "";
-      content.textContent = isCleared ? `${arrow} Safe` : `${arrow} Fight`;
-      cell.type = "button";
-      cell.addEventListener("click", () => chooseCorner(corner));
-    } else if (isCleared) {
-      content.textContent = "✓";
-    }
-
-    cell.append(content);
-    worldMapGrid.append(cell);
+    worldStage.append(buildWorldNeighbor(corner, x, y));
   });
 }
 
