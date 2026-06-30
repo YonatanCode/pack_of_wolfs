@@ -1408,7 +1408,7 @@ let worldState = createWorld();
 
 const worldStage = arena ? arena.parentElement : null;
 const WORLD_MAP_MARGIN = 48;
-const WORLD_MAP_MAX_SCALE = 0.95;
+const WORLD_MAP_MAX_SCALE = 3;
 
 // Tear down the current arena and build the one described by a world node:
 // fresh terrain, the node's enemy type, and a full-health pack (arenas are
@@ -1549,8 +1549,8 @@ function worldCellScreenOffset(x, y) {
   const dy = y - worldState.y;
 
   return {
-    ox: (dx - dy) * (GRID_SIZE - 1) * ISO_X_STEP,
-    oy: -(dx + dy) * (GRID_SIZE - 1) * ISO_Y_STEP,
+    ox: (dx - dy) * GRID_SIZE * ISO_X_STEP,
+    oy: -(dx + dy) * GRID_SIZE * ISO_Y_STEP,
   };
 }
 
@@ -1599,8 +1599,8 @@ function computeWorldMapLayout(cells) {
   const contentH = maxY - minY + boardHeight + WORLD_MAP_MARGIN * 2;
   const scale = Math.min(
     WORLD_MAP_MAX_SCALE,
-    (window.innerWidth * 0.94) / contentW,
-    (window.innerHeight * 0.94) / contentH,
+    (window.innerWidth * 0.96) / contentW,
+    (window.innerHeight * 0.92) / contentH,
   );
 
   return { scale, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
@@ -1639,6 +1639,12 @@ function buildWorldCell(cell, layout) {
     el.setAttribute("role", "button");
     el.tabIndex = 0;
     el.setAttribute("aria-label", `${cleared ? "Travel to" : "Fight in"} the ${corner} arena`);
+
+    // Diamond-shaped hit area (CSS clip-path) so overlapping rectangular boxes
+    // don't steal each other's clicks/hover over their transparent corners.
+    const hit = document.createElement("div");
+    hit.className = "world-neighbor-hit";
+    el.append(hit);
 
     const choose = () => chooseCorner(corner);
     el.addEventListener("click", choose);

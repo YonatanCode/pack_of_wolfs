@@ -1172,17 +1172,26 @@ body {
   height: var(--arena-height);
   transform-origin: center;
   image-rendering: pixelated;
+  /* The box is mostly transparent and boxes overlap — don't let it capture
+     pointer events. The diamond hit area below does that. */
+  pointer-events: none;
   animation: worldNeighborIn 320ms ease both;
-}
-
-.world-neighbor.is-choice {
-  cursor: pointer;
 }
 
 .world-neighbor-board {
   position: absolute;
   inset: 0;
   transition: filter 180ms ease;
+}
+
+/* Diamond-shaped clickable area matching the iso tile, so a choice only
+   responds over its own arena (not a neighbour's transparent box corner). */
+.world-neighbor-hit {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 /* Darken unknown arenas by dimming the terrain itself (not a rectangular
