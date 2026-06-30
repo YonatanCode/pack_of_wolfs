@@ -2883,6 +2883,22 @@ function showGameResult(didWin) {
   gameResultOverlay.hidden = false;
 }
 
+// Single seam every battle-resolution path funnels through (tick loop, dev-test
+// loop, and the dev End-fight buttons). The overworld layer hooks in here so a
+// win can advance to the world map instead of just showing the result overlay.
+function concludeBattle(didWin) {
+  showGameResult(didWin);
+}
+
+// Dev lever: force the current battle to resolve now, without playing it out.
+function devEndFight(didWin) {
+  if (isExecutingActionQueue) {
+    return;
+  }
+
+  concludeBattle(didWin);
+}
+
 function resetGame() {
   if (gameResultOverlay) gameResultOverlay.hidden = true;
   reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
@@ -3177,9 +3193,9 @@ async function executePlayerActionQueue() {
     });
 
     if (!hasAliveUnitsByTeam("player")) {
-      showGameResult(false);
+      concludeBattle(false);
     } else if (!hasAliveUnitsByTeam("enemy")) {
-      showGameResult(true);
+      concludeBattle(true);
     }
   }
 }
@@ -5022,9 +5038,9 @@ async function runDevTestTurn() {
     syncEnemyModeControls();
 
     if (!hasAliveUnitsByTeam("player")) {
-      showGameResult(false);
+      concludeBattle(false);
     } else if (!hasAliveUnitsByTeam("enemy")) {
-      showGameResult(true);
+      concludeBattle(true);
     }
   }
 
@@ -6598,6 +6614,16 @@ async function runResolutionDemo({ player: playerSetup, enemy: enemySetup, playe
   setResolutionDemoStatus(`${status} — watch…`);
   await runDevTestTick();
   setResolutionDemoStatus(status);
+}
+
+const winFightButton = document.getElementById("dev-win-fight");
+if (winFightButton) {
+  winFightButton.addEventListener("click", () => devEndFight(true));
+}
+
+const loseFightButton = document.getElementById("dev-lose-fight");
+if (loseFightButton) {
+  loseFightButton.addEventListener("click", () => devEndFight(false));
 }
 
 const dodgeMissButton = document.getElementById("demo-dodge-miss");
