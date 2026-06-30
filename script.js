@@ -1409,6 +1409,7 @@ let worldState = createWorld();
 const worldStage = arena ? arena.parentElement : null;
 const WORLD_MAP_MARGIN = 48;
 const WORLD_MAP_MAX_SCALE = 3;
+const WORLD_MAP_MAX_CELLS = 10;
 
 // Tear down the current arena and build the one described by a world node:
 // fresh terrain, the node's enemy type, and a full-health pack (arenas are
@@ -1595,15 +1596,27 @@ function computeWorldMapLayout(cells) {
     maxY = Math.max(maxY, oy);
   });
 
-  const contentW = maxX - minX + boardWidth + WORLD_MAP_MARGIN * 2;
-  const contentH = maxY - minY + boardHeight + WORLD_MAP_MARGIN * 2;
+  // Cap the combined map to at most WORLD_MAP_MAX_CELLS arenas across each
+  // screen axis. Once the explored region is bigger, the view stops zooming out
+  // and centres on the current cell; farther arenas scroll off (stage clips).
+  const maxSpanX = (WORLD_MAP_MAX_CELLS - 1) * GRID_SIZE * ISO_X_STEP;
+  const maxSpanY = (WORLD_MAP_MAX_CELLS - 1) * GRID_SIZE * ISO_Y_STEP;
+  const spanX = Math.min(maxX - minX, maxSpanX);
+  const spanY = Math.min(maxY - minY, maxSpanY);
+
+  const contentW = spanX + boardWidth + WORLD_MAP_MARGIN * 2;
+  const contentH = spanY + boardHeight + WORLD_MAP_MARGIN * 2;
   const scale = Math.min(
     WORLD_MAP_MAX_SCALE,
     (window.innerWidth * 0.96) / contentW,
     (window.innerHeight * 0.92) / contentH,
   );
 
-  return { scale, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
+  return {
+    scale,
+    cx: maxX - minX <= maxSpanX ? (minX + maxX) / 2 : 0,
+    cy: maxY - minY <= maxSpanY ? (minY + maxY) / 2 : 0,
+  };
 }
 
 function worldCellTransform(ox, oy, layout) {
