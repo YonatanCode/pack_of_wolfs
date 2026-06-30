@@ -1260,6 +1260,114 @@ function applyPlayerAction(action) {
   updatePlayerActionControls();
 }
 
+// ============================================================================
+// OVERWORLD MAP — pure lattice state machine (DOM-free, headless-testable).
+//
+// Arenas live on an (x, y) lattice. The four on-screen corners map to the four
+// iso diagonals, and each is one cardinal step along a world axis: the axes run
+// ALONG the diagonals, so topRight/bottomLeft are opposites on the x axis and
+// topLeft/bottomRight are opposites on the y axis. That keeps the lattice
+// gap-free and makes "a corner then its opposite" return to the same cell.
+//
+// The battle layer never touches this state directly — it reads the current
+// node to set up an arena and reports win/loss back, so the whole world loop is
+// plain data that the headless dev-test harness can exercise without a DOM.
+// ============================================================================
+
+const WORLD_CORNERS = ["topLeft", "topRight", "bottomRight", "bottomLeft"];
+const WORLD_CORNER_DELTAS = {
+  topRight: { x: 1, y: 0 },
+  bottomLeft: { x: -1, y: 0 },
+  topLeft: { x: 0, y: 1 },
+  bottomRight: { x: 0, y: -1 },
+};
+
+function worldCoordKey(x, y) {
+  return `${x},${y}`;
+}
+
+// Manhattan distance from home (0, 0) — the tunable basis for difficulty.
+function worldNodeDistance(x, y) {
+  return Math.abs(x) + Math.abs(y);
+}
+
+// Deterministic per-cell encounter so a node looks the same every time you
+// revisit it. Tunable; v1 sprinkles stag duels through a mostly-wolf world.
+function pickEnemyModeForNode(x, y) {
+  const hash = Math.abs((x * 73856093) ^ (y * 19349663));
+  return hash % 3 === 0 ? "stag" : "wolves";
+}
+
+function createWorldNode(x, y, overrides = {}) {
+  return {
+    x,
+    y,
+    cleared: false,
+    enemyMode: pickEnemyModeForNode(x, y),
+    difficulty: worldNodeDistance(x, y),
+    ...overrides,
+  };
+}
+
+// Fresh run: home cell (0, 0) starts cleared so the player begins on safe
+// ground and the first expansion is the first fight.
+function createWorld() {
+  const world = { x: 0, y: 0, nodes: {} };
+  world.nodes[worldCoordKey(0, 0)] = createWorldNode(0, 0, {
+    cleared: true,
+    enemyMode: null,
+    difficulty: 0,
+  });
+  return world;
+}
+
+function getWorldNode(world, x, y) {
+  return world.nodes[worldCoordKey(x, y)] ?? null;
+}
+
+function getCurrentWorldNode(world) {
+  return getWorldNode(world, world.x, world.y);
+}
+
+function neighborCoord(x, y, corner) {
+  const delta = WORLD_CORNER_DELTAS[corner];
+
+  if (!delta) {
+    throw new Error(`Unknown corner: ${corner}`);
+  }
+
+  return { x: x + delta.x, y: y + delta.y };
+}
+
+// Move the pack into the neighbouring cell for the chosen corner, creating that
+// node the first time it's reached. Returns the node and whether entering it
+// starts a battle (uncleared) or is safe passage (already cleared).
+function expandToCorner(world, corner) {
+  const { x, y } = neighborCoord(world.x, world.y, corner);
+  const key = worldCoordKey(x, y);
+
+  if (!world.nodes[key]) {
+    world.nodes[key] = createWorldNode(x, y);
+  }
+
+  world.x = x;
+  world.y = y;
+
+  const node = world.nodes[key];
+  return { node, isBattle: !node.cleared };
+}
+
+// Mark the cell the pack is standing in as cleared — call this on a battle win.
+function clearCurrentWorldCell(world) {
+  const node = getCurrentWorldNode(world);
+
+  if (node) {
+    node.cleared = true;
+  }
+
+  return node;
+}
+
 function buildArena() {
   const tileLayer = document.createElement("div");
   const unitLayer = document.createElement("div");
@@ -5581,6 +5689,81 @@ const DEV_TEST_SCENARIOS = [
       state.player.row,
       state.player.col,
     ),
+  },
+  {
+    id: "world-corner-math",
+    label: "World: corner math + opposites cancel",
+    run: async () => {
+      const world = createWorld();
+      const moves = WORLD_CORNERS.map((corner) => neighborCoord(0, 0, corner));
+      // From home, walk a corner then its opposite and land back home.
+      expandToCorner(world, "topRight");
+      expandToCorner(world, "bottomLeft");
+      return { moves, x: world.x, y: world.y };
+    },
+    expect: (state) => (
+      state.moves.length === 4 &&
+      // Every corner lands on a distinct neighbour cell.
+      new Set(state.moves.map((m) => worldCoordKey(m.x, m.y))).size === 4 &&
+      // topRight then bottomLeft returns to the origin.
+      state.x === 0 && state.y === 0
+    ),
+  },
+  {
+    id: "world-expand-battle",
+    label: "World: fresh cell starts a battle",
+    run: async () => {
+      const world = createWorld();
+      const result = expandToCorner(world, "topRight");
+      return {
+        isBattle: result.isBattle,
+        cleared: result.node.cleared,
+        nodeCount: Object.keys(world.nodes).length,
+      };
+    },
+    expect: (state) => (
+      state.isBattle === true &&
+      state.cleared === false &&
+      // home + the newly created cell.
+      state.nodeCount === 2
+    ),
+  },
+  {
+    id: "world-win-clears-cell",
+    label: "World: winning clears the current cell",
+    run: async () => {
+      const world = createWorld();
+      const before = expandToCorner(world, "topLeft");
+      clearCurrentWorldCell(world);
+      const after = getCurrentWorldNode(world);
+      return { wasBattle: before.isBattle, clearedAfter: after.cleared };
+    },
+    expect: (state) => state.wasBattle === true && state.clearedAfter === true,
+  },
+  {
+    id: "world-revisit-safe",
+    label: "World: re-entering a cleared cell is safe passage",
+    run: async () => {
+      const world = createWorld();
+      expandToCorner(world, "topRight"); // into a fresh cell (battle)
+      clearCurrentWorldCell(world); // win it
+      expandToCorner(world, "topRight"); // push out to a new frontier cell
+      clearCurrentWorldCell(world);
+      const back = expandToCorner(world, "bottomLeft"); // step back onto cleared ground
+      return { isBattle: back.isBattle, x: world.x, y: world.y };
+    },
+    expect: (state) => state.isBattle === false && state.x === 1 && state.y === 0,
+  },
+  {
+    id: "world-difficulty-scales",
+    label: "World: difficulty scales with distance",
+    run: async () => {
+      const world = createWorld();
+      const near = expandToCorner(world, "topRight").node; // distance 1
+      const far = expandToCorner(world, "topRight").node; // distance 2
+      return { home: getWorldNode(world, 0, 0).difficulty, near: near.difficulty, far: far.difficulty };
+    },
+    expect: (state) => state.home === 0 && state.near === 1 && state.far === 2,
   },
 ];
 
