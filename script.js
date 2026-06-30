@@ -1311,8 +1311,17 @@ const WORLD_CORNER_DELTAS = {
   bottomRight: { x: 0, y: -1 },
 };
 
+// The world is bounded: from the home cell in the middle, the player can travel
+// at most this many steps along each axis (each of the four corner directions).
+// Reaching an edge blocks further expansion that way.
+const WORLD_MAX_DISTANCE = 10;
+
 function worldCoordKey(x, y) {
   return `${x},${y}`;
+}
+
+function isWithinWorldBounds(x, y) {
+  return Math.abs(x) <= WORLD_MAX_DISTANCE && Math.abs(y) <= WORLD_MAX_DISTANCE;
 }
 
 // Manhattan distance from home (0, 0) — the tunable basis for difficulty.
@@ -1375,9 +1384,15 @@ function neighborCoord(x, y, corner) {
 
 // Move the pack into the neighbouring cell for the chosen corner, creating that
 // node the first time it's reached. Returns the node and whether entering it
-// starts a battle (uncleared) or is safe passage (already cleared).
+// starts a battle (uncleared) or is safe passage (already cleared), or null if
+// that corner would leave the bounded world (the player is at an edge).
 function expandToCorner(world, corner) {
   const { x, y } = neighborCoord(world.x, world.y, corner);
+
+  if (!isWithinWorldBounds(x, y)) {
+    return null;
+  }
+
   const key = worldCoordKey(x, y);
 
   if (!world.nodes[key]) {
@@ -1409,7 +1424,6 @@ let worldState = createWorld();
 const worldStage = arena ? arena.parentElement : null;
 const WORLD_MAP_MARGIN = 48;
 const WORLD_MAP_MAX_SCALE = 3;
-const WORLD_MAP_MAX_CELLS = 10;
 
 // Tear down the current arena and build the one described by a world node:
 // fresh terrain, the node's enemy type, and a full-health pack (arenas are
@@ -1464,11 +1478,16 @@ function openWorldMap() {
 
 // Player picked a corner on the map: walk there. A fresh cell starts a battle;
 // a previously-cleared cell is safe passage, so we re-centre the map on it.
+// Corners at the world edge are blocked (expandToCorner returns null).
 function chooseCorner(corner) {
-  const { node, isBattle } = expandToCorner(worldState, corner);
+  const result = expandToCorner(worldState, corner);
 
-  if (isBattle) {
-    startArena(node);
+  if (!result) {
+    return;
+  }
+
+  if (result.isBattle) {
+    startArena(result.node);
   } else {
     renderWorldMap();
   }
@@ -1571,9 +1590,13 @@ function collectWorldMapCells() {
 
   Object.values(worldState.nodes).forEach((node) => ensure(node.x, node.y));
 
+  // Only in-bounds neighbours are offered as choices; edge directions are blocked.
   WORLD_CORNERS.forEach((corner) => {
     const { x, y } = neighborCoord(worldState.x, worldState.y, corner);
-    ensure(x, y).corner = corner;
+
+    if (isWithinWorldBounds(x, y)) {
+      ensure(x, y).corner = corner;
+    }
   });
 
   return [...byKey.values()];
@@ -1596,27 +1619,15 @@ function computeWorldMapLayout(cells) {
     maxY = Math.max(maxY, oy);
   });
 
-  // Cap the combined map to at most WORLD_MAP_MAX_CELLS arenas across each
-  // screen axis. Once the explored region is bigger, the view stops zooming out
-  // and centres on the current cell; farther arenas scroll off (stage clips).
-  const maxSpanX = (WORLD_MAP_MAX_CELLS - 1) * GRID_SIZE * ISO_X_STEP;
-  const maxSpanY = (WORLD_MAP_MAX_CELLS - 1) * GRID_SIZE * ISO_Y_STEP;
-  const spanX = Math.min(maxX - minX, maxSpanX);
-  const spanY = Math.min(maxY - minY, maxSpanY);
-
-  const contentW = spanX + boardWidth + WORLD_MAP_MARGIN * 2;
-  const contentH = spanY + boardHeight + WORLD_MAP_MARGIN * 2;
+  const contentW = maxX - minX + boardWidth + WORLD_MAP_MARGIN * 2;
+  const contentH = maxY - minY + boardHeight + WORLD_MAP_MARGIN * 2;
   const scale = Math.min(
     WORLD_MAP_MAX_SCALE,
     (window.innerWidth * 0.96) / contentW,
     (window.innerHeight * 0.92) / contentH,
   );
 
-  return {
-    scale,
-    cx: maxX - minX <= maxSpanX ? (minX + maxX) / 2 : 0,
-    cy: maxY - minY <= maxSpanY ? (minY + maxY) / 2 : 0,
-  };
+  return { scale, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
 }
 
 function worldCellTransform(ox, oy, layout) {
@@ -6152,6 +6163,28 @@ const DEV_TEST_SCENARIOS = [
       return { sameSeedMatches: a === b, diffSeedDiffers: a !== c };
     },
     expect: (state) => state.sameSeedMatches === true && state.diffSeedDiffers === true,
+  },
+  {
+    id: "world-bounds-cap",
+    label: "World: cannot expand past the edge",
+    run: async () => {
+      worldState = createWorld();
+      // Walk to the +x edge.
+      for (let i = 0; i < WORLD_MAX_DISTANCE; i += 1) {
+        expandToCorner(worldState, "topRight");
+        clearCurrentWorldCell(worldState);
+      }
+      const edgeX = worldState.x;
+      const blocked = expandToCorner(worldState, "topRight"); // would exceed the bound
+      const afterX = worldState.x;
+      worldState = createWorld(); // restore a fresh run
+      return { edgeX, blockedIsNull: blocked === null, afterX };
+    },
+    expect: (state) => (
+      state.edgeX === WORLD_MAX_DISTANCE &&
+      state.blockedIsNull === true &&
+      state.afterX === WORLD_MAX_DISTANCE
+    ),
   },
 ];
 
