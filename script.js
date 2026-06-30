@@ -1695,6 +1695,11 @@ const TERRITORY_EDGES = [
   { corner: "topLeft", a: [-1, 0], b: [0, -1] }, // left → top
 ];
 
+// Vertical placement of the territory outline, in arena-local px (scales with
+// the map zoom). 0 centres it on the lattice cell; positive moves it down.
+// Tune to sit it on the terrain.
+const WORLD_TERRITORY_NUDGE_Y = 0;
+
 function buildTerritoryOutline(layout) {
   const svgNS = "http://www.w3.org/2000/svg";
   const stageW = worldStage.clientWidth || window.innerWidth;
@@ -1704,7 +1709,7 @@ function buildTerritoryOutline(layout) {
   // the painted terrain (which sits slightly higher than the arena box centre).
   const hx = GRID_SIZE * ISO_X_STEP * layout.scale;
   const hy = GRID_SIZE * ISO_Y_STEP * layout.scale;
-  const nudgeY = ((GRID_SIZE - 1) * ISO_Y_STEP - boardHeight / 2) * layout.scale;
+  const nudgeY = WORLD_TERRITORY_NUDGE_Y * layout.scale;
 
   const segments = [];
 
