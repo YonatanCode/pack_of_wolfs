@@ -1164,6 +1164,13 @@ body {
   transition: transform 320ms ease;
 }
 
+/* In map view the current arena is just context, not a travel target. Stop it
+   capturing pointer events — its full (mostly transparent) box otherwise sits
+   on top of the upper neighbours and steals their hover/click. */
+.stage.is-zoomed-out #arena {
+  pointer-events: none;
+}
+
 .world-neighbor {
   position: absolute;
   top: 50%;
