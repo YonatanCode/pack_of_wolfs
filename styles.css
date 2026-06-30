@@ -1228,6 +1228,24 @@ body {
   to { opacity: 1; }
 }
 
+/* The won territory drawn as a single outline over the cleared arenas. */
+.world-territory-outline {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2000;
+  overflow: visible;
+}
+
+.world-territory-path {
+  fill: none;
+  stroke: #f0d27a;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(240, 210, 122, 0.55));
+}
+
 .tutorial-toggle {
   position: fixed;
   top: 16px;

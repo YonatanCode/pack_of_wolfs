@@ -1314,7 +1314,7 @@ const WORLD_CORNER_DELTAS = {
 // The world is bounded: from the home cell in the middle, the player can travel
 // at most this many steps along each axis (each of the four corner directions).
 // Reaching an edge blocks further expansion that way.
-const WORLD_MAX_DISTANCE = 10;
+const WORLD_MAX_DISTANCE = 5;
 
 function worldCoordKey(x, y) {
   return `${x},${y}`;
@@ -1498,7 +1498,9 @@ function clearWorldNeighbors() {
     return;
   }
 
-  worldStage.querySelectorAll(".world-neighbor").forEach((el) => el.remove());
+  worldStage
+    .querySelectorAll(".world-neighbor, .world-territory-outline")
+    .forEach((el) => el.remove());
 }
 
 // Generate a node's terrain without disturbing the live arena's terrain/pond.
@@ -1683,6 +1685,68 @@ function buildWorldCell(cell, layout) {
   return el;
 }
 
+// Outline the won territory as one shape: for each cleared cell, draw its
+// rhombus edges only where the neighbour in that direction isn't also cleared.
+// Edges shared by two cleared cells cancel, leaving just the outer perimeter.
+const TERRITORY_EDGES = [
+  { corner: "topRight", a: [0, -1], b: [1, 0] }, // top → right
+  { corner: "bottomRight", a: [1, 0], b: [0, 1] }, // right → bottom
+  { corner: "bottomLeft", a: [0, 1], b: [-1, 0] }, // bottom → left
+  { corner: "topLeft", a: [-1, 0], b: [0, -1] }, // left → top
+];
+
+function buildTerritoryOutline(layout) {
+  const svgNS = "http://www.w3.org/2000/svg";
+  const stageW = worldStage.clientWidth || window.innerWidth;
+  const stageH = worldStage.clientHeight || window.innerHeight;
+
+  // Rhombus half-extents (one lattice step) and the offset that recentres it on
+  // the painted terrain (which sits slightly higher than the arena box centre).
+  const hx = GRID_SIZE * ISO_X_STEP * layout.scale;
+  const hy = GRID_SIZE * ISO_Y_STEP * layout.scale;
+  const nudgeY = ((GRID_SIZE - 1) * ISO_Y_STEP - boardHeight / 2) * layout.scale;
+
+  const segments = [];
+
+  Object.values(worldState.nodes).forEach((node) => {
+    if (!node.cleared) {
+      return;
+    }
+
+    const { ox, oy } = worldCellScreenOffset(node.x, node.y);
+    const sx = stageW / 2 + (ox - layout.cx) * layout.scale;
+    const sy = stageH / 2 + (oy - layout.cy) * layout.scale + nudgeY;
+
+    TERRITORY_EDGES.forEach(({ corner, a, b }) => {
+      const { x, y } = neighborCoord(node.x, node.y, corner);
+      const neighbour = getWorldNode(worldState, x, y);
+
+      if (neighbour && neighbour.cleared) {
+        return; // interior edge between two owned cells — skip
+      }
+
+      segments.push(
+        `M ${sx + a[0] * hx} ${sy + a[1] * hy} L ${sx + b[0] * hx} ${sy + b[1] * hy}`,
+      );
+    });
+  });
+
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("class", "world-territory-outline");
+  svg.setAttribute("width", stageW);
+  svg.setAttribute("height", stageH);
+  svg.setAttribute("viewBox", `0 0 ${stageW} ${stageH}`);
+
+  if (segments.length) {
+    const path = document.createElementNS(svgNS, "path");
+    path.setAttribute("class", "world-territory-path");
+    path.setAttribute("d", segments.join(" "));
+    svg.append(path);
+  }
+
+  return svg;
+}
+
 // Zoomed-out map: keep the live arena as the current cell, draw every explored
 // cell plus the four frontier choices around it, all scaled to fit on screen.
 function renderWorldMap() {
@@ -1708,6 +1772,8 @@ function renderWorldMap() {
 
     worldStage.append(buildWorldCell(cell, layout));
   });
+
+  worldStage.append(buildTerritoryOutline(layout));
 }
 
 function buildArena() {
