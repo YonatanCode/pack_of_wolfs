@@ -329,14 +329,14 @@ function tileSrc(index) {
 
 function pickTerrainTile(type) {
   if (type === TERRAIN_DIRT) {
-    return DIRT_BASE_TILES[Math.floor(Math.random() * DIRT_BASE_TILES.length)];
+    return DIRT_BASE_TILES[Math.floor(terrainRandom() * DIRT_BASE_TILES.length)];
   }
 
-  if (Math.random() < GRASS_DECOR_CHANCE) {
-    return GRASS_DECOR_TILES[Math.floor(Math.random() * GRASS_DECOR_TILES.length)];
+  if (terrainRandom() < GRASS_DECOR_CHANCE) {
+    return GRASS_DECOR_TILES[Math.floor(terrainRandom() * GRASS_DECOR_TILES.length)];
   }
 
-  return GRASS_BASE_TILES[Math.floor(Math.random() * GRASS_BASE_TILES.length)];
+  return GRASS_BASE_TILES[Math.floor(terrainRandom() * GRASS_BASE_TILES.length)];
 }
 
 function oppositeTerrain(type) {
@@ -346,6 +346,25 @@ function oppositeTerrain(type) {
 // Build a coarse lattice of random values, then sample it with smooth
 // (bilinear + smoothstep) interpolation so the field varies gradually. Returns
 // a grid of terrain TYPES (grass/dirt), not yet resolved to tile sprites.
+// Seeded PRNG (mulberry32) so an arena's terrain is reproducible from its world
+// node — the darkened map preview shows the exact terrain you'll fight on.
+function createSeededRandom(seed) {
+  let state = seed >>> 0;
+
+  return function next() {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Terrain generation pulls all its randomness from here. generateTerrain swaps
+// in a seeded source while it runs, then restores Math.random for everything
+// else, so only terrain becomes deterministic.
+let terrainRandom = Math.random;
+
 function generateTerrainTypes(size) {
   const latticeSize = Math.ceil(size / TERRAIN_NOISE_SCALE) + 2;
   const lattice = [];
@@ -353,7 +372,7 @@ function generateTerrainTypes(size) {
   for (let y = 0; y <= latticeSize; y += 1) {
     const rowValues = [];
     for (let x = 0; x <= latticeSize; x += 1) {
-      rowValues.push(Math.random());
+      rowValues.push(terrainRandom());
     }
     lattice.push(rowValues);
   }
@@ -451,7 +470,17 @@ function hasNeighbourOfType(types, size, row, col, targetType) {
   return false;
 }
 
-function generateTerrain(size) {
+function generateTerrain(size, seed = null) {
+  terrainRandom = seed === null ? Math.random : createSeededRandom(seed);
+
+  try {
+    return generateTerrainTiles(size);
+  } finally {
+    terrainRandom = Math.random;
+  }
+}
+
+function generateTerrainTiles(size) {
   const types = generateTerrainTypes(size);
   smoothLoneTiles(types, size);
 
@@ -460,7 +489,7 @@ function generateTerrain(size) {
       // Grass cells touching dirt get the blended edge tile; everything else
       // picks a normal tile from its terrain pool.
       if (type === TERRAIN_GRASS && hasNeighbourOfType(types, size, row, col, TERRAIN_DIRT)) {
-        return GRASS_EDGE_TILES[Math.floor(Math.random() * GRASS_EDGE_TILES.length)];
+        return GRASS_EDGE_TILES[Math.floor(terrainRandom() * GRASS_EDGE_TILES.length)];
       }
 
       return pickTerrainTile(type);
@@ -1298,6 +1327,12 @@ function pickEnemyModeForNode(x, y) {
   return hash % 3 === 0 ? "stag" : "wolves";
 }
 
+// Stable per-cell seed so a node's terrain is identical every time it's
+// rendered (preview) or entered (battle).
+function worldNodeSeed(x, y) {
+  return (Math.imul(x | 0, 0x9e3779b1) ^ Math.imul(y | 0, 0x85ebca77)) >>> 0;
+}
+
 function createWorldNode(x, y, overrides = {}) {
   return {
     x,
@@ -1305,6 +1340,7 @@ function createWorldNode(x, y, overrides = {}) {
     cleared: false,
     enemyMode: pickEnemyModeForNode(x, y),
     difficulty: worldNodeDistance(x, y),
+    seed: worldNodeSeed(x, y),
     ...overrides,
   };
 }
@@ -1513,7 +1549,7 @@ function buildArena() {
   tileLayer.className = "tile-layer";
   unitLayer.className = "unit-layer";
 
-  generateTerrain(GRID_SIZE);
+  generateTerrain(GRID_SIZE, getCurrentWorldNode(worldState)?.seed ?? null);
 
   for (let row = 0; row < GRID_SIZE; row += 1) {
     for (let col = 0; col < GRID_SIZE; col += 1) {
@@ -5940,6 +5976,22 @@ const DEV_TEST_SCENARIOS = [
       return result;
     },
     expect: (state) => state.x === 0 && state.y === 0,
+  },
+  {
+    id: "world-terrain-seeded",
+    label: "World: terrain is deterministic per seed",
+    run: async () => {
+      generateTerrain(8, 12345);
+      const a = JSON.stringify(terrainTiles);
+      generateTerrain(8, 12345);
+      const b = JSON.stringify(terrainTiles);
+      generateTerrain(8, 99999);
+      const c = JSON.stringify(terrainTiles);
+      // Restore the live arena's terrain for any later scenario.
+      generateTerrain(GRID_SIZE, getCurrentWorldNode(worldState)?.seed ?? null);
+      return { sameSeedMatches: a === b, diffSeedDiffers: a !== c };
+    },
+    expect: (state) => state.sameSeedMatches === true && state.diffSeedDiffers === true,
   },
 ];
 
