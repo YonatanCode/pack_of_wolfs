@@ -1408,7 +1408,7 @@ let worldState = createWorld();
 
 const worldStage = arena ? arena.parentElement : null;
 const WORLD_MAP_MARGIN = 48;
-const WORLD_MAP_MAX_SCALE = 0.6;
+const WORLD_MAP_MAX_SCALE = 0.95;
 
 // Tear down the current arena and build the one described by a world node:
 // fresh terrain, the node's enemy type, and a full-health pack (arenas are
@@ -1443,6 +1443,7 @@ function hideWorldMap() {
 
   if (arena) {
     arena.style.transform = "";
+    arena.style.zIndex = "";
   }
 
   clearWorldNeighbors();
@@ -1625,17 +1626,13 @@ function buildWorldCell(cell, layout) {
   el.className = "arena world-neighbor";
   el.classList.toggle("is-cleared", cleared);
   el.style.transform = worldCellTransform(ox, oy, layout);
+  // Stack by isometric depth: arenas lower on screen sit in front.
+  el.style.zIndex = String(1000 + Math.round(oy));
 
   const inner = document.createElement("div");
   inner.className = "world-neighbor-board";
   inner.append(buildWorldTerrainLayer(terrainTilesForSeed(GRID_SIZE, seed)));
   el.append(inner);
-
-  if (!cleared) {
-    const fog = document.createElement("div");
-    fog.className = "world-neighbor-fog";
-    el.append(fog);
-  }
 
   if (corner) {
     el.classList.add("is-choice");
@@ -1671,6 +1668,7 @@ function renderWorldMap() {
 
   if (arena) {
     arena.style.transform = worldCellTransform(0, 0, layout);
+    arena.style.zIndex = "1000"; // current cell sits at depth 0
   }
 
   cells.forEach((cell) => {

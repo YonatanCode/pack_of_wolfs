@@ -1164,11 +1164,6 @@ body {
   transition: transform 320ms ease;
 }
 
-/* The current cell sits on top so "you are here" stays clearly visible. */
-.stage.is-zoomed-out #arena {
-  z-index: 6;
-}
-
 .world-neighbor {
   position: absolute;
   top: 50%;
@@ -1177,35 +1172,39 @@ body {
   height: var(--arena-height);
   transform-origin: center;
   image-rendering: pixelated;
-  z-index: 4;
   animation: worldNeighborIn 320ms ease both;
 }
 
 .world-neighbor.is-choice {
   cursor: pointer;
-  z-index: 5;
 }
 
 .world-neighbor-board {
   position: absolute;
   inset: 0;
+  transition: filter 180ms ease;
 }
 
-/* Darken unknown arenas — terrain shows through, but the cell reads as
-   unexplored. Cleared arenas you've already seen render lit (no fog). */
-.world-neighbor-fog {
-  position: absolute;
-  inset: 0;
-  background: rgba(6, 11, 12, 0.62);
-  pointer-events: none;
-  transition: opacity 180ms ease;
+/* Darken unknown arenas by dimming the terrain itself (not a rectangular
+   overlay), so only the diamond reads as unexplored — no hard box edges.
+   Cleared arenas render lit. */
+.world-neighbor:not(.is-cleared) .world-neighbor-board {
+  filter: brightness(0.5);
 }
 
 /* Hover/focus just lightens the arena — no frame. */
-.world-neighbor.is-choice:hover,
 .world-neighbor.is-choice:focus-visible {
-  filter: brightness(1.18);
   outline: none;
+}
+
+.world-neighbor.is-choice:not(.is-cleared):hover .world-neighbor-board,
+.world-neighbor.is-choice:not(.is-cleared):focus-visible .world-neighbor-board {
+  filter: brightness(0.82);
+}
+
+.world-neighbor.is-choice.is-cleared:hover .world-neighbor-board,
+.world-neighbor.is-choice.is-cleared:focus-visible .world-neighbor-board {
+  filter: brightness(1.18);
 }
 
 @keyframes worldNeighborIn {
