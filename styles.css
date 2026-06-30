@@ -1147,64 +1147,16 @@ body {
   padding: 12px 32px;
 }
 
-/* The map is the zoomed-out battlefield itself, so the overlay is just a
-   non-blocking HUD banner — clicks fall through to the arena previews. */
-.world-map-overlay {
-  position: fixed;
-  inset: 0 0 auto 0;
-  display: flex;
-  justify-content: center;
-  padding-top: 24px;
-  pointer-events: none;
-  z-index: 120;
-}
+/* World map view. The live arena and the explored/frontier arenas are
+   positioned and scaled inline by JS (renderWorldMap) so the whole region
+   fits and re-fits as it grows. Here we only handle visibility, fog, and
+   hover feedback. */
 
-.world-map-overlay[hidden] {
-  display: none;
-}
-
-.world-map-banner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 14px 28px;
-  border-radius: 12px;
-  background: rgba(6, 11, 12, 0.55);
-}
-
-.world-map-title {
-  margin: 0;
-  color: #f8ffe7;
-  font: 700 24px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  letter-spacing: 0.02em;
-}
-
-.world-map-hint {
-  margin: 0;
-  max-width: 460px;
-  text-align: center;
-  color: rgba(248, 255, 231, 0.66);
-  font: 400 13px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-
-/* --world-zoom shrinks the battlefield so the centre arena plus its four
-   neighbours fit on screen at once. --world-zoom-inverse must stay its
-   reciprocal (used to keep neighbour labels readable). */
-:root {
-  --world-zoom: 0.42;
-  --world-zoom-inverse: 2.381;
-}
-
-/* Zoom out the live arena in place and hide everything battle-specific so all
-   five cells read as terrain only. Target the centre by id so the rule doesn't
-   also match the neighbour arenas (which carry the .arena class). */
-.stage.is-zoomed-out #arena {
-  transform: translate(-50%, -50%) scale(calc(var(--arena-scale) * var(--world-zoom)));
-}
-
+/* Hide everything battle-specific so the screen reads as a clean map. */
 .stage.is-zoomed-out .unit-layer,
-.stage.is-zoomed-out .player-action-menu {
+.stage.is-zoomed-out .player-action-menu,
+.stage.is-zoomed-out .action-panel,
+.stage.is-zoomed-out .action-queue-panel {
   display: none;
 }
 
@@ -1212,8 +1164,11 @@ body {
   transition: transform 320ms ease;
 }
 
-/* Each neighbour is a full arena box scaled by the same zoom and pushed to one
-   of the four screen corners (half a scaled board-width/height away). */
+/* The current cell sits on top so "you are here" stays clearly visible. */
+.stage.is-zoomed-out #arena {
+  z-index: 6;
+}
+
 .world-neighbor {
   position: absolute;
   top: 50%;
@@ -1222,9 +1177,13 @@ body {
   height: var(--arena-height);
   transform-origin: center;
   image-rendering: pixelated;
+  z-index: 4;
+  animation: worldNeighborIn 320ms ease both;
+}
+
+.world-neighbor.is-choice {
   cursor: pointer;
   z-index: 5;
-  animation: worldNeighborIn 320ms ease both;
 }
 
 .world-neighbor-board {
@@ -1232,82 +1191,20 @@ body {
   inset: 0;
 }
 
-.world-neighbor--topRight {
-  transform:
-    translate(-50%, -50%)
-    translate(calc(var(--arena-width) / 2 * var(--arena-scale) * var(--world-zoom)),
-              calc(var(--arena-height) / -2 * var(--arena-scale) * var(--world-zoom)))
-    scale(calc(var(--arena-scale) * var(--world-zoom)));
-}
-
-.world-neighbor--topLeft {
-  transform:
-    translate(-50%, -50%)
-    translate(calc(var(--arena-width) / -2 * var(--arena-scale) * var(--world-zoom)),
-              calc(var(--arena-height) / -2 * var(--arena-scale) * var(--world-zoom)))
-    scale(calc(var(--arena-scale) * var(--world-zoom)));
-}
-
-.world-neighbor--bottomRight {
-  transform:
-    translate(-50%, -50%)
-    translate(calc(var(--arena-width) / 2 * var(--arena-scale) * var(--world-zoom)),
-              calc(var(--arena-height) / 2 * var(--arena-scale) * var(--world-zoom)))
-    scale(calc(var(--arena-scale) * var(--world-zoom)));
-}
-
-.world-neighbor--bottomLeft {
-  transform:
-    translate(-50%, -50%)
-    translate(calc(var(--arena-width) / -2 * var(--arena-scale) * var(--world-zoom)),
-              calc(var(--arena-height) / 2 * var(--arena-scale) * var(--world-zoom)))
-    scale(calc(var(--arena-scale) * var(--world-zoom)));
-}
-
-/* Darken unknown arenas: terrain shows through, but the cell reads as
-   unexplored. Cleared arenas you've already seen stay lit. */
+/* Darken unknown arenas — terrain shows through, but the cell reads as
+   unexplored. Cleared arenas you've already seen render lit (no fog). */
 .world-neighbor-fog {
   position: absolute;
   inset: 0;
-  background: rgba(6, 11, 12, 0.6);
+  background: rgba(6, 11, 12, 0.62);
   pointer-events: none;
-  transition: background 200ms ease;
+  transition: opacity 180ms ease;
 }
 
-.world-neighbor.is-cleared .world-neighbor-fog {
-  background: rgba(6, 11, 12, 0);
-}
-
-.world-neighbor:hover .world-neighbor-fog,
-.world-neighbor:focus-visible .world-neighbor-fog {
-  background: rgba(6, 11, 12, 0.25);
-}
-
-/* Counter-scale the label so it stays readable despite the zoomed-down box. */
-.world-neighbor-label {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(var(--world-zoom-inverse));
-  transform-origin: center;
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: rgba(6, 11, 12, 0.72);
-  color: #f8ffe7;
-  white-space: nowrap;
-  font: 700 14px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  pointer-events: none;
-}
-
-.world-neighbor.is-cleared .world-neighbor-label {
-  color: #a3e66e;
-}
-
-.world-neighbor:not(.is-cleared) .world-neighbor-label {
-  color: #ffd9b0;
-}
-
-.world-neighbor:focus-visible {
+/* Hover/focus just lightens the arena — no frame. */
+.world-neighbor.is-choice:hover,
+.world-neighbor.is-choice:focus-visible {
+  filter: brightness(1.18);
   outline: none;
 }
 
