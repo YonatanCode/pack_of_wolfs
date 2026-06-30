@@ -1309,14 +1309,12 @@ function createWorldNode(x, y, overrides = {}) {
   };
 }
 
-// Fresh run: home cell (0, 0) starts cleared so the player begins on safe
-// ground and the first expansion is the first fight.
+// Fresh run: the home cell (0, 0) is the first fight, using the default enemy
+// so it matches the arena the game boots into. Winning it opens the map.
 function createWorld() {
   const world = { x: 0, y: 0, nodes: {} };
   world.nodes[worldCoordKey(0, 0)] = createWorldNode(0, 0, {
-    cleared: true,
-    enemyMode: null,
-    difficulty: 0,
+    enemyMode: DEFAULT_ENEMY_MODE,
   });
   return world;
 }
@@ -1366,6 +1364,143 @@ function clearCurrentWorldCell(world) {
   }
 
   return node;
+}
+
+// The live run. The battle layer reads this to set up arenas and reports
+// outcomes back through concludeBattle().
+let worldState = createWorld();
+
+const worldMapOverlay = document.querySelector("#world-map-overlay");
+const worldMapGrid = document.querySelector("#world-map-grid");
+const CORNER_ARROWS = {
+  topLeft: "↖",
+  topRight: "↗",
+  bottomRight: "↘",
+  bottomLeft: "↙",
+};
+
+// Tear down the current arena and build the one described by a world node:
+// fresh terrain, the node's enemy type, and a full-health pack (arenas are
+// self-contained — no carry-over damage).
+function startArena(node) {
+  hideWorldMap();
+
+  if (gameResultOverlay) {
+    gameResultOverlay.hidden = true;
+  }
+
+  reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
+
+  if (node && node.enemyMode && ENEMY_MODES.includes(node.enemyMode)) {
+    enemyMode = node.enemyMode;
+  }
+
+  // Mirror the proven build sequence (bootstrap / arena-size change).
+  buildArena();
+  resetDevTest();
+  refillAvailableActions();
+  updateEnemyIntentPreview();
+  updateReshuffleControl();
+  resizeArena();
+  syncEnemyModeControls();
+}
+
+function hideWorldMap() {
+  if (worldMapOverlay) {
+    worldMapOverlay.hidden = true;
+  }
+}
+
+function openWorldMap() {
+  if (gameResultOverlay) {
+    gameResultOverlay.hidden = true;
+  }
+
+  renderWorldMap();
+
+  if (worldMapOverlay) {
+    worldMapOverlay.hidden = false;
+  }
+}
+
+// Player picked a corner on the map: walk there. A fresh cell starts a battle;
+// a previously-cleared cell is safe passage, so we just stay on the map.
+function chooseCorner(corner) {
+  const { node, isBattle } = expandToCorner(worldState, corner);
+
+  if (isBattle) {
+    startArena(node);
+  } else {
+    renderWorldMap();
+  }
+}
+
+// Render the known lattice plus the four corner choices around the current
+// cell. The grid is rotated 45° (see CSS) so the four world neighbours read as
+// the four screen corners; cell contents are counter-rotated to stay upright.
+function renderWorldMap() {
+  if (!worldMapGrid) {
+    return;
+  }
+
+  worldMapGrid.replaceChildren();
+
+  // Every cell to show: known nodes + the four neighbours of the current cell.
+  const cells = new Map();
+  const addCell = (x, y, extra) => {
+    const key = worldCoordKey(x, y);
+    cells.set(key, { x, y, ...cells.get(key), ...extra });
+  };
+
+  Object.values(worldState.nodes).forEach((node) => addCell(node.x, node.y, { node }));
+
+  WORLD_CORNERS.forEach((corner) => {
+    const { x, y } = neighborCoord(worldState.x, worldState.y, corner);
+    addCell(x, y, { corner, node: getWorldNode(worldState, x, y) });
+  });
+
+  const list = [...cells.values()];
+  const xs = list.map((c) => c.x);
+  const ys = list.map((c) => c.y);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+
+  worldMapGrid.style.gridTemplateColumns = `repeat(${maxX - minX + 1}, var(--world-cell-size, 56px))`;
+  worldMapGrid.style.gridTemplateRows = `repeat(${maxY - minY + 1}, var(--world-cell-size, 56px))`;
+
+  list.forEach(({ x, y, node, corner }) => {
+    const isCurrent = x === worldState.x && y === worldState.y;
+    const isCleared = Boolean(node && node.cleared);
+    const isChoice = Boolean(corner) && !isCurrent;
+
+    const cell = document.createElement(isChoice ? "button" : "div");
+    cell.className = "world-cell";
+    cell.style.gridColumn = String(x - minX + 1);
+    cell.style.gridRow = String(maxY - y + 1);
+    cell.classList.toggle("is-current", isCurrent);
+    cell.classList.toggle("is-cleared", isCleared);
+    cell.classList.toggle("is-choice", isChoice);
+    cell.classList.toggle("is-battle", isChoice && !isCleared);
+
+    const content = document.createElement("span");
+    content.className = "world-cell-content";
+
+    if (isCurrent) {
+      content.textContent = "You";
+    } else if (isChoice) {
+      const arrow = CORNER_ARROWS[corner] ?? "";
+      content.textContent = isCleared ? `${arrow} Safe` : `${arrow} Fight`;
+      cell.type = "button";
+      cell.addEventListener("click", () => chooseCorner(corner));
+    } else if (isCleared) {
+      content.textContent = "✓";
+    }
+
+    cell.append(content);
+    worldMapGrid.append(cell);
+  });
 }
 
 function buildArena() {
@@ -2884,10 +3019,16 @@ function showGameResult(didWin) {
 }
 
 // Single seam every battle-resolution path funnels through (tick loop, dev-test
-// loop, and the dev End-fight buttons). The overworld layer hooks in here so a
-// win can advance to the world map instead of just showing the result overlay.
+// loop, and the dev End-fight buttons). A win clears the current cell and opens
+// the world map to expand; a loss shows the result overlay, whose "Play Again"
+// re-fights the same arena (retry-on-loss).
 function concludeBattle(didWin) {
-  showGameResult(didWin);
+  if (didWin) {
+    clearCurrentWorldCell(worldState);
+    openWorldMap();
+  } else {
+    showGameResult(false);
+  }
 }
 
 // Dev lever: force the current battle to resolve now, without playing it out.
@@ -5781,6 +5922,25 @@ const DEV_TEST_SCENARIOS = [
     },
     expect: (state) => state.home === 0 && state.near === 1 && state.far === 2,
   },
+  {
+    id: "world-safe-passage-nav",
+    label: "World: navigating onto cleared ground stays on the map",
+    run: async () => {
+      // Drive the live loop: clear home, push out and clear a frontier cell,
+      // then step back onto cleared ground — chooseCorner should relocate and
+      // re-render the map (no battle) rather than start an arena.
+      worldState = createWorld();
+      clearCurrentWorldCell(worldState); // win home (0,0)
+      expandToCorner(worldState, "topRight"); // into (1,0)
+      clearCurrentWorldCell(worldState); // win it
+      renderWorldMap(); // render path must not throw against the DOM
+      chooseCorner("bottomLeft"); // safe passage back to cleared (0,0)
+      const result = { x: worldState.x, y: worldState.y };
+      worldState = createWorld(); // restore a fresh run
+      return result;
+    },
+    expect: (state) => state.x === 0 && state.y === 0,
+  },
 ];
 
 const INTERACTION_DEV_TEST_SCENARIO_IDS = [
@@ -6086,6 +6246,9 @@ window.devTest = {
   setEnemyMode,
   setArenaSize: setArenaTileCount,
   state: getDevTestState,
+  world: () => worldState,
+  openWorldMap,
+  chooseCorner,
 };
 
 function getTileFromEvent(event) {

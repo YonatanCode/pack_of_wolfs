@@ -1147,6 +1147,106 @@ body {
   padding: 12px 32px;
 }
 
+.world-map-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 11, 12, 0.88);
+  z-index: 110;
+}
+
+.world-map-overlay[hidden] {
+  display: none;
+}
+
+.world-map-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  padding: 40px 56px;
+}
+
+.world-map-title {
+  margin: 0;
+  color: #f8ffe7;
+  font: 700 30px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.world-map-hint {
+  margin: 0;
+  max-width: 360px;
+  text-align: center;
+  color: rgba(248, 255, 231, 0.62);
+  font: 400 14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Rotate the lattice 45° so the four world neighbours sit at the four screen
+   corners; cell content is counter-rotated to stay upright. The vertical
+   margin compensates for the bounding-box growth the rotation causes. */
+.world-map-grid {
+  --world-cell-size: 60px;
+  display: grid;
+  gap: 10px;
+  transform: rotate(45deg);
+  margin: calc(var(--world-cell-size) * 0.6) 0;
+}
+
+.world-cell {
+  width: var(--world-cell-size);
+  height: var(--world-cell-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(20, 28, 30, 0.7);
+  color: rgba(248, 255, 231, 0.5);
+  padding: 0;
+}
+
+.world-cell-content {
+  display: block;
+  transform: rotate(-45deg);
+  font: 600 13px/1.1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-align: center;
+}
+
+.world-cell.is-cleared {
+  background: rgba(40, 64, 40, 0.7);
+  color: #a3e66e;
+}
+
+.world-cell.is-current {
+  background: rgba(64, 80, 40, 0.92);
+  border-color: #d8ff8f;
+  color: #f8ffe7;
+}
+
+.world-cell.is-choice {
+  cursor: pointer;
+  border-color: rgba(255, 255, 255, 0.32);
+  color: #f8ffe7;
+}
+
+.world-cell.is-choice.is-battle {
+  background: rgba(74, 34, 30, 0.85);
+  border-color: #ff9a6e;
+  color: #ffd9b0;
+}
+
+.world-cell.is-choice:hover {
+  filter: brightness(1.25);
+}
+
+.world-cell.is-choice:focus-visible {
+  outline: 2px solid #d8ff8f;
+  outline-offset: 2px;
+}
+
 .tutorial-toggle {
   position: fixed;
   top: 16px;
