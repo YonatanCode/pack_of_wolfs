@@ -1239,6 +1239,12 @@ body {
   filter: brightness(0.2);
 }
 
+/* New selectable arenas (adjacent but not yet cleared) render slightly dimmer
+   than your cleared territory, so unconquered ground reads as not-yours-yet. */
+.world-neighbor.is-choice:not(.is-cleared) .world-neighbor-board {
+  filter: brightness(0.9);
+}
+
 /* Hover/focus just lightens the arena — no frame. */
 .world-neighbor.is-choice:focus-visible {
   outline: none;
