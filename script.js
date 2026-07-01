@@ -361,6 +361,49 @@ function isBlockedTile(row, col) {
   return isPondTile(row, col) || isHillTile(row, col);
 }
 
+// Line of sight between two cells, blocked ONLY by hills (water is see-over).
+// Densely samples the segment between the cell centres; if it crosses any hill
+// tile that isn't an endpoint, sight is blocked. Endpoints are excluded so a
+// unit standing on/next to a hill is still seen. Symmetric in its arguments.
+function hasLineOfSight(fromRow, fromCol, toRow, toCol) {
+  const deltaRow = toRow - fromRow;
+  const deltaCol = toCol - fromCol;
+  const samples = Math.ceil(Math.hypot(deltaRow, deltaCol) * 4);
+
+  for (let i = 1; i < samples; i += 1) {
+    const t = i / samples;
+    const row = Math.round(fromRow + deltaRow * t);
+    const col = Math.round(fromCol + deltaCol * t);
+
+    if (isHillTile(row, col) && !(row === fromRow && col === fromCol) && !(row === toRow && col === toCol)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Recompute every live unit's concealment: a unit is hidden when a hill blocks
+// the line of sight from EVERY living enemy (symmetric — players and enemies
+// hide the same way). With no living enemies a unit is never hidden. Callers
+// keep this fresh at plan time and after each executed move; targeting
+// (getBestPackFocusTarget / getFriendlyFocusTarget) and the visual dim read it.
+function refreshHiddenStates() {
+  const alive = units.filter(isUnitAlive);
+
+  alive.forEach((unit) => {
+    const foes = alive.filter((other) => other.team !== unit.team);
+    unit.isHidden =
+      foes.length > 0 &&
+      foes.every((foe) => !hasLineOfSight(foe.row, foe.col, unit.row, unit.col));
+  });
+}
+
+// Whether a unit is currently concealed from its foes (hidden behind a hill).
+function isUnitHidden(unit) {
+  return Boolean(unit.isHidden);
+}
+
 function lerp(a, b, t) {
   return a + (b - a) * t;
 }
@@ -732,6 +775,7 @@ function createUnit({
     turnsSinceHit: 0,
     tookDamageThisTurn: false,
     isFleeing: false,
+    isHidden: false,
     packObjective: null,
     isDefeated: false,
     hasPlayedDeathAnimation: false,
