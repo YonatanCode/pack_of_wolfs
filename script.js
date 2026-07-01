@@ -1303,13 +1303,25 @@ function applyPlayerAction(action) {
 // plain data that the headless dev-test harness can exercise without a DOM.
 // ============================================================================
 
+// The four edge-adjacent directions (screen diagonals) — these are the arena
+// edges the territory outline is built from.
 const WORLD_CORNERS = ["topLeft", "topRight", "bottomRight", "bottomLeft"];
-const WORLD_CORNER_DELTAS = {
-  topRight: { x: 1, y: 0 },
-  bottomLeft: { x: -1, y: 0 },
-  topLeft: { x: 0, y: 1 },
-  bottomRight: { x: 0, y: -1 },
+
+// All eight travel directions — the four edge neighbours plus the four
+// vertex neighbours (straight up/down/left/right on screen) that complete the
+// ring. `facing` maps each to one of the wolf's four sprite rows so the run
+// animation points the right way.
+const WORLD_MOVES = {
+  topRight: { x: 1, y: 0, facing: "topRight" },
+  topLeft: { x: 0, y: 1, facing: "topLeft" },
+  bottomRight: { x: 0, y: -1, facing: "bottomRight" },
+  bottomLeft: { x: -1, y: 0, facing: "bottomLeft" },
+  top: { x: 1, y: 1, facing: "topRight" },
+  bottom: { x: -1, y: -1, facing: "bottomLeft" },
+  right: { x: 1, y: -1, facing: "bottomRight" },
+  left: { x: -1, y: 1, facing: "topLeft" },
 };
+const WORLD_MOVE_KEYS = Object.keys(WORLD_MOVES);
 
 // The world is bounded: from the home cell in the middle, the player can travel
 // at most this many steps along each axis (each of the four corner directions).
@@ -1371,11 +1383,11 @@ function getCurrentWorldNode(world) {
   return getWorldNode(world, world.x, world.y);
 }
 
-function neighborCoord(x, y, corner) {
-  const delta = WORLD_CORNER_DELTAS[corner];
+function neighborCoord(x, y, direction) {
+  const delta = WORLD_MOVES[direction];
 
   if (!delta) {
-    throw new Error(`Unknown corner: ${corner}`);
+    throw new Error(`Unknown direction: ${direction}`);
   }
 
   return { x: x + delta.x, y: y + delta.y };
@@ -1400,7 +1412,7 @@ function expandToCorner(world, corner) {
 
   world.x = x;
   world.y = y;
-  world.facing = corner; // face the way the pack travelled
+  world.facing = WORLD_MOVES[corner].facing; // face the way the pack travelled
 
   const node = world.nodes[key];
   return { node, isBattle: !node.cleared };
@@ -1539,7 +1551,8 @@ function animateTravel(corner) {
 
   const marker = worldStage.querySelector(".world-current-marker");
   if (marker) {
-    const directionRow = WOLF_DIRECTIONS[corner] ?? WOLF_DIRECTIONS.bottomLeft;
+    const facing = WORLD_MOVES[corner].facing;
+    const directionRow = WOLF_DIRECTIONS[facing] ?? WOLF_DIRECTIONS.bottomLeft;
     marker.style.backgroundImage = `url("${WOLF_PATH}/wolf-run.png")`;
     marker.style.backgroundPositionY = `-${directionRow * WOLF_FRAME_SIZE}px`;
     marker.classList.add("is-running"); // runs in place; the map moves under it
@@ -1689,12 +1702,13 @@ function collectWorldMapCells(layout) {
   const marginX = boardWidth * layout.scale;
   const marginY = boardHeight * layout.scale;
 
+  // All eight surrounding directions are travel choices (the full ring).
   const cornerByKey = {};
-  WORLD_CORNERS.forEach((corner) => {
-    const { x, y } = neighborCoord(worldState.x, worldState.y, corner);
+  WORLD_MOVE_KEYS.forEach((direction) => {
+    const { x, y } = neighborCoord(worldState.x, worldState.y, direction);
 
     if (isWithinWorldBounds(x, y)) {
-      cornerByKey[worldCoordKey(x, y)] = corner;
+      cornerByKey[worldCoordKey(x, y)] = direction;
     }
   });
 
@@ -6423,6 +6437,29 @@ const DEV_TEST_SCENARIOS = [
     },
     expect: (state) => (
       state.afterTopRight === "topRight" && state.afterTopLeft === "topLeft"
+    ),
+  },
+  {
+    id: "world-eight-directions",
+    label: "World: eight travel directions, diagonal facing mapped",
+    run: async () => {
+      const coords = WORLD_MOVE_KEYS.map((d) => neighborCoord(0, 0, d));
+      const distinct = new Set(coords.map((c) => worldCoordKey(c.x, c.y))).size;
+      const w = createWorld();
+      expandToCorner(w, "top"); // vertex neighbour: up-and-in-world (1,1)
+      return {
+        count: WORLD_MOVE_KEYS.length,
+        distinct,
+        topX: w.x,
+        topY: w.y,
+        topFacing: w.facing,
+      };
+    },
+    expect: (state) => (
+      state.count === 8 &&
+      state.distinct === 8 &&
+      state.topX === 1 && state.topY === 1 &&
+      state.topFacing === "topRight"
     ),
   },
 ];
