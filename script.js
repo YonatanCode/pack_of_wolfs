@@ -1329,11 +1329,10 @@ function worldNodeDistance(x, y) {
   return Math.abs(x) + Math.abs(y);
 }
 
-// Deterministic per-cell encounter so a node looks the same every time you
-// revisit it. Tunable; v1 sprinkles stag duels through a mostly-wolf world.
-function pickEnemyModeForNode(x, y) {
-  const hash = Math.abs((x * 73856093) ^ (y * 19349663));
-  return hash % 3 === 0 ? "stag" : "wolves";
+// Every node is the standard three-wolves encounter for now. Per-node enemy
+// variety (stag duels, etc.) returns with the levels work.
+function pickEnemyModeForNode() {
+  return DEFAULT_ENEMY_MODE;
 }
 
 // Stable per-cell seed so a node's terrain is identical every time it's
