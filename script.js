@@ -311,8 +311,25 @@ let terrainTiles = [];
 // generateTerrain() so the lookup stays correct after an arena-size change.
 let pondTileKeys = new Set();
 
+// Keys ("row,col") of the arena's hill footprint. A hill is impassable AND
+// blocks line of sight (water blocks neither sight nor — for now — anything the
+// pond doesn't). Rebuilt alongside the water in generateTerrain().
+let hillTileKeys = new Set();
+
 function isPondTile(row, col) {
   return pondTileKeys.has(getGridPositionKey(row, col));
+}
+
+function isHillTile(row, col) {
+  return hillTileKeys.has(getGridPositionKey(row, col));
+}
+
+// A cell a unit can neither walk through nor stand on: water or hill. Movement
+// path-builders, the walkable distance field, and the AI slot/goal pickers all
+// route around these. Water-only concerns (autotiling, the grass frame) keep
+// calling isPondTile directly.
+function isBlockedTile(row, col) {
+  return isPondTile(row, col) || isHillTile(row, col);
 }
 
 function lerp(a, b, t) {
@@ -2544,7 +2561,7 @@ function getTileInDirection(row, col, direction, tileCount) {
 
     if (
       !isGridPosition(nextRow, nextCol) ||
-      isPondTile(nextRow, nextCol) ||
+      isBlockedTile(nextRow, nextCol) ||
       getBlockingUnitAtPosition(nextRow, nextCol)
     ) {
       break;
@@ -2573,7 +2590,7 @@ function getTileInDirectionForPlan(row, col, direction, tileCount, planningUnit)
 
     if (
       !isGridPosition(nextRow, nextCol) ||
-      isPondTile(nextRow, nextCol) ||
+      isBlockedTile(nextRow, nextCol) ||
       (blockingUnit && blockingUnit !== planningUnit)
     ) {
       break;
@@ -2626,7 +2643,7 @@ function buildWalkableDistanceField(targetRow, targetCol, size = GRID_SIZE) {
     targetRow >= size ||
     targetCol < 0 ||
     targetCol >= size ||
-    isPondTile(targetRow, targetCol)
+    isBlockedTile(targetRow, targetCol)
   ) {
     return field;
   }
@@ -2649,7 +2666,7 @@ function buildWalkableDistanceField(targetRow, targetCol, size = GRID_SIZE) {
           nextRow >= size ||
           nextCol < 0 ||
           nextCol >= size ||
-          isPondTile(nextRow, nextCol) ||
+          isBlockedTile(nextRow, nextCol) ||
           field[nextRow][nextCol] <= nextDistance
         ) {
           return;
@@ -2856,7 +2873,7 @@ function getReachableSurroundDeltas(focusTarget, players) {
 
     return (
       isGridPosition(row, col) &&
-      !isPondTile(row, col) &&
+      !isBlockedTile(row, col) &&
       !players.some((player) => player.row === row && player.col === col)
     );
   });
@@ -2945,7 +2962,7 @@ function getEnemyPackGoalPosition(unit, focusTarget) {
   const row = focusTarget.row + objective.slotDelta.row;
   const col = focusTarget.col + objective.slotDelta.col;
 
-  return isGridPosition(row, col) && !isPondTile(row, col)
+  return isGridPosition(row, col) && !isBlockedTile(row, col)
     ? { row, col }
     : { row: focusTarget.row, col: focusTarget.col };
 }
@@ -3127,7 +3144,7 @@ function getTileInDirectionForPackPlan(row, col, direction, tileCount, planningU
     const nextCol = targetCol + delta.col;
     const blockingUnit = getPackPlanBlockingUnitAtPosition(nextRow, nextCol, planningUnit, plannedStates);
 
-    if (!isGridPosition(nextRow, nextCol) || isPondTile(nextRow, nextCol) || blockingUnit) {
+    if (!isGridPosition(nextRow, nextCol) || isBlockedTile(nextRow, nextCol) || blockingUnit) {
       break;
     }
 
@@ -4403,7 +4420,7 @@ function isValidEngagementEndpoint(position, unit, otherPosition, startStates, o
 
   return (
     isGridPosition(position.row, position.col) &&
-    !isPondTile(position.row, position.col) &&
+    !isBlockedTile(position.row, position.col) &&
     !areSameGridPosition(position, otherPosition) &&
     (
       !blockingUnit ||
@@ -4989,7 +5006,7 @@ function getMovePathFromSnapshot(
 
     if (
       !isGridPosition(nextRow, nextCol) ||
-      isPondTile(nextRow, nextCol) ||
+      isBlockedTile(nextRow, nextCol) ||
       isSnapshotMoveBlockedByUnit(blockingUnit, movingUnit, ignoredBlockingUnits)
     ) {
       break;
