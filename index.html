@@ -56,6 +56,14 @@
       </div>
       <!-- Debug/testing controls: keep available for animation, direction, and tile-number checks. -->
       <div class="debug-controls" aria-label="Developer tools" hidden>
+        <section class="dev-control-section" aria-label="End fight">
+          <h2>End Fight</h2>
+          <div class="control-group">
+            <button type="button" id="dev-win-fight" class="ui-button">Win fight</button>
+            <button type="button" id="dev-lose-fight" class="ui-button">Lose fight</button>
+          </div>
+          <output id="end-fight-status" class="dev-inline-status">Resolve the current battle instantly.</output>
+        </section>
         <section class="dev-control-section" aria-label="Interaction checks">
           <h2>Interaction Checks</h2>
           <div id="dev-test-scenarios" class="dev-test-scenarios"></div>

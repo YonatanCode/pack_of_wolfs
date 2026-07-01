@@ -329,14 +329,14 @@ function tileSrc(index) {
 
 function pickTerrainTile(type) {
   if (type === TERRAIN_DIRT) {
-    return DIRT_BASE_TILES[Math.floor(Math.random() * DIRT_BASE_TILES.length)];
+    return DIRT_BASE_TILES[Math.floor(terrainRandom() * DIRT_BASE_TILES.length)];
   }
 
-  if (Math.random() < GRASS_DECOR_CHANCE) {
-    return GRASS_DECOR_TILES[Math.floor(Math.random() * GRASS_DECOR_TILES.length)];
+  if (terrainRandom() < GRASS_DECOR_CHANCE) {
+    return GRASS_DECOR_TILES[Math.floor(terrainRandom() * GRASS_DECOR_TILES.length)];
   }
 
-  return GRASS_BASE_TILES[Math.floor(Math.random() * GRASS_BASE_TILES.length)];
+  return GRASS_BASE_TILES[Math.floor(terrainRandom() * GRASS_BASE_TILES.length)];
 }
 
 function oppositeTerrain(type) {
@@ -346,6 +346,25 @@ function oppositeTerrain(type) {
 // Build a coarse lattice of random values, then sample it with smooth
 // (bilinear + smoothstep) interpolation so the field varies gradually. Returns
 // a grid of terrain TYPES (grass/dirt), not yet resolved to tile sprites.
+// Seeded PRNG (mulberry32) so an arena's terrain is reproducible from its world
+// node — the darkened map preview shows the exact terrain you'll fight on.
+function createSeededRandom(seed) {
+  let state = seed >>> 0;
+
+  return function next() {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Terrain generation pulls all its randomness from here. generateTerrain swaps
+// in a seeded source while it runs, then restores Math.random for everything
+// else, so only terrain becomes deterministic.
+let terrainRandom = Math.random;
+
 function generateTerrainTypes(size) {
   const latticeSize = Math.ceil(size / TERRAIN_NOISE_SCALE) + 2;
   const lattice = [];
@@ -353,7 +372,7 @@ function generateTerrainTypes(size) {
   for (let y = 0; y <= latticeSize; y += 1) {
     const rowValues = [];
     for (let x = 0; x <= latticeSize; x += 1) {
-      rowValues.push(Math.random());
+      rowValues.push(terrainRandom());
     }
     lattice.push(rowValues);
   }
@@ -451,7 +470,17 @@ function hasNeighbourOfType(types, size, row, col, targetType) {
   return false;
 }
 
-function generateTerrain(size) {
+function generateTerrain(size, seed = null) {
+  terrainRandom = seed === null ? Math.random : createSeededRandom(seed);
+
+  try {
+    return generateTerrainTiles(size);
+  } finally {
+    terrainRandom = Math.random;
+  }
+}
+
+function generateTerrainTiles(size) {
   const types = generateTerrainTypes(size);
   smoothLoneTiles(types, size);
 
@@ -460,7 +489,7 @@ function generateTerrain(size) {
       // Grass cells touching dirt get the blended edge tile; everything else
       // picks a normal tile from its terrain pool.
       if (type === TERRAIN_GRASS && hasNeighbourOfType(types, size, row, col, TERRAIN_DIRT)) {
-        return GRASS_EDGE_TILES[Math.floor(Math.random() * GRASS_EDGE_TILES.length)];
+        return GRASS_EDGE_TILES[Math.floor(terrainRandom() * GRASS_EDGE_TILES.length)];
       }
 
       return pickTerrainTile(type);
@@ -1260,6 +1289,659 @@ function applyPlayerAction(action) {
   updatePlayerActionControls();
 }
 
+// ============================================================================
+// OVERWORLD MAP — pure lattice state machine (DOM-free, headless-testable).
+//
+// Arenas live on an (x, y) lattice. The four on-screen corners map to the four
+// iso diagonals, and each is one cardinal step along a world axis: the axes run
+// ALONG the diagonals, so topRight/bottomLeft are opposites on the x axis and
+// topLeft/bottomRight are opposites on the y axis. That keeps the lattice
+// gap-free and makes "a corner then its opposite" return to the same cell.
+//
+// The battle layer never touches this state directly — it reads the current
+// node to set up an arena and reports win/loss back, so the whole world loop is
+// plain data that the headless dev-test harness can exercise without a DOM.
+// ============================================================================
+
+// The four edge-adjacent directions (screen diagonals) — these are the arena
+// edges the territory outline is built from.
+const WORLD_CORNERS = ["topLeft", "topRight", "bottomRight", "bottomLeft"];
+
+// All eight travel directions — the four edge neighbours plus the four
+// vertex neighbours (straight up/down/left/right on screen) that complete the
+// ring. `facing` maps each to one of the wolf's four sprite rows so the run
+// animation points the right way.
+const WORLD_MOVES = {
+  topRight: { x: 1, y: 0, facing: "topRight" },
+  topLeft: { x: 0, y: 1, facing: "topLeft" },
+  bottomRight: { x: 0, y: -1, facing: "bottomRight" },
+  bottomLeft: { x: -1, y: 0, facing: "bottomLeft" },
+  top: { x: 1, y: 1, facing: "topRight" },
+  bottom: { x: -1, y: -1, facing: "bottomLeft" },
+  right: { x: 1, y: -1, facing: "bottomRight" },
+  left: { x: -1, y: 1, facing: "topLeft" },
+};
+const WORLD_MOVE_KEYS = Object.keys(WORLD_MOVES);
+
+// The world is bounded: from the home cell in the middle, the player can travel
+// at most this many steps along each axis (each of the four corner directions).
+// Reaching an edge blocks further expansion that way.
+const WORLD_MAX_DISTANCE = 5;
+
+function worldCoordKey(x, y) {
+  return `${x},${y}`;
+}
+
+function isWithinWorldBounds(x, y) {
+  return Math.abs(x) <= WORLD_MAX_DISTANCE && Math.abs(y) <= WORLD_MAX_DISTANCE;
+}
+
+// Manhattan distance from home (0, 0) — the tunable basis for difficulty.
+function worldNodeDistance(x, y) {
+  return Math.abs(x) + Math.abs(y);
+}
+
+// Every node is the standard three-wolves encounter for now. Per-node enemy
+// variety (stag duels, etc.) returns with the levels work.
+function pickEnemyModeForNode() {
+  return DEFAULT_ENEMY_MODE;
+}
+
+// Stable per-cell seed so a node's terrain is identical every time it's
+// rendered (preview) or entered (battle).
+function worldNodeSeed(x, y) {
+  return (Math.imul(x | 0, 0x9e3779b1) ^ Math.imul(y | 0, 0x85ebca77)) >>> 0;
+}
+
+function createWorldNode(x, y, overrides = {}) {
+  return {
+    x,
+    y,
+    cleared: false,
+    enemyMode: pickEnemyModeForNode(x, y),
+    difficulty: worldNodeDistance(x, y),
+    seed: worldNodeSeed(x, y),
+    ...overrides,
+  };
+}
+
+// Fresh run: the home cell (0, 0) is the first fight, using the default enemy
+// so it matches the arena the game boots into. Winning it opens the map.
+function createWorld() {
+  const world = { x: 0, y: 0, facing: "bottomLeft", nodes: {} };
+  world.nodes[worldCoordKey(0, 0)] = createWorldNode(0, 0, {
+    enemyMode: DEFAULT_ENEMY_MODE,
+  });
+  return world;
+}
+
+function getWorldNode(world, x, y) {
+  return world.nodes[worldCoordKey(x, y)] ?? null;
+}
+
+function getCurrentWorldNode(world) {
+  return getWorldNode(world, world.x, world.y);
+}
+
+function neighborCoord(x, y, direction) {
+  const delta = WORLD_MOVES[direction];
+
+  if (!delta) {
+    throw new Error(`Unknown direction: ${direction}`);
+  }
+
+  return { x: x + delta.x, y: y + delta.y };
+}
+
+// Move the pack into the neighbouring cell for the chosen corner, creating that
+// node the first time it's reached. Returns the node and whether entering it
+// starts a battle (uncleared) or is safe passage (already cleared), or null if
+// that corner would leave the bounded world (the player is at an edge).
+function expandToCorner(world, corner) {
+  const { x, y } = neighborCoord(world.x, world.y, corner);
+
+  if (!isWithinWorldBounds(x, y)) {
+    return null;
+  }
+
+  const key = worldCoordKey(x, y);
+
+  if (!world.nodes[key]) {
+    world.nodes[key] = createWorldNode(x, y);
+  }
+
+  world.x = x;
+  world.y = y;
+  world.facing = WORLD_MOVES[corner].facing; // face the way the pack travelled
+
+  const node = world.nodes[key];
+  return { node, isBattle: !node.cleared };
+}
+
+// Mark the cell the pack is standing in as cleared — call this on a battle win.
+function clearCurrentWorldCell(world) {
+  const node = getCurrentWorldNode(world);
+
+  if (node) {
+    node.cleared = true;
+  }
+
+  return node;
+}
+
+// The live run. The battle layer reads this to set up arenas and reports
+// outcomes back through concludeBattle().
+let worldState = createWorld();
+
+const worldStage = arena ? arena.parentElement : null;
+const WORLD_MAP_MAX_SCALE = 3;
+const WORLD_VIEW_SPAN = 2; // arenas from the centre to each viewport edge (fixed zoom)
+const WORLD_TRAVEL_MS = 620; // wolf run-in before the arena transition
+
+// Cache generated terrain per node seed — the map now draws many cells, so this
+// avoids regenerating identical terrain every render.
+const worldTerrainCache = new Map();
+
+// Latest map layout (so the travel animation knows the current scale/centre)
+// and a guard so a corner can't be re-triggered mid-run.
+let worldMapLayout = null;
+let isWorldTraveling = false;
+
+// Tear down the current arena and build the one described by a world node:
+// fresh terrain, the node's enemy type, and a full-health pack (arenas are
+// self-contained — no carry-over damage).
+function startArena(node) {
+  hideWorldMap();
+
+  if (gameResultOverlay) {
+    gameResultOverlay.hidden = true;
+  }
+
+  reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
+
+  if (node && node.enemyMode && ENEMY_MODES.includes(node.enemyMode)) {
+    enemyMode = node.enemyMode;
+  }
+
+  // Mirror the proven build sequence (bootstrap / arena-size change).
+  buildArena();
+  resetDevTest();
+  refillAvailableActions();
+  updateEnemyIntentPreview();
+  updateReshuffleControl();
+  resizeArena();
+  syncEnemyModeControls();
+}
+
+function hideWorldMap() {
+  if (worldStage) {
+    worldStage.classList.remove("is-zoomed-out");
+  }
+
+  if (arena) {
+    arena.style.transform = "";
+    arena.style.zIndex = "";
+    arena.style.transition = "";
+  }
+
+  clearWorldNeighbors();
+}
+
+function openWorldMap() {
+  if (gameResultOverlay) {
+    gameResultOverlay.hidden = true;
+  }
+
+  if (worldStage) {
+    worldStage.classList.add("is-zoomed-out");
+  }
+
+  // Only the initial zoom-out animates; moving around the map snaps instantly.
+  renderWorldMap(true);
+}
+
+// Player picked a corner on the map: the wolf runs into that tile, then we
+// resolve it. A fresh cell starts a battle; a previously-cleared cell is safe
+// passage (re-centre the map). Edge corners are blocked. Ignored mid-run.
+async function chooseCorner(corner) {
+  if (isWorldTraveling) {
+    return;
+  }
+
+  const { x, y } = neighborCoord(worldState.x, worldState.y, corner);
+
+  if (!isWithinWorldBounds(x, y)) {
+    return; // world edge — nowhere to run to
+  }
+
+  isWorldTraveling = true;
+
+  try {
+    await animateTravel(corner);
+  } finally {
+    isWorldTraveling = false;
+  }
+
+  const result = expandToCorner(worldState, corner);
+
+  if (!result) {
+    return;
+  }
+
+  if (result.isBattle) {
+    startArena(result.node);
+  } else {
+    renderWorldMap(); // fixed layout → lands exactly where the pan ended
+  }
+}
+
+// Camera pan: the wolf runs in place (run sprite, facing the travel direction)
+// while the whole map slides one arena step the opposite way, so the chosen
+// tile glides in to the wolf. Resolves when the slide finishes.
+function animateTravel(corner) {
+  if (!worldStage || !worldMapLayout) {
+    return wait(0);
+  }
+
+  const { x, y } = neighborCoord(worldState.x, worldState.y, corner);
+  const { ox, oy } = worldCellScreenOffset(x, y);
+  const scale = worldMapLayout.scale;
+  const panX = -ox * scale;
+  const panY = -oy * scale;
+
+  const marker = worldStage.querySelector(".world-current-marker");
+  if (marker) {
+    const facing = WORLD_MOVES[corner].facing;
+    const directionRow = WOLF_DIRECTIONS[facing] ?? WOLF_DIRECTIONS.bottomLeft;
+    marker.style.backgroundImage = `url("${WOLF_PATH}/wolf-run.png")`;
+    marker.style.backgroundPositionY = `-${directionRow * WOLF_FRAME_SIZE}px`;
+    marker.classList.add("is-running"); // runs in place; the map moves under it
+  }
+
+  // Slide every map element (the live arena, the neighbours, the outline) by
+  // the same pan, composed in front of each element's own placement transform.
+  const pan = `translate(${panX}px, ${panY}px)`;
+  const panEls = [
+    ...(arena ? [arena] : []),
+    ...worldStage.querySelectorAll(".world-neighbor, .world-territory-outline"),
+  ];
+  panEls.forEach((el) => {
+    el.style.transition = `transform ${WORLD_TRAVEL_MS}ms linear`;
+    el.style.transform = `${pan} ${el.style.transform}`.trim();
+  });
+
+  return wait(WORLD_TRAVEL_MS);
+}
+
+function clearWorldNeighbors() {
+  if (!worldStage) {
+    return;
+  }
+
+  worldStage
+    .querySelectorAll(".world-neighbor, .world-territory-outline, .world-current-marker")
+    .forEach((el) => el.remove());
+}
+
+// Generate a node's terrain without disturbing the live arena's terrain/pond.
+// Cached by size+seed since the same cell is redrawn every render.
+function terrainTilesForSeed(size, seed) {
+  const cacheKey = `${size}:${seed}`;
+  const cached = worldTerrainCache.get(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const savedTerrain = terrainTiles;
+  const savedPond = pondTileKeys;
+
+  generateTerrain(size, seed);
+  const tiles = terrainTiles.map((typeRow) => typeRow.slice());
+
+  terrainTiles = savedTerrain;
+  pondTileKeys = savedPond;
+  worldTerrainCache.set(cacheKey, tiles);
+  return tiles;
+}
+
+// A flat all-dirt grid used to render hidden (unseen) arenas — shows the arena's
+// shape/size without revealing its real terrain. Cached (same for every cell).
+let dirtTileGridCache = null;
+function dirtTileGrid(size) {
+  if (!dirtTileGridCache || dirtTileGridCache.length !== size) {
+    const dirt = DIRT_BASE_TILES[7];
+    dirtTileGridCache = Array.from({ length: size }, () =>
+      Array.from({ length: size }, () => dirt),
+    );
+  }
+
+  return dirtTileGridCache;
+}
+
+// A terrain-only iso layer (no units, anchors, labels, or interactivity) used
+// to preview a neighbouring arena.
+function buildWorldTerrainLayer(tiles) {
+  const layer = document.createElement("div");
+  layer.className = "tile-layer";
+
+  for (let row = 0; row < tiles.length; row += 1) {
+    for (let col = 0; col < tiles[row].length; col += 1) {
+      const tile = document.createElement("div");
+      const img = document.createElement("img");
+      const position = projectTile(row, col);
+
+      tile.className = "tile";
+      tile.style.left = `${position.x}px`;
+      tile.style.top = `${position.y}px`;
+      tile.style.zIndex = row + col;
+      img.src = tileSrc(tiles[row][col]);
+      img.alt = "";
+      img.draggable = false;
+      tile.append(img);
+      layer.append(tile);
+    }
+  }
+
+  return layer;
+}
+
+// Repaint the live (centre) arena's tiles to match a node's terrain, without
+// touching units — used so the centre always shows the cell you're standing on.
+function paintCenterTerrain(node) {
+  if (!node) {
+    return;
+  }
+
+  generateTerrain(GRID_SIZE, node.seed);
+
+  tileElements.forEach((tile) => {
+    const row = Number(tile.dataset.row);
+    const col = Number(tile.dataset.col);
+    const img = tile.querySelector("img");
+
+    if (img && terrainTiles[row] && terrainTiles[row][col] != null) {
+      img.src = tileSrc(terrainTiles[row][col]);
+    }
+  });
+}
+
+// Screen offset (unscaled px) of a cell relative to the current one. World axes
+// run along the iso diagonals, so one step is half an arena in each screen
+// direction — adjacent arenas tile edge-to-edge.
+function worldCellScreenOffset(x, y) {
+  const dx = x - worldState.x;
+  const dy = y - worldState.y;
+
+  return {
+    ox: (dx - dy) * GRID_SIZE * ISO_X_STEP,
+    oy: -(dx + dy) * GRID_SIZE * ISO_Y_STEP,
+  };
+}
+
+// Fixed zoom centred on the current cell: shows a neighbourhood of about
+// WORLD_VIEW_SPAN arenas each way, at a consistent size, and pans as you move.
+function computeWorldMapLayout() {
+  const stepX = GRID_SIZE * ISO_X_STEP;
+  const stepY = GRID_SIZE * ISO_Y_STEP;
+  const scale = Math.min(
+    WORLD_MAP_MAX_SCALE,
+    (window.innerWidth * 0.96) / (2 * WORLD_VIEW_SPAN * stepX + boardWidth),
+    (window.innerHeight * 0.92) / (2 * WORLD_VIEW_SPAN * stepY + boardHeight),
+  );
+
+  return { scale, cx: 0, cy: 0 }; // centred on the current cell
+}
+
+// Every arena to draw: all in-bounds cells whose diamond falls within the
+// viewport (so the whole bounded world is present as you pan). Adjacent cells
+// carry their corner so they're clickable.
+function collectWorldMapCells(layout) {
+  const stageW = worldStage.clientWidth || window.innerWidth;
+  const stageH = worldStage.clientHeight || window.innerHeight;
+  const marginX = boardWidth * layout.scale;
+  const marginY = boardHeight * layout.scale;
+
+  // All eight surrounding directions are travel choices (the full ring).
+  const cornerByKey = {};
+  WORLD_MOVE_KEYS.forEach((direction) => {
+    const { x, y } = neighborCoord(worldState.x, worldState.y, direction);
+
+    if (isWithinWorldBounds(x, y)) {
+      cornerByKey[worldCoordKey(x, y)] = direction;
+    }
+  });
+
+  const cells = [];
+
+  for (let x = -WORLD_MAX_DISTANCE; x <= WORLD_MAX_DISTANCE; x += 1) {
+    for (let y = -WORLD_MAX_DISTANCE; y <= WORLD_MAX_DISTANCE; y += 1) {
+      const { ox, oy } = worldCellScreenOffset(x, y);
+      const sx = stageW / 2 + (ox - layout.cx) * layout.scale;
+      const sy = stageH / 2 + (oy - layout.cy) * layout.scale;
+
+      if (sx < -marginX || sx > stageW + marginX || sy < -marginY || sy > stageH + marginY) {
+        continue; // off-screen — cull
+      }
+
+      cells.push({ x, y, corner: cornerByKey[worldCoordKey(x, y)] ?? null });
+    }
+  }
+
+  return cells;
+}
+
+function worldCellTransform(ox, oy, layout) {
+  const tx = (ox - layout.cx) * layout.scale;
+  const ty = (oy - layout.cy) * layout.scale;
+
+  return `translate(-50%, -50%) translate(${tx}px, ${ty}px) scale(${layout.scale})`;
+}
+
+// Build one arena on the map. Cleared and adjacent cells render full terrain;
+// everything else in the world is a heavily-darkened silhouette (unseen). Only
+// the four adjacent cells are clickable.
+function buildWorldCell(cell, layout, animate) {
+  const { x, y, corner } = cell;
+  const node = getWorldNode(worldState, x, y);
+  const cleared = Boolean(node && node.cleared);
+  const revealed = cleared || Boolean(corner); // cleared history + current neighbours
+  const seed = node ? node.seed : worldNodeSeed(x, y);
+  const { ox, oy } = worldCellScreenOffset(x, y);
+
+  const el = document.createElement("div");
+  el.className = "arena world-neighbor";
+  el.classList.toggle("is-cleared", cleared);
+  el.classList.toggle("is-unseen", !revealed);
+  el.classList.toggle("is-entering", Boolean(animate));
+  el.style.transform = worldCellTransform(ox, oy, layout);
+  // Stack by isometric depth: arenas lower on screen sit in front.
+  el.style.zIndex = String(1000 + Math.round(oy));
+
+  // Revealed cells show their real terrain; hidden cells show plain dirt.
+  const tiles = revealed ? terrainTilesForSeed(GRID_SIZE, seed) : dirtTileGrid(GRID_SIZE);
+  const inner = document.createElement("div");
+  inner.className = "world-neighbor-board";
+  inner.append(buildWorldTerrainLayer(tiles));
+  el.append(inner);
+
+  if (corner) {
+    el.classList.add("is-choice");
+    el.setAttribute("role", "button");
+    el.tabIndex = 0;
+    el.setAttribute("aria-label", `${cleared ? "Travel to" : "Fight in"} the ${corner} arena`);
+
+    // Diamond-shaped hit area (CSS clip-path) so overlapping rectangular boxes
+    // don't steal each other's clicks/hover over their transparent corners.
+    const hit = document.createElement("div");
+    hit.className = "world-neighbor-hit";
+    el.append(hit);
+
+    const choose = () => chooseCorner(corner);
+    el.addEventListener("click", choose);
+    el.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        choose();
+      }
+    });
+  }
+
+  return el;
+}
+
+// Outline the won territory as one shape: for each cleared cell, draw its
+// rhombus edges only where the neighbour in that direction isn't also cleared.
+// Edges shared by two cleared cells cancel, leaving just the outer perimeter.
+const TERRITORY_EDGES = [
+  { corner: "topRight", a: [0, -1], b: [1, 0] }, // top → right
+  { corner: "bottomRight", a: [1, 0], b: [0, 1] }, // right → bottom
+  { corner: "bottomLeft", a: [0, 1], b: [-1, 0] }, // bottom → left
+  { corner: "topLeft", a: [-1, 0], b: [0, -1] }, // left → top
+];
+
+// Vertical placement of the territory outline, in arena-local px (scales with
+// the map zoom). 0 centres it on the lattice cell; positive moves it down.
+// Tune to sit it on the terrain.
+const WORLD_TERRITORY_NUDGE_Y = 0;
+
+// Size of the current-cell wolf marker, relative to the map's per-tile scale.
+const WORLD_MARKER_SCALE = 2.4;
+
+function buildTerritoryOutline(layout) {
+  const svgNS = "http://www.w3.org/2000/svg";
+  const stageW = worldStage.clientWidth || window.innerWidth;
+  const stageH = worldStage.clientHeight || window.innerHeight;
+
+  // Rhombus half-extents (one lattice step) and the offset that recentres it on
+  // the painted terrain (which sits slightly higher than the arena box centre).
+  const hx = GRID_SIZE * ISO_X_STEP * layout.scale;
+  const hy = GRID_SIZE * ISO_Y_STEP * layout.scale;
+  const nudgeY = WORLD_TERRITORY_NUDGE_Y * layout.scale;
+
+  const segments = [];
+
+  Object.values(worldState.nodes).forEach((node) => {
+    if (!node.cleared) {
+      return;
+    }
+
+    const { ox, oy } = worldCellScreenOffset(node.x, node.y);
+    const sx = stageW / 2 + (ox - layout.cx) * layout.scale;
+    const sy = stageH / 2 + (oy - layout.cy) * layout.scale + nudgeY;
+
+    TERRITORY_EDGES.forEach(({ corner, a, b }) => {
+      const { x, y } = neighborCoord(node.x, node.y, corner);
+      const neighbour = getWorldNode(worldState, x, y);
+
+      if (neighbour && neighbour.cleared) {
+        return; // interior edge between two owned cells — skip
+      }
+
+      segments.push(
+        `M ${sx + a[0] * hx} ${sy + a[1] * hy} L ${sx + b[0] * hx} ${sy + b[1] * hy}`,
+      );
+    });
+  });
+
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("class", "world-territory-outline");
+  svg.setAttribute("width", stageW);
+  svg.setAttribute("height", stageH);
+  svg.setAttribute("viewBox", `0 0 ${stageW} ${stageH}`);
+
+  // Light highlight on the arena the pack is standing on (drawn under the
+  // outline stroke). Current cell offset is (0, 0).
+  const ccx = stageW / 2 - layout.cx * layout.scale;
+  const ccy = stageH / 2 - layout.cy * layout.scale + nudgeY;
+  const highlight = document.createElementNS(svgNS, "polygon");
+  highlight.setAttribute("class", "world-current-fill");
+  highlight.setAttribute(
+    "points",
+    `${ccx},${ccy - hy} ${ccx + hx},${ccy} ${ccx},${ccy + hy} ${ccx - hx},${ccy}`,
+  );
+  svg.append(highlight);
+
+  if (segments.length) {
+    const path = document.createElementNS(svgNS, "path");
+    path.setAttribute("class", "world-territory-path");
+    path.setAttribute("d", segments.join(" "));
+    svg.append(path);
+  }
+
+  return svg;
+}
+
+// Zoomed-out map: keep the live arena as the current cell, draw every explored
+// cell plus every in-bounds arena in view (unseen ones darkened). The zoom is
+// fixed and centred on the current cell, so the layout is identical every render
+// — the travel pan lands exactly where the re-render draws (no jump).
+// animate=true plays the entry fade (initial open only).
+function renderWorldMap(animate = false) {
+  if (!worldStage) {
+    return;
+  }
+
+  paintCenterTerrain(getCurrentWorldNode(worldState));
+  clearWorldNeighbors();
+
+  const layout = computeWorldMapLayout();
+  worldMapLayout = layout; // remembered for the travel animation
+  const cells = collectWorldMapCells(layout);
+
+  if (arena) {
+    if (!animate) {
+      arena.style.transition = "none"; // snap, don't slide, when navigating
+    }
+
+    arena.style.transform = worldCellTransform(0, 0, layout);
+    arena.style.zIndex = "1000"; // current cell sits at depth 0
+
+    if (!animate) {
+      void arena.offsetWidth; // commit the snap before re-enabling transitions
+      arena.style.transition = "";
+    }
+  }
+
+  cells.forEach((cell) => {
+    if (cell.x === worldState.x && cell.y === worldState.y) {
+      return; // the current cell is the live arena
+    }
+
+    worldStage.append(buildWorldCell(cell, layout, animate));
+  });
+
+  worldStage.append(buildTerritoryOutline(layout));
+  worldStage.append(buildCurrentMarker(layout));
+}
+
+function markerTransform(dx, dy, scale) {
+  return `translate(-50%, -50%) translate(${dx}px, ${dy}px) scale(${scale})`;
+}
+
+// A single wolf standing in the middle of the current arena (idle), facing the
+// way the pack last travelled, to mark where you're moving from.
+function buildCurrentMarker(layout) {
+  const stageW = worldStage.clientWidth || window.innerWidth;
+  const stageH = worldStage.clientHeight || window.innerHeight;
+  const nudgeY = WORLD_TERRITORY_NUDGE_Y * layout.scale;
+  const sx = stageW / 2 - layout.cx * layout.scale;
+  const sy = stageH / 2 - layout.cy * layout.scale + nudgeY;
+  const directionRow = WOLF_DIRECTIONS[worldState.facing] ?? WOLF_DIRECTIONS.bottomLeft;
+
+  const marker = document.createElement("div");
+  marker.className = "world-current-marker";
+  marker.style.width = `${WOLF_FRAME_SIZE}px`;
+  marker.style.height = `${WOLF_FRAME_SIZE}px`;
+  marker.style.backgroundImage = `url("${WOLF_PATH}/wolf-idle.png")`;
+  marker.style.backgroundPositionX = "0px";
+  marker.style.backgroundPositionY = `-${directionRow * WOLF_FRAME_SIZE}px`;
+  marker.style.left = `${sx}px`;
+  marker.style.top = `${sy}px`;
+  marker.style.transform = markerTransform(0, 0, layout.scale * WORLD_MARKER_SCALE);
+  return marker;
+}
+
 function buildArena() {
   const tileLayer = document.createElement("div");
   const unitLayer = document.createElement("div");
@@ -1270,7 +1952,7 @@ function buildArena() {
   tileLayer.className = "tile-layer";
   unitLayer.className = "unit-layer";
 
-  generateTerrain(GRID_SIZE);
+  generateTerrain(GRID_SIZE, getCurrentWorldNode(worldState)?.seed ?? null);
 
   for (let row = 0; row < GRID_SIZE; row += 1) {
     for (let col = 0; col < GRID_SIZE; col += 1) {
@@ -2775,6 +3457,28 @@ function showGameResult(didWin) {
   gameResultOverlay.hidden = false;
 }
 
+// Single seam every battle-resolution path funnels through (tick loop, dev-test
+// loop, and the dev End-fight buttons). A win clears the current cell and opens
+// the world map to expand; a loss shows the result overlay, whose "Play Again"
+// re-fights the same arena (retry-on-loss).
+function concludeBattle(didWin) {
+  if (didWin) {
+    clearCurrentWorldCell(worldState);
+    openWorldMap();
+  } else {
+    showGameResult(false);
+  }
+}
+
+// Dev lever: force the current battle to resolve now, without playing it out.
+function devEndFight(didWin) {
+  if (isExecutingActionQueue) {
+    return;
+  }
+
+  concludeBattle(didWin);
+}
+
 function resetGame() {
   if (gameResultOverlay) gameResultOverlay.hidden = true;
   reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
@@ -3069,9 +3773,9 @@ async function executePlayerActionQueue() {
     });
 
     if (!hasAliveUnitsByTeam("player")) {
-      showGameResult(false);
+      concludeBattle(false);
     } else if (!hasAliveUnitsByTeam("enemy")) {
-      showGameResult(true);
+      concludeBattle(true);
     }
   }
 }
@@ -3775,9 +4479,14 @@ function getHuntMovePlanFromSnapshot(
 function getEnemyPackMovePlanFromSnapshot(movingUnit, startStates, { ignoredBlockingUnits = new Set() } = {}) {
   const focusTarget = getEnemyPackFocusTarget();
   const objective = movingUnit.packObjective;
+  const liveHuntTarget = getNearestUnitByDistance(
+    movingUnit,
+    getAliveUnitsByTeam("player"),
+    startStates,
+  ) ?? focusTarget;
 
   if (!objective) {
-    return getHuntMovePlanFromSnapshot(movingUnit, focusTarget, startStates, { ignoredBlockingUnits });
+    return getHuntMovePlanFromSnapshot(movingUnit, liveHuntTarget, startStates, { ignoredBlockingUnits });
   }
 
   if (objective.mode === "flee") {
@@ -3788,7 +4497,7 @@ function getEnemyPackMovePlanFromSnapshot(movingUnit, startStates, { ignoredBloc
     );
 
     if (!nearestPlayer) {
-      return getHuntMovePlanFromSnapshot(movingUnit, focusTarget, startStates, { ignoredBlockingUnits });
+      return getHuntMovePlanFromSnapshot(movingUnit, liveHuntTarget, startStates, { ignoredBlockingUnits });
     }
 
     return getMovementModeMovePlanFromSnapshot(movingUnit, nearestPlayer, startStates, "Dodge", {
@@ -3796,10 +4505,10 @@ function getEnemyPackMovePlanFromSnapshot(movingUnit, startStates, { ignoredBloc
     });
   }
 
-  const goal = getEnemyPackGoalPosition(movingUnit, focusTarget);
+  const goal = getEnemyPackGoalPosition(movingUnit, liveHuntTarget);
 
   if (!goal) {
-    return getHuntMovePlanFromSnapshot(movingUnit, focusTarget, startStates, { ignoredBlockingUnits });
+    return getHuntMovePlanFromSnapshot(movingUnit, liveHuntTarget, startStates, { ignoredBlockingUnits });
   }
 
   const goalState = {
@@ -3812,7 +4521,7 @@ function getEnemyPackMovePlanFromSnapshot(movingUnit, startStates, { ignoredBloc
   // attack-range tile beside the player, so "Occupy" lands the wolf ON it. When
   // getEnemyPackGoalPosition falls back to the focus tile itself, Hunt toward
   // the player instead (stand ADJACENT, don't pile onto the player's tile).
-  const isSlotGoal = goal.row !== focusTarget.row || goal.col !== focusTarget.col;
+  const isSlotGoal = goal.row !== liveHuntTarget.row || goal.col !== liveHuntTarget.col;
 
   return getModeMovePlanFromTargetState(
     movingUnit,
@@ -4914,9 +5623,9 @@ async function runDevTestTurn() {
     syncEnemyModeControls();
 
     if (!hasAliveUnitsByTeam("player")) {
-      showGameResult(false);
+      concludeBattle(false);
     } else if (!hasAliveUnitsByTeam("enemy")) {
-      showGameResult(true);
+      concludeBattle(true);
     }
   }
 
@@ -5582,6 +6291,177 @@ const DEV_TEST_SCENARIOS = [
       state.player.col,
     ),
   },
+  {
+    id: "world-corner-math",
+    label: "World: corner math + opposites cancel",
+    run: async () => {
+      const world = createWorld();
+      const moves = WORLD_CORNERS.map((corner) => neighborCoord(0, 0, corner));
+      // From home, walk a corner then its opposite and land back home.
+      expandToCorner(world, "topRight");
+      expandToCorner(world, "bottomLeft");
+      return { moves, x: world.x, y: world.y };
+    },
+    expect: (state) => (
+      state.moves.length === 4 &&
+      // Every corner lands on a distinct neighbour cell.
+      new Set(state.moves.map((m) => worldCoordKey(m.x, m.y))).size === 4 &&
+      // topRight then bottomLeft returns to the origin.
+      state.x === 0 && state.y === 0
+    ),
+  },
+  {
+    id: "world-expand-battle",
+    label: "World: fresh cell starts a battle",
+    run: async () => {
+      const world = createWorld();
+      const result = expandToCorner(world, "topRight");
+      return {
+        isBattle: result.isBattle,
+        cleared: result.node.cleared,
+        nodeCount: Object.keys(world.nodes).length,
+      };
+    },
+    expect: (state) => (
+      state.isBattle === true &&
+      state.cleared === false &&
+      // home + the newly created cell.
+      state.nodeCount === 2
+    ),
+  },
+  {
+    id: "world-win-clears-cell",
+    label: "World: winning clears the current cell",
+    run: async () => {
+      const world = createWorld();
+      const before = expandToCorner(world, "topLeft");
+      clearCurrentWorldCell(world);
+      const after = getCurrentWorldNode(world);
+      return { wasBattle: before.isBattle, clearedAfter: after.cleared };
+    },
+    expect: (state) => state.wasBattle === true && state.clearedAfter === true,
+  },
+  {
+    id: "world-revisit-safe",
+    label: "World: re-entering a cleared cell is safe passage",
+    run: async () => {
+      const world = createWorld();
+      expandToCorner(world, "topRight"); // into a fresh cell (battle)
+      clearCurrentWorldCell(world); // win it
+      expandToCorner(world, "topRight"); // push out to a new frontier cell
+      clearCurrentWorldCell(world);
+      const back = expandToCorner(world, "bottomLeft"); // step back onto cleared ground
+      return { isBattle: back.isBattle, x: world.x, y: world.y };
+    },
+    expect: (state) => state.isBattle === false && state.x === 1 && state.y === 0,
+  },
+  {
+    id: "world-difficulty-scales",
+    label: "World: difficulty scales with distance",
+    run: async () => {
+      const world = createWorld();
+      const near = expandToCorner(world, "topRight").node; // distance 1
+      const far = expandToCorner(world, "topRight").node; // distance 2
+      return { home: getWorldNode(world, 0, 0).difficulty, near: near.difficulty, far: far.difficulty };
+    },
+    expect: (state) => state.home === 0 && state.near === 1 && state.far === 2,
+  },
+  {
+    id: "world-safe-passage-nav",
+    label: "World: navigating onto cleared ground stays on the map",
+    run: async () => {
+      // Drive the live loop: clear home, push out and clear a frontier cell,
+      // then step back onto cleared ground — chooseCorner should relocate and
+      // re-render the map (no battle) rather than start an arena.
+      worldState = createWorld();
+      clearCurrentWorldCell(worldState); // win home (0,0)
+      expandToCorner(worldState, "topRight"); // into (1,0)
+      clearCurrentWorldCell(worldState); // win it
+      renderWorldMap(); // render path must not throw against the DOM
+      await chooseCorner("bottomLeft"); // safe passage back to cleared (0,0)
+      const result = { x: worldState.x, y: worldState.y };
+      worldState = createWorld(); // restore a fresh run
+      return result;
+    },
+    expect: (state) => state.x === 0 && state.y === 0,
+  },
+  {
+    id: "world-terrain-seeded",
+    label: "World: terrain is deterministic per seed",
+    run: async () => {
+      generateTerrain(8, 12345);
+      const a = JSON.stringify(terrainTiles);
+      generateTerrain(8, 12345);
+      const b = JSON.stringify(terrainTiles);
+      generateTerrain(8, 99999);
+      const c = JSON.stringify(terrainTiles);
+      // Restore the live arena's terrain for any later scenario.
+      generateTerrain(GRID_SIZE, getCurrentWorldNode(worldState)?.seed ?? null);
+      return { sameSeedMatches: a === b, diffSeedDiffers: a !== c };
+    },
+    expect: (state) => state.sameSeedMatches === true && state.diffSeedDiffers === true,
+  },
+  {
+    id: "world-bounds-cap",
+    label: "World: cannot expand past the edge",
+    run: async () => {
+      worldState = createWorld();
+      // Walk to the +x edge.
+      for (let i = 0; i < WORLD_MAX_DISTANCE; i += 1) {
+        expandToCorner(worldState, "topRight");
+        clearCurrentWorldCell(worldState);
+      }
+      const edgeX = worldState.x;
+      const blocked = expandToCorner(worldState, "topRight"); // would exceed the bound
+      const afterX = worldState.x;
+      worldState = createWorld(); // restore a fresh run
+      return { edgeX, blockedIsNull: blocked === null, afterX };
+    },
+    expect: (state) => (
+      state.edgeX === WORLD_MAX_DISTANCE &&
+      state.blockedIsNull === true &&
+      state.afterX === WORLD_MAX_DISTANCE
+    ),
+  },
+  {
+    id: "world-marker-facing",
+    label: "World: marker faces the way the pack travelled",
+    run: async () => {
+      worldState = createWorld();
+      expandToCorner(worldState, "topRight");
+      const afterTopRight = worldState.facing;
+      expandToCorner(worldState, "topLeft");
+      const afterTopLeft = worldState.facing;
+      worldState = createWorld();
+      return { afterTopRight, afterTopLeft };
+    },
+    expect: (state) => (
+      state.afterTopRight === "topRight" && state.afterTopLeft === "topLeft"
+    ),
+  },
+  {
+    id: "world-eight-directions",
+    label: "World: eight travel directions, diagonal facing mapped",
+    run: async () => {
+      const coords = WORLD_MOVE_KEYS.map((d) => neighborCoord(0, 0, d));
+      const distinct = new Set(coords.map((c) => worldCoordKey(c.x, c.y))).size;
+      const w = createWorld();
+      expandToCorner(w, "top"); // vertex neighbour: up-and-in-world (1,1)
+      return {
+        count: WORLD_MOVE_KEYS.length,
+        distinct,
+        topX: w.x,
+        topY: w.y,
+        topFacing: w.facing,
+      };
+    },
+    expect: (state) => (
+      state.count === 8 &&
+      state.distinct === 8 &&
+      state.topX === 1 && state.topY === 1 &&
+      state.topFacing === "topRight"
+    ),
+  },
 ];
 
 const INTERACTION_DEV_TEST_SCENARIO_IDS = [
@@ -5887,6 +6767,9 @@ window.devTest = {
   setEnemyMode,
   setArenaSize: setArenaTileCount,
   state: getDevTestState,
+  world: () => worldState,
+  openWorldMap,
+  chooseCorner,
 };
 
 function getTileFromEvent(event) {
@@ -6417,6 +7300,16 @@ async function runResolutionDemo({ player: playerSetup, enemy: enemySetup, playe
   setResolutionDemoStatus(status);
 }
 
+const winFightButton = document.getElementById("dev-win-fight");
+if (winFightButton) {
+  winFightButton.addEventListener("click", () => devEndFight(true));
+}
+
+const loseFightButton = document.getElementById("dev-lose-fight");
+if (loseFightButton) {
+  loseFightButton.addEventListener("click", () => devEndFight(false));
+}
+
 const dodgeMissButton = document.getElementById("demo-dodge-miss");
 if (dodgeMissButton) {
   dodgeMissButton.addEventListener("click", () => runResolutionDemo({
@@ -6522,3 +7415,8 @@ if (pathfindingEnemyButton) {
 
 window.addEventListener("resize", resizeArena);
 window.addEventListener("resize", positionPlayerActionMenu);
+window.addEventListener("resize", () => {
+  if (worldStage?.classList.contains("is-zoomed-out")) {
+    renderWorldMap();
+  }
+});

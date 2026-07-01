@@ -1147,6 +1147,137 @@ body {
   padding: 12px 32px;
 }
 
+/* World map view. The live arena and the explored/frontier arenas are
+   positioned and scaled inline by JS (renderWorldMap) so the whole region
+   fits and re-fits as it grows. Here we only handle visibility, fog, and
+   hover feedback. */
+
+/* Hide the battle chrome and units so the screen reads as a clean map — the
+   current arena is marked instead by a single wolf marker (below). */
+.stage.is-zoomed-out .unit-layer,
+.stage.is-zoomed-out .player-action-menu,
+.stage.is-zoomed-out .action-panel,
+.stage.is-zoomed-out .action-queue-panel {
+  display: none;
+}
+
+/* One wolf standing in the middle of the current arena, facing where the pack
+   came from. */
+.world-current-marker {
+  position: absolute;
+  z-index: 2100; /* above the territory outline/highlight so it isn't overlaid */
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+/* Cycle the 8-frame run sheet while the wolf travels to the chosen tile. */
+.world-current-marker.is-running {
+  animation: worldWolfRun 500ms steps(8) infinite;
+}
+
+@keyframes worldWolfRun {
+  from { background-position-x: 0; }
+  to { background-position-x: -512px; } /* 8 frames × 64px */
+}
+
+/* Light highlight on the arena the wolf stands on. */
+.world-current-fill {
+  fill: rgba(255, 255, 255, 0.16);
+}
+
+.arena {
+  transition: transform 320ms ease;
+}
+
+/* In map view the current arena is just context, not a travel target. Stop it
+   capturing pointer events — its full (mostly transparent) box otherwise sits
+   on top of the upper neighbours and steals their hover/click. */
+.stage.is-zoomed-out #arena {
+  pointer-events: none;
+}
+
+.world-neighbor {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--arena-width);
+  height: var(--arena-height);
+  transform-origin: center;
+  image-rendering: pixelated;
+  /* The box is mostly transparent and boxes overlap — don't let it capture
+     pointer events. The diamond hit area below does that. */
+  pointer-events: none;
+}
+
+/* Fade in only on the initial zoom-out, not when navigating the map. */
+.world-neighbor.is-entering {
+  animation: worldNeighborIn 320ms ease both;
+}
+
+.world-neighbor-board {
+  position: absolute;
+  inset: 0;
+  transition: filter 180ms ease;
+}
+
+/* Diamond-shaped clickable area matching the iso tile, so a choice only
+   responds over its own arena (not a neighbour's transparent box corner). */
+.world-neighbor-hit {
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* Unseen arenas (the rest of the bounded world) render as plain dirt so you
+   feel the map's size without seeing what's there — dimmed a little so they
+   recede behind the revealed (cleared/adjacent) arenas. */
+.world-neighbor.is-unseen .world-neighbor-board {
+  filter: brightness(0.2);
+}
+
+/* New selectable arenas (adjacent but not yet cleared) render slightly dimmer
+   than your cleared territory, so unconquered ground reads as not-yours-yet. */
+.world-neighbor.is-choice:not(.is-cleared) .world-neighbor-board {
+  filter: brightness(0.5);
+}
+
+/* Hover/focus just lightens the arena — no frame. */
+.world-neighbor.is-choice:focus-visible {
+  outline: none;
+}
+
+.world-neighbor.is-choice:hover .world-neighbor-board,
+.world-neighbor.is-choice:focus-visible .world-neighbor-board {
+  filter: brightness(1.18);
+}
+
+@keyframes worldNeighborIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* The won territory drawn as a single outline over the cleared arenas. */
+.world-territory-outline {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2000;
+  overflow: visible;
+}
+
+.world-territory-path {
+  fill: none;
+  stroke: #f0d27a;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgba(240, 210, 122, 0.55));
+}
+
 .tutorial-toggle {
   position: fixed;
   top: 16px;
