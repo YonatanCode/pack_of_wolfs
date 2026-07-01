@@ -1152,11 +1152,21 @@ body {
    fits and re-fits as it grows. Here we only handle visibility, fog, and
    hover feedback. */
 
-/* Hide everything battle-specific so the screen reads as a clean map. */
-.stage.is-zoomed-out .unit-layer,
+/* Hide the battle chrome so the screen reads as a clean map. */
 .stage.is-zoomed-out .player-action-menu,
 .stage.is-zoomed-out .action-panel,
 .stage.is-zoomed-out .action-queue-panel {
+  display: none;
+}
+
+/* Keep the player pack on the current arena to mark where you're moving from,
+   but hide the defeated enemies and the battle overlays (health bars, intent
+   tags, move preview) — their counter-scaling is sized for the battle zoom. */
+.stage.is-zoomed-out .unit.enemy,
+.stage.is-zoomed-out .unit-health-bar,
+.stage.is-zoomed-out .unit-intent-tags,
+.stage.is-zoomed-out .move-preview,
+.stage.is-zoomed-out .unit-damage-popup {
   display: none;
 }
 
