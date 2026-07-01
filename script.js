@@ -1310,14 +1310,6 @@ const WORLD_CORNER_DELTAS = {
   topLeft: { x: 0, y: 1 },
   bottomRight: { x: 0, y: -1 },
 };
-// The direction you came FROM when you take a corner (its opposite) — used to
-// face the current-cell marker back toward where the pack travelled from.
-const OPPOSITE_CORNER = {
-  topRight: "bottomLeft",
-  bottomLeft: "topRight",
-  topLeft: "bottomRight",
-  bottomRight: "topLeft",
-};
 
 // The world is bounded: from the home cell in the middle, the player can travel
 // at most this many steps along each axis (each of the four corner directions).
@@ -1409,7 +1401,7 @@ function expandToCorner(world, corner) {
 
   world.x = x;
   world.y = y;
-  world.facing = OPPOSITE_CORNER[corner]; // face back toward where we came from
+  world.facing = corner; // face the way the pack travelled
 
   const node = world.nodes[key];
   return { node, isBattle: !node.cleared };
@@ -1712,7 +1704,7 @@ const TERRITORY_EDGES = [
 const WORLD_TERRITORY_NUDGE_Y = 0;
 
 // Size of the current-cell wolf marker, relative to the map's per-tile scale.
-const WORLD_MARKER_SCALE = 2.2;
+const WORLD_MARKER_SCALE = 2.4;
 
 function buildTerritoryOutline(layout) {
   const svgNS = "http://www.w3.org/2000/svg";
@@ -6319,18 +6311,18 @@ const DEV_TEST_SCENARIOS = [
   },
   {
     id: "world-marker-facing",
-    label: "World: marker faces where the pack came from",
+    label: "World: marker faces the way the pack travelled",
     run: async () => {
       worldState = createWorld();
-      expandToCorner(worldState, "topRight"); // arrived from bottomLeft
+      expandToCorner(worldState, "topRight");
       const afterTopRight = worldState.facing;
-      expandToCorner(worldState, "topLeft"); // arrived from bottomRight
+      expandToCorner(worldState, "topLeft");
       const afterTopLeft = worldState.facing;
       worldState = createWorld();
       return { afterTopRight, afterTopLeft };
     },
     expect: (state) => (
-      state.afterTopRight === "bottomLeft" && state.afterTopLeft === "bottomRight"
+      state.afterTopRight === "topRight" && state.afterTopLeft === "topLeft"
     ),
   },
 ];

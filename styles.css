@@ -1165,7 +1165,7 @@ body {
    came from. */
 .world-current-marker {
   position: absolute;
-  z-index: 1500;
+  z-index: 2100; /* above the territory outline/highlight so it isn't overlaid */
   background-repeat: no-repeat;
   image-rendering: pixelated;
   transform-origin: center bottom;
