@@ -261,18 +261,26 @@ const GRASS_DECOR_CHANCE = 0.12;
 // between the two terrain types reads as a blended edge instead of a hard cut.
 const GRASS_EDGE_TILES = [26, 20];
 
-// Pond: a static, impassable water feature. The shape is hand-placed (not
-// random) to keep the board deterministic, tucked against the quiet right-mid
-// edge — clear of the spawn rows (0 and 11) and the central travel lane — so
-// wolves rarely need to route through it. (Movement path-builders stop at
-// water, but the AI scores goals by straight-line distance and would otherwise
-// stall walking into the shoreline.)
-const POND_LAYOUT = [
-  [4, 9], [4, 10],
-  [5, 8], [5, 9], [5, 10], [5, 11],
-  [6, 8], [6, 9], [6, 10], [6, 11],
-  [7, 9], [7, 10], [7, 11],
-];
+// Water: an impassable feature laid down from a single GLOBAL noise field that
+// spans the whole overworld, not a per-arena shape. Every arena samples the same
+// continuous field at its own world position, so a lake that reaches one arena's
+// edge continues seamlessly into the neighbour on the map (the shorelines line
+// up because both arenas read the same field at the shared coordinate). The
+// field is deterministic (seeded once, world-wide) so previews match battles.
+// (Movement path-builders stop at water; the AI scores goals by straight-line
+// distance and would otherwise stall walking into the shoreline.)
+const WORLD_WATER_SEED = 0x5eed_0a7e; // fixed → stable world water
+// Lattice cell size in tiles for the water field. Larger than the terrain scale
+// so lakes are big, coherent, and likely to bridge the ~GRID_SIZE-wide seams.
+// Tuned with WATER_RATIO for ~6% coverage: most arenas get a lake, none flood.
+const WATER_NOISE_SCALE = 6;
+// Share of the field that becomes water. Value noise clusters near 0.5, so a
+// threshold well below 0.5 keeps water to occasional lakes, not a flooded board.
+const WATER_RATIO = 0.16;
+// Exact cells a unit spawns on (enemy row 0, player row GRID_SIZE-1). Water is
+// cleared off just these cells in the LIVE arena so nobody spawns in a lake;
+// the field itself is left untouched everywhere else, so seams stay continuous.
+const WATER_SPAWN_SAFE_COLS = [1, 2, 4, 6, 7];
 
 // Water sprites 104-114 are an AUTOTILE set: each cell's sprite is chosen by
 // which of its four isometric edges border LAND. The four edge directions map
@@ -342,6 +350,50 @@ function smoothstep(t) {
 
 function tileSrc(index) {
   return `${TILE_PATH}/tile_${String(index).padStart(3, "0")}.png`;
+}
+
+// Map an arena cell (row, col) in the arena at world (worldX, worldY) to a
+// CONTINUOUS global iso-lattice coordinate. Derived from the same constants as
+// worldCellScreenOffset()/projectTile(): a world step shifts the whole arena by
+// GRID_SIZE along the diagonal axes, and a cell projects at (col-row, col+row).
+// Neighbouring arenas therefore map to adjacent regions of one shared space, so
+// the water field is automatically continuous across every seam.
+function worldTileToGlobal(worldX, worldY, row, col) {
+  return {
+    gx: (worldX - worldY) * GRID_SIZE + (col - row),
+    gy: -(worldX + worldY) * GRID_SIZE + (col + row),
+  };
+}
+
+// Deterministic hash of an integer lattice point -> [0, 1). Same point always
+// yields the same value regardless of which arena samples it, which is what
+// makes the field agree across seams.
+function waterLatticeValue(ix, iy) {
+  let h = (Math.imul(ix | 0, 0x9e3779b1) ^ Math.imul(iy | 0, 0x85ebca77) ^ WORLD_WATER_SEED) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), h | 1);
+  h ^= h + Math.imul(h ^ (h >>> 7), h | 61);
+  return ((h ^ (h >>> 14)) >>> 0) / 4294967296;
+}
+
+// Smooth (bilinear + smoothstep) value noise over the global water lattice.
+function sampleWaterNoise(gx, gy) {
+  const sx = gx / WATER_NOISE_SCALE;
+  const sy = gy / WATER_NOISE_SCALE;
+  const x0 = Math.floor(sx);
+  const y0 = Math.floor(sy);
+  const tx = smoothstep(sx - x0);
+  const ty = smoothstep(sy - y0);
+
+  const top = lerp(waterLatticeValue(x0, y0), waterLatticeValue(x0 + 1, y0), tx);
+  const bottom = lerp(waterLatticeValue(x0, y0 + 1), waterLatticeValue(x0 + 1, y0 + 1), tx);
+  return lerp(top, bottom, ty);
+}
+
+// The single source of truth for "is there water here" — a pure function of the
+// global coordinate, used identically by the fill and the shoreline autotiler
+// (including one cell past an arena edge) so seams never disagree.
+function isWorldWater(gx, gy) {
+  return sampleWaterNoise(gx, gy) < WATER_RATIO;
 }
 
 function pickTerrainTile(type) {
@@ -487,17 +539,21 @@ function hasNeighbourOfType(types, size, row, col, targetType) {
   return false;
 }
 
-function generateTerrain(size, seed = null) {
+// Generate an arena's terrain. worldX/worldY place it in the global water field
+// (default origin for the DOM-free dev-test harness, which passes only a seed).
+// clearSpawns keeps the unit spawn cells dry — set only for the LIVE arena, so
+// map previews render the raw field and seams stay continuous.
+function generateTerrain(size, seed = null, worldX = 0, worldY = 0, clearSpawns = false) {
   terrainRandom = seed === null ? Math.random : createSeededRandom(seed);
 
   try {
-    return generateTerrainTiles(size);
+    return generateTerrainTiles(size, worldX, worldY, clearSpawns);
   } finally {
     terrainRandom = Math.random;
   }
 }
 
-function generateTerrainTiles(size) {
+function generateTerrainTiles(size, worldX = 0, worldY = 0, clearSpawns = false) {
   const types = generateTerrainTypes(size);
   smoothLoneTiles(types, size);
 
@@ -513,28 +569,40 @@ function generateTerrainTiles(size) {
     }),
   );
 
-  stampPond(size);
+  stampWater(size, worldX, worldY, clearSpawns);
 
   return terrainTiles;
 }
 
-// Paint the static pond onto the freshly-generated terrain: rebuild the
-// impassable-tile set, autotile each pond cell's water sprite from its land
-// edges, then force every non-pond neighbour (8-way) to grass so the pond sits
-// in a green frame instead of butting against random dirt patches. Pond cells
-// outside the current grid (e.g. a smaller dev arena) are simply skipped.
-function stampPond(size) {
+// A cell a unit spawns on: the top (enemy) or bottom (player) edge row at one of
+// the spawn columns. Water is kept off these in the live arena.
+function isSpawnCell(size, row, col) {
+  return (row === 0 || row === size - 1) && WATER_SPAWN_SAFE_COLS.includes(col);
+}
+
+// Lay this arena's water down from the global field: mark every water cell,
+// autotile each one's shoreline sprite, then force the non-water 8-neighbours to
+// grass so lakes sit in a green frame instead of butting against dirt patches.
+function stampWater(size, worldX, worldY, clearSpawns) {
   pondTileKeys = new Set();
 
-  POND_LAYOUT.forEach(([row, col]) => {
-    if (row >= 0 && row < size && col >= 0 && col < size) {
-      pondTileKeys.add(getGridPositionKey(row, col));
+  for (let row = 0; row < size; row += 1) {
+    for (let col = 0; col < size; col += 1) {
+      if (clearSpawns && isSpawnCell(size, row, col)) {
+        continue; // keep spawns dry; leaves the field untouched elsewhere
+      }
+
+      const { gx, gy } = worldTileToGlobal(worldX, worldY, row, col);
+
+      if (isWorldWater(gx, gy)) {
+        pondTileKeys.add(getGridPositionKey(row, col));
+      }
     }
-  });
+  }
 
   pondTileKeys.forEach((key) => {
     const [row, col] = key.split(",").map(Number);
-    terrainTiles[row][col] = getPondTileForCell(row, col, size);
+    terrainTiles[row][col] = getWaterTileForCell(row, col, size, worldX, worldY);
   });
 
   pondTileKeys.forEach((key) => {
@@ -551,16 +619,22 @@ function stampPond(size) {
   });
 }
 
-// Choose a single pond cell's water sprite by which of its four isometric edges
-// border land (an on-board, non-pond neighbour). Off-board neighbours count as
-// open water, so the pond ends cleanly at the board edge with no phantom shore.
-function getPondTileForCell(row, col, size) {
+// Choose a water cell's sprite by which of its four isometric edges border land.
+// On-board neighbours read the stamped set (so shorelines respect spawn-clearing
+// and hills); OFF-board neighbours sample the global field one cell past the
+// edge, so a lake continuing into the next arena draws no phantom shore.
+function getWaterTileForCell(row, col, size, worldX, worldY) {
   const groundEdges = POND_EDGE_DIRECTIONS.filter((direction) => {
     const delta = DIRECTION_TILE_DELTAS[direction];
     const r = row + delta.row;
     const c = col + delta.col;
 
-    return r >= 0 && r < size && c >= 0 && c < size && !isPondTile(r, c);
+    if (r >= 0 && r < size && c >= 0 && c < size) {
+      return !isPondTile(r, c);
+    }
+
+    const { gx, gy } = worldTileToGlobal(worldX, worldY, r, c);
+    return !isWorldWater(gx, gy);
   });
 
   if (groundEdges.length === 0) {
@@ -1600,10 +1674,11 @@ function clearWorldNeighbors() {
     .forEach((el) => el.remove());
 }
 
-// Generate a node's terrain without disturbing the live arena's terrain/pond.
-// Cached by size+seed since the same cell is redrawn every render.
-function terrainTilesForSeed(size, seed) {
-  const cacheKey = `${size}:${seed}`;
+// Generate a node's terrain without disturbing the live arena's terrain/water/
+// hill. Cached by size+world-position since water depends on where the arena
+// sits in the global field (previews use the raw field — clearSpawns stays off).
+function terrainTilesForSeed(size, seed, worldX = 0, worldY = 0) {
+  const cacheKey = `${size}:${seed}:${worldX}:${worldY}`;
   const cached = worldTerrainCache.get(cacheKey);
 
   if (cached) {
@@ -1612,12 +1687,14 @@ function terrainTilesForSeed(size, seed) {
 
   const savedTerrain = terrainTiles;
   const savedPond = pondTileKeys;
+  const savedHill = hillTileKeys;
 
-  generateTerrain(size, seed);
+  generateTerrain(size, seed, worldX, worldY);
   const tiles = terrainTiles.map((typeRow) => typeRow.slice());
 
   terrainTiles = savedTerrain;
   pondTileKeys = savedPond;
+  hillTileKeys = savedHill;
   worldTerrainCache.set(cacheKey, tiles);
   return tiles;
 }
@@ -1670,7 +1747,7 @@ function paintCenterTerrain(node) {
     return;
   }
 
-  generateTerrain(GRID_SIZE, node.seed);
+  generateTerrain(GRID_SIZE, node.seed, node.x, node.y, true);
 
   tileElements.forEach((tile) => {
     const row = Number(tile.dataset.row);
@@ -1776,7 +1853,7 @@ function buildWorldCell(cell, layout, animate) {
   el.style.zIndex = String(1000 + Math.round(oy));
 
   // Revealed cells show their real terrain; hidden cells show plain dirt.
-  const tiles = revealed ? terrainTilesForSeed(GRID_SIZE, seed) : dirtTileGrid(GRID_SIZE);
+  const tiles = revealed ? terrainTilesForSeed(GRID_SIZE, seed, x, y) : dirtTileGrid(GRID_SIZE);
   const inner = document.createElement("div");
   inner.className = "world-neighbor-board";
   inner.append(buildWorldTerrainLayer(tiles));
@@ -1969,7 +2046,8 @@ function buildArena() {
   tileLayer.className = "tile-layer";
   unitLayer.className = "unit-layer";
 
-  generateTerrain(GRID_SIZE, getCurrentWorldNode(worldState)?.seed ?? null);
+  const initialNode = getCurrentWorldNode(worldState);
+  generateTerrain(GRID_SIZE, initialNode?.seed ?? null, initialNode?.x ?? 0, initialNode?.y ?? 0, true);
 
   for (let row = 0; row < GRID_SIZE; row += 1) {
     for (let col = 0; col < GRID_SIZE; col += 1) {
@@ -6413,7 +6491,8 @@ const DEV_TEST_SCENARIOS = [
       generateTerrain(8, 99999);
       const c = JSON.stringify(terrainTiles);
       // Restore the live arena's terrain for any later scenario.
-      generateTerrain(GRID_SIZE, getCurrentWorldNode(worldState)?.seed ?? null);
+      const node = getCurrentWorldNode(worldState);
+      generateTerrain(GRID_SIZE, node?.seed ?? null, node?.x ?? 0, node?.y ?? 0, true);
       return { sameSeedMatches: a === b, diffSeedDiffers: a !== c };
     },
     expect: (state) => state.sameSeedMatches === true && state.diffSeedDiffers === true,
