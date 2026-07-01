@@ -1152,22 +1152,29 @@ body {
    fits and re-fits as it grows. Here we only handle visibility, fog, and
    hover feedback. */
 
-/* Hide the battle chrome so the screen reads as a clean map. */
+/* Hide the battle chrome and units so the screen reads as a clean map — the
+   current arena is marked instead by a single wolf marker (below). */
+.stage.is-zoomed-out .unit-layer,
 .stage.is-zoomed-out .player-action-menu,
 .stage.is-zoomed-out .action-panel,
 .stage.is-zoomed-out .action-queue-panel {
   display: none;
 }
 
-/* Keep the player pack on the current arena to mark where you're moving from,
-   but hide the defeated enemies and the battle overlays (health bars, intent
-   tags, move preview) — their counter-scaling is sized for the battle zoom. */
-.stage.is-zoomed-out .unit.enemy,
-.stage.is-zoomed-out .unit-health-bar,
-.stage.is-zoomed-out .unit-intent-tags,
-.stage.is-zoomed-out .move-preview,
-.stage.is-zoomed-out .unit-damage-popup {
-  display: none;
+/* One wolf standing in the middle of the current arena, facing where the pack
+   came from. */
+.world-current-marker {
+  position: absolute;
+  z-index: 1500;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  transform-origin: center bottom;
+  pointer-events: none;
+}
+
+/* Light highlight on the arena the wolf stands on. */
+.world-current-fill {
+  fill: rgba(255, 255, 255, 0.16);
 }
 
 .arena {

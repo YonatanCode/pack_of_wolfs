@@ -1310,6 +1310,14 @@ const WORLD_CORNER_DELTAS = {
   topLeft: { x: 0, y: 1 },
   bottomRight: { x: 0, y: -1 },
 };
+// The direction you came FROM when you take a corner (its opposite) — used to
+// face the current-cell marker back toward where the pack travelled from.
+const OPPOSITE_CORNER = {
+  topRight: "bottomLeft",
+  bottomLeft: "topRight",
+  topLeft: "bottomRight",
+  bottomRight: "topLeft",
+};
 
 // The world is bounded: from the home cell in the middle, the player can travel
 // at most this many steps along each axis (each of the four corner directions).
@@ -1357,7 +1365,7 @@ function createWorldNode(x, y, overrides = {}) {
 // Fresh run: the home cell (0, 0) is the first fight, using the default enemy
 // so it matches the arena the game boots into. Winning it opens the map.
 function createWorld() {
-  const world = { x: 0, y: 0, nodes: {} };
+  const world = { x: 0, y: 0, facing: "bottomLeft", nodes: {} };
   world.nodes[worldCoordKey(0, 0)] = createWorldNode(0, 0, {
     enemyMode: DEFAULT_ENEMY_MODE,
   });
@@ -1401,6 +1409,7 @@ function expandToCorner(world, corner) {
 
   world.x = x;
   world.y = y;
+  world.facing = OPPOSITE_CORNER[corner]; // face back toward where we came from
 
   const node = world.nodes[key];
   return { node, isBattle: !node.cleared };
@@ -1500,7 +1509,7 @@ function clearWorldNeighbors() {
   }
 
   worldStage
-    .querySelectorAll(".world-neighbor, .world-territory-outline")
+    .querySelectorAll(".world-neighbor, .world-territory-outline, .world-current-marker")
     .forEach((el) => el.remove());
 }
 
@@ -1702,6 +1711,9 @@ const TERRITORY_EDGES = [
 // Tune to sit it on the terrain.
 const WORLD_TERRITORY_NUDGE_Y = 0;
 
+// Size of the current-cell wolf marker, relative to the map's per-tile scale.
+const WORLD_MARKER_SCALE = 2.2;
+
 function buildTerritoryOutline(layout) {
   const svgNS = "http://www.w3.org/2000/svg";
   const stageW = worldStage.clientWidth || window.innerWidth;
@@ -1743,6 +1755,18 @@ function buildTerritoryOutline(layout) {
   svg.setAttribute("width", stageW);
   svg.setAttribute("height", stageH);
   svg.setAttribute("viewBox", `0 0 ${stageW} ${stageH}`);
+
+  // Light highlight on the arena the pack is standing on (drawn under the
+  // outline stroke). Current cell offset is (0, 0).
+  const ccx = stageW / 2 - layout.cx * layout.scale;
+  const ccy = stageH / 2 - layout.cy * layout.scale + nudgeY;
+  const highlight = document.createElementNS(svgNS, "polygon");
+  highlight.setAttribute("class", "world-current-fill");
+  highlight.setAttribute(
+    "points",
+    `${ccx},${ccy - hy} ${ccx + hx},${ccy} ${ccx},${ccy + hy} ${ccx - hx},${ccy}`,
+  );
+  svg.append(highlight);
 
   if (segments.length) {
     const path = document.createElementNS(svgNS, "path");
@@ -1792,6 +1816,29 @@ function renderWorldMap(animate = false) {
   });
 
   worldStage.append(buildTerritoryOutline(layout));
+  worldStage.append(buildCurrentMarker(layout));
+}
+
+// A single wolf standing in the middle of the current arena, facing back toward
+// the cell the pack travelled from, to mark where you're moving from.
+function buildCurrentMarker(layout) {
+  const stageW = worldStage.clientWidth || window.innerWidth;
+  const stageH = worldStage.clientHeight || window.innerHeight;
+  const nudgeY = WORLD_TERRITORY_NUDGE_Y * layout.scale;
+  const sx = stageW / 2 - layout.cx * layout.scale;
+  const sy = stageH / 2 - layout.cy * layout.scale + nudgeY;
+  const directionRow = WOLF_DIRECTIONS[worldState.facing] ?? WOLF_DIRECTIONS.bottomLeft;
+
+  const marker = document.createElement("div");
+  marker.className = "world-current-marker";
+  marker.style.width = `${WOLF_FRAME_SIZE}px`;
+  marker.style.height = `${WOLF_FRAME_SIZE}px`;
+  marker.style.backgroundImage = `url("${WOLF_PATH}/wolf-idle.png")`;
+  marker.style.backgroundPosition = `0px -${directionRow * WOLF_FRAME_SIZE}px`;
+  marker.style.left = `${sx}px`;
+  marker.style.top = `${sy}px`;
+  marker.style.transform = `translate(-50%, -72%) scale(${layout.scale * WORLD_MARKER_SCALE})`;
+  return marker;
 }
 
 function buildArena() {
@@ -6268,6 +6315,22 @@ const DEV_TEST_SCENARIOS = [
       state.edgeX === WORLD_MAX_DISTANCE &&
       state.blockedIsNull === true &&
       state.afterX === WORLD_MAX_DISTANCE
+    ),
+  },
+  {
+    id: "world-marker-facing",
+    label: "World: marker faces where the pack came from",
+    run: async () => {
+      worldState = createWorld();
+      expandToCorner(worldState, "topRight"); // arrived from bottomLeft
+      const afterTopRight = worldState.facing;
+      expandToCorner(worldState, "topLeft"); // arrived from bottomRight
+      const afterTopLeft = worldState.facing;
+      worldState = createWorld();
+      return { afterTopRight, afterTopLeft };
+    },
+    expect: (state) => (
+      state.afterTopRight === "bottomLeft" && state.afterTopLeft === "bottomRight"
     ),
   },
 ];
