@@ -1473,7 +1473,8 @@ function openWorldMap() {
     worldStage.classList.add("is-zoomed-out");
   }
 
-  renderWorldMap();
+  // Only the initial zoom-out animates; moving around the map snaps instantly.
+  renderWorldMap(true);
 }
 
 // Player picked a corner on the map: walk there. A fresh cell starts a battle;
@@ -1641,7 +1642,7 @@ function worldCellTransform(ox, oy, layout) {
 
 // Build one explored/frontier arena preview. Cleared cells render lit; unknown
 // frontier cells are darkened. Only the four frontier cells are clickable.
-function buildWorldCell(cell, layout) {
+function buildWorldCell(cell, layout, animate) {
   const { x, y, corner } = cell;
   const node = getWorldNode(worldState, x, y);
   const cleared = Boolean(node && node.cleared);
@@ -1651,6 +1652,7 @@ function buildWorldCell(cell, layout) {
   const el = document.createElement("div");
   el.className = "arena world-neighbor";
   el.classList.toggle("is-cleared", cleared);
+  el.classList.toggle("is-entering", Boolean(animate));
   el.style.transform = worldCellTransform(ox, oy, layout);
   // Stack by isometric depth: arenas lower on screen sit in front.
   el.style.zIndex = String(1000 + Math.round(oy));
@@ -1754,7 +1756,9 @@ function buildTerritoryOutline(layout) {
 
 // Zoomed-out map: keep the live arena as the current cell, draw every explored
 // cell plus the four frontier choices around it, all scaled to fit on screen.
-function renderWorldMap() {
+// animate=true plays the zoom-out (initial open only); navigating the map snaps
+// instantly so it doesn't blink or slide the current arena.
+function renderWorldMap(animate = false) {
   if (!worldStage) {
     return;
   }
@@ -1766,8 +1770,17 @@ function renderWorldMap() {
   const layout = computeWorldMapLayout(cells);
 
   if (arena) {
+    if (!animate) {
+      arena.style.transition = "none"; // snap, don't slide, when navigating
+    }
+
     arena.style.transform = worldCellTransform(0, 0, layout);
     arena.style.zIndex = "1000"; // current cell sits at depth 0
+
+    if (!animate) {
+      void arena.offsetWidth; // commit the snap before re-enabling transitions
+      arena.style.transition = "";
+    }
   }
 
   cells.forEach((cell) => {
@@ -1775,7 +1788,7 @@ function renderWorldMap() {
       return; // the current cell is the live arena
     }
 
-    worldStage.append(buildWorldCell(cell, layout));
+    worldStage.append(buildWorldCell(cell, layout, animate));
   });
 
   worldStage.append(buildTerritoryOutline(layout));

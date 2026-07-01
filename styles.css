@@ -1182,6 +1182,10 @@ body {
   /* The box is mostly transparent and boxes overlap — don't let it capture
      pointer events. The diamond hit area below does that. */
   pointer-events: none;
+}
+
+/* Fade in only on the initial zoom-out, not when navigating the map. */
+.world-neighbor.is-entering {
   animation: worldNeighborIn 320ms ease both;
 }
 
