@@ -1423,9 +1423,13 @@ function clearCurrentWorldCell(world) {
 let worldState = createWorld();
 
 const worldStage = arena ? arena.parentElement : null;
-const WORLD_MAP_MARGIN = 48;
 const WORLD_MAP_MAX_SCALE = 3;
+const WORLD_VIEW_SPAN = 2; // arenas from the centre to each viewport edge (fixed zoom)
 const WORLD_TRAVEL_MS = 620; // wolf run-in before the arena transition
+
+// Cache generated terrain per node seed — the map now draws many cells, so this
+// avoids regenerating identical terrain every render.
+const worldTerrainCache = new Map();
 
 // Latest map layout (so the travel animation knows the current scale/centre)
 // and a guard so a corner can't be re-triggered mid-run.
@@ -1516,8 +1520,7 @@ async function chooseCorner(corner) {
   if (result.isBattle) {
     startArena(result.node);
   } else {
-    // Reuse the layout the pan ended on so the map stays put (no re-centre jump).
-    renderWorldMap(false, worldMapLayout);
+    renderWorldMap(); // fixed layout → lands exactly where the pan ended
   }
 }
 
@@ -1569,7 +1572,15 @@ function clearWorldNeighbors() {
 }
 
 // Generate a node's terrain without disturbing the live arena's terrain/pond.
+// Cached by size+seed since the same cell is redrawn every render.
 function terrainTilesForSeed(size, seed) {
+  const cacheKey = `${size}:${seed}`;
+  const cached = worldTerrainCache.get(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
   const savedTerrain = terrainTiles;
   const savedPond = pondTileKeys;
 
@@ -1578,6 +1589,7 @@ function terrainTilesForSeed(size, seed) {
 
   terrainTiles = savedTerrain;
   pondTileKeys = savedPond;
+  worldTerrainCache.set(cacheKey, tiles);
   return tiles;
 }
 
@@ -1641,60 +1653,55 @@ function worldCellScreenOffset(x, y) {
   };
 }
 
-// Every arena to draw: all explored cells (for context) plus the four frontier
-// choices around the current cell.
-function collectWorldMapCells() {
-  const byKey = new Map();
-  const ensure = (x, y) => {
-    const key = worldCoordKey(x, y);
+// Fixed zoom centred on the current cell: shows a neighbourhood of about
+// WORLD_VIEW_SPAN arenas each way, at a consistent size, and pans as you move.
+function computeWorldMapLayout() {
+  const stepX = GRID_SIZE * ISO_X_STEP;
+  const stepY = GRID_SIZE * ISO_Y_STEP;
+  const scale = Math.min(
+    WORLD_MAP_MAX_SCALE,
+    (window.innerWidth * 0.96) / (2 * WORLD_VIEW_SPAN * stepX + boardWidth),
+    (window.innerHeight * 0.92) / (2 * WORLD_VIEW_SPAN * stepY + boardHeight),
+  );
 
-    if (!byKey.has(key)) {
-      byKey.set(key, { x, y, corner: null });
-    }
+  return { scale, cx: 0, cy: 0 }; // centred on the current cell
+}
 
-    return byKey.get(key);
-  };
+// Every arena to draw: all in-bounds cells whose diamond falls within the
+// viewport (so the whole bounded world is present as you pan). Adjacent cells
+// carry their corner so they're clickable.
+function collectWorldMapCells(layout) {
+  const stageW = worldStage.clientWidth || window.innerWidth;
+  const stageH = worldStage.clientHeight || window.innerHeight;
+  const marginX = boardWidth * layout.scale;
+  const marginY = boardHeight * layout.scale;
 
-  Object.values(worldState.nodes).forEach((node) => ensure(node.x, node.y));
-
-  // Only in-bounds neighbours are offered as choices; edge directions are blocked.
+  const cornerByKey = {};
   WORLD_CORNERS.forEach((corner) => {
     const { x, y } = neighborCoord(worldState.x, worldState.y, corner);
 
     if (isWithinWorldBounds(x, y)) {
-      ensure(x, y).corner = corner;
+      cornerByKey[worldCoordKey(x, y)] = corner;
     }
   });
 
-  return [...byKey.values()];
-}
+  const cells = [];
 
-// Fit the whole explored region on screen: the more cells, the smaller the
-// scale. Returns the scale and the centre of the content (so it can be centred
-// in the viewport rather than pinned to the current cell).
-function computeWorldMapLayout(cells) {
-  let minX = 0;
-  let maxX = 0;
-  let minY = 0;
-  let maxY = 0;
+  for (let x = -WORLD_MAX_DISTANCE; x <= WORLD_MAX_DISTANCE; x += 1) {
+    for (let y = -WORLD_MAX_DISTANCE; y <= WORLD_MAX_DISTANCE; y += 1) {
+      const { ox, oy } = worldCellScreenOffset(x, y);
+      const sx = stageW / 2 + (ox - layout.cx) * layout.scale;
+      const sy = stageH / 2 + (oy - layout.cy) * layout.scale;
 
-  cells.forEach(({ x, y }) => {
-    const { ox, oy } = worldCellScreenOffset(x, y);
-    minX = Math.min(minX, ox);
-    maxX = Math.max(maxX, ox);
-    minY = Math.min(minY, oy);
-    maxY = Math.max(maxY, oy);
-  });
+      if (sx < -marginX || sx > stageW + marginX || sy < -marginY || sy > stageH + marginY) {
+        continue; // off-screen — cull
+      }
 
-  const contentW = maxX - minX + boardWidth + WORLD_MAP_MARGIN * 2;
-  const contentH = maxY - minY + boardHeight + WORLD_MAP_MARGIN * 2;
-  const scale = Math.min(
-    WORLD_MAP_MAX_SCALE,
-    (window.innerWidth * 0.96) / contentW,
-    (window.innerHeight * 0.92) / contentH,
-  );
+      cells.push({ x, y, corner: cornerByKey[worldCoordKey(x, y)] ?? null });
+    }
+  }
 
-  return { scale, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
+  return cells;
 }
 
 function worldCellTransform(ox, oy, layout) {
@@ -1704,18 +1711,21 @@ function worldCellTransform(ox, oy, layout) {
   return `translate(-50%, -50%) translate(${tx}px, ${ty}px) scale(${layout.scale})`;
 }
 
-// Build one explored/frontier arena preview. Cleared cells render lit; unknown
-// frontier cells are darkened. Only the four frontier cells are clickable.
+// Build one arena on the map. Cleared and adjacent cells render full terrain;
+// everything else in the world is a heavily-darkened silhouette (unseen). Only
+// the four adjacent cells are clickable.
 function buildWorldCell(cell, layout, animate) {
   const { x, y, corner } = cell;
   const node = getWorldNode(worldState, x, y);
   const cleared = Boolean(node && node.cleared);
+  const revealed = cleared || Boolean(corner); // cleared history + current neighbours
   const seed = node ? node.seed : worldNodeSeed(x, y);
   const { ox, oy } = worldCellScreenOffset(x, y);
 
   const el = document.createElement("div");
   el.className = "arena world-neighbor";
   el.classList.toggle("is-cleared", cleared);
+  el.classList.toggle("is-unseen", !revealed);
   el.classList.toggle("is-entering", Boolean(animate));
   el.style.transform = worldCellTransform(ox, oy, layout);
   // Stack by isometric depth: arenas lower on screen sit in front.
@@ -1834,10 +1844,11 @@ function buildTerritoryOutline(layout) {
 }
 
 // Zoomed-out map: keep the live arena as the current cell, draw every explored
-// cell plus the four frontier choices around it, all scaled to fit on screen.
-// animate=true plays the zoom-out (initial open only); navigating the map snaps
-// instantly so it doesn't blink or slide the current arena.
-function renderWorldMap(animate = false, reuseLayout = null) {
+// cell plus every in-bounds arena in view (unseen ones darkened). The zoom is
+// fixed and centred on the current cell, so the layout is identical every render
+// — the travel pan lands exactly where the re-render draws (no jump).
+// animate=true plays the entry fade (initial open only).
+function renderWorldMap(animate = false) {
   if (!worldStage) {
     return;
   }
@@ -1845,11 +1856,9 @@ function renderWorldMap(animate = false, reuseLayout = null) {
   paintCenterTerrain(getCurrentWorldNode(worldState));
   clearWorldNeighbors();
 
-  const cells = collectWorldMapCells();
-  // Reuse the caller's layout (same scale/centre) to keep the map fixed across a
-  // move; otherwise fit-and-centre fresh (initial open, resize).
-  const layout = reuseLayout ?? computeWorldMapLayout(cells);
+  const layout = computeWorldMapLayout();
   worldMapLayout = layout; // remembered for the travel animation
+  const cells = collectWorldMapCells(layout);
 
   if (arena) {
     if (!animate) {

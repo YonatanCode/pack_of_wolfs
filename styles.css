@@ -1232,11 +1232,11 @@ body {
   cursor: pointer;
 }
 
-/* Darken unknown arenas by dimming the terrain itself (not a rectangular
-   overlay), so only the diamond reads as unexplored — no hard box edges.
-   Cleared arenas render lit. */
-.world-neighbor:not(.is-cleared) .world-neighbor-board {
-  filter: brightness(0.5);
+/* Unseen arenas (the rest of the bounded world) render as a heavily darkened
+   terrain silhouette, so you feel the map's size without seeing what's there.
+   Cleared and adjacent arenas render at full brightness. */
+.world-neighbor.is-unseen .world-neighbor-board {
+  filter: brightness(0.16);
 }
 
 /* Hover/focus just lightens the arena — no frame. */
@@ -1244,13 +1244,8 @@ body {
   outline: none;
 }
 
-.world-neighbor.is-choice:not(.is-cleared):hover .world-neighbor-board,
-.world-neighbor.is-choice:not(.is-cleared):focus-visible .world-neighbor-board {
-  filter: brightness(0.82);
-}
-
-.world-neighbor.is-choice.is-cleared:hover .world-neighbor-board,
-.world-neighbor.is-choice.is-cleared:focus-visible .world-neighbor-board {
+.world-neighbor.is-choice:hover .world-neighbor-board,
+.world-neighbor.is-choice:focus-visible .world-neighbor-board {
   filter: brightness(1.18);
 }
 
