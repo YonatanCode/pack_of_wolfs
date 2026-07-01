@@ -1516,7 +1516,8 @@ async function chooseCorner(corner) {
   if (result.isBattle) {
     startArena(result.node);
   } else {
-    renderWorldMap();
+    // Reuse the layout the pan ended on so the map stays put (no re-centre jump).
+    renderWorldMap(false, worldMapLayout);
   }
 }
 
@@ -1836,7 +1837,7 @@ function buildTerritoryOutline(layout) {
 // cell plus the four frontier choices around it, all scaled to fit on screen.
 // animate=true plays the zoom-out (initial open only); navigating the map snaps
 // instantly so it doesn't blink or slide the current arena.
-function renderWorldMap(animate = false) {
+function renderWorldMap(animate = false, reuseLayout = null) {
   if (!worldStage) {
     return;
   }
@@ -1845,7 +1846,9 @@ function renderWorldMap(animate = false) {
   clearWorldNeighbors();
 
   const cells = collectWorldMapCells();
-  const layout = computeWorldMapLayout(cells);
+  // Reuse the caller's layout (same scale/centre) to keep the map fixed across a
+  // move; otherwise fit-and-centre fresh (initial open, resize).
+  const layout = reuseLayout ?? computeWorldMapLayout(cells);
   worldMapLayout = layout; // remembered for the travel animation
 
   if (arena) {
