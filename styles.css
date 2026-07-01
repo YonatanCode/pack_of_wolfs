@@ -1232,11 +1232,11 @@ body {
   cursor: pointer;
 }
 
-/* Unseen arenas (the rest of the bounded world) render as a heavily darkened
-   terrain silhouette, so you feel the map's size without seeing what's there.
-   Cleared and adjacent arenas render at full brightness. */
+/* Unseen arenas (the rest of the bounded world) render as plain dirt so you
+   feel the map's size without seeing what's there — dimmed a little so they
+   recede behind the revealed (cleared/adjacent) arenas. */
 .world-neighbor.is-unseen .world-neighbor-board {
-  filter: brightness(0.16);
+  filter: brightness(0.7);
 }
 
 /* Hover/focus just lightens the arena — no frame. */

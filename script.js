@@ -1593,6 +1593,20 @@ function terrainTilesForSeed(size, seed) {
   return tiles;
 }
 
+// A flat all-dirt grid used to render hidden (unseen) arenas — shows the arena's
+// shape/size without revealing its real terrain. Cached (same for every cell).
+let dirtTileGridCache = null;
+function dirtTileGrid(size) {
+  if (!dirtTileGridCache || dirtTileGridCache.length !== size) {
+    const dirt = DIRT_BASE_TILES[0];
+    dirtTileGridCache = Array.from({ length: size }, () =>
+      Array.from({ length: size }, () => dirt),
+    );
+  }
+
+  return dirtTileGridCache;
+}
+
 // A terrain-only iso layer (no units, anchors, labels, or interactivity) used
 // to preview a neighbouring arena.
 function buildWorldTerrainLayer(tiles) {
@@ -1731,9 +1745,11 @@ function buildWorldCell(cell, layout, animate) {
   // Stack by isometric depth: arenas lower on screen sit in front.
   el.style.zIndex = String(1000 + Math.round(oy));
 
+  // Revealed cells show their real terrain; hidden cells show plain dirt.
+  const tiles = revealed ? terrainTilesForSeed(GRID_SIZE, seed) : dirtTileGrid(GRID_SIZE);
   const inner = document.createElement("div");
   inner.className = "world-neighbor-board";
-  inner.append(buildWorldTerrainLayer(terrainTilesForSeed(GRID_SIZE, seed)));
+  inner.append(buildWorldTerrainLayer(tiles));
   el.append(inner);
 
   if (corner) {
@@ -4450,9 +4466,14 @@ function getHuntMovePlanFromSnapshot(
 function getEnemyPackMovePlanFromSnapshot(movingUnit, startStates, { ignoredBlockingUnits = new Set() } = {}) {
   const focusTarget = getEnemyPackFocusTarget();
   const objective = movingUnit.packObjective;
+  const liveHuntTarget = getNearestUnitByDistance(
+    movingUnit,
+    getAliveUnitsByTeam("player"),
+    startStates,
+  ) ?? focusTarget;
 
   if (!objective) {
-    return getHuntMovePlanFromSnapshot(movingUnit, focusTarget, startStates, { ignoredBlockingUnits });
+    return getHuntMovePlanFromSnapshot(movingUnit, liveHuntTarget, startStates, { ignoredBlockingUnits });
   }
 
   if (objective.mode === "flee") {
@@ -4463,7 +4484,7 @@ function getEnemyPackMovePlanFromSnapshot(movingUnit, startStates, { ignoredBloc
     );
 
     if (!nearestPlayer) {
-      return getHuntMovePlanFromSnapshot(movingUnit, focusTarget, startStates, { ignoredBlockingUnits });
+      return getHuntMovePlanFromSnapshot(movingUnit, liveHuntTarget, startStates, { ignoredBlockingUnits });
     }
 
     return getMovementModeMovePlanFromSnapshot(movingUnit, nearestPlayer, startStates, "Dodge", {
@@ -4471,10 +4492,10 @@ function getEnemyPackMovePlanFromSnapshot(movingUnit, startStates, { ignoredBloc
     });
   }
 
-  const goal = getEnemyPackGoalPosition(movingUnit, focusTarget);
+  const goal = getEnemyPackGoalPosition(movingUnit, liveHuntTarget);
 
   if (!goal) {
-    return getHuntMovePlanFromSnapshot(movingUnit, focusTarget, startStates, { ignoredBlockingUnits });
+    return getHuntMovePlanFromSnapshot(movingUnit, liveHuntTarget, startStates, { ignoredBlockingUnits });
   }
 
   const goalState = {
@@ -4487,7 +4508,7 @@ function getEnemyPackMovePlanFromSnapshot(movingUnit, startStates, { ignoredBloc
   // attack-range tile beside the player, so "Occupy" lands the wolf ON it. When
   // getEnemyPackGoalPosition falls back to the focus tile itself, Hunt toward
   // the player instead (stand ADJACENT, don't pile onto the player's tile).
-  const isSlotGoal = goal.row !== focusTarget.row || goal.col !== focusTarget.col;
+  const isSlotGoal = goal.row !== liveHuntTarget.row || goal.col !== liveHuntTarget.col;
 
   return getModeMovePlanFromTargetState(
     movingUnit,
