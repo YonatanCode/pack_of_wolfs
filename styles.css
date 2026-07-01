@@ -108,6 +108,25 @@ body {
   -webkit-user-drag: none;
 }
 
+/* Stacked cube sprites that give a hill its height. Positioned like tiles but
+   lifted per level; z-index is set inline (per-cell, on the unit depth scale) so
+   wolves behind the hill are occluded and wolves in front draw over it. */
+.hill-block {
+  position: absolute;
+  width: var(--tile-width);
+  height: var(--tile-height);
+  transform: translate(-50%, 0);
+  pointer-events: none;
+}
+
+.hill-block img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 .tile.is-hovered img,
 .tile.is-move-preview img,
 .tile:focus-visible img {

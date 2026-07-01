@@ -306,6 +306,27 @@ const POND_SHORELINE_TILES = {
   "topLeft,topRight,bottomRight,bottomLeft": 113,
 };
 
+// Hill: one raised, impassable, sight-blocking mound per arena, placed from the
+// node seed. Impassable like water; unlike water it also BLOCKS LINE OF SIGHT,
+// so a unit tucked behind it is hidden (see hasLineOfSight/refreshHiddenStates).
+// Its footprint is a short arc (never a filled square) and it renders as a stack
+// of cube sprites so it reads as ~4 tiles tall. All sizes are tunable.
+const HILL_HEIGHT_LEVELS = 4; // stacked cube sprites incl. the base
+const HILL_LEVEL_RISE = TILE_HEIGHT / 2; // px each level lifts on screen (unscaled)
+const HILL_BLOCK_TILE = 1; // dirt cube for the lower levels
+const HILL_CAP_TILE = 22; // grass-topped cube for the summit
+const HILL_INTERIOR_MARGIN = 1; // keep the footprint off the spawn-edge rows/cols
+// Footprint templates as (row, col) offsets from an anchor — each is a crescent
+// or bend, so the hill never looks like a solid block. One is chosen per seed.
+const HILL_SHAPES = [
+  [[0, 0], [1, 1], [2, 1], [3, 0]],
+  [[0, 0], [1, -1], [2, -1], [3, 0]],
+  [[0, 0], [0, 1], [1, 2], [1, 3]],
+  [[0, 0], [0, -1], [1, -2], [1, -3]],
+  [[0, 0], [1, 0], [2, 1], [2, 2]],
+  [[0, 0], [1, 1], [1, 2]],
+];
+
 // Lattice cell size in tiles: larger -> bigger, smoother patches.
 const TERRAIN_NOISE_SCALE = 3.5;
 // Share of the field that becomes dirt. Value noise clusters around 0.5, so a
@@ -570,8 +591,43 @@ function generateTerrainTiles(size, worldX = 0, worldY = 0, clearSpawns = false)
   );
 
   stampWater(size, worldX, worldY, clearSpawns);
+  stampHill(size);
 
   return terrainTiles;
+}
+
+// Place this arena's single hill: pick an arc template + anchor from the seeded
+// stream (terrainRandom, so it's deterministic per node) and accept the first
+// placement whose every cell is interior and dry. Footprint cells go into
+// hillTileKeys (impassable + sight-blocking) and get a grass-cap tile so the
+// mound reads on the map preview; the live arena stacks cube sprites on top.
+// If nothing fits after a few tries (rare, e.g. a very wet arena) there's no
+// hill this arena.
+function stampHill(size) {
+  hillTileKeys = new Set();
+
+  const shape = HILL_SHAPES[Math.floor(terrainRandom() * HILL_SHAPES.length)];
+  const lo = HILL_INTERIOR_MARGIN;
+  const hi = size - HILL_INTERIOR_MARGIN;
+  const attempts = 16;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const anchorRow = lo + Math.floor(terrainRandom() * (hi - lo));
+    const anchorCol = lo + Math.floor(terrainRandom() * (hi - lo));
+    const cells = shape.map(([dr, dc]) => [anchorRow + dr, anchorCol + dc]);
+
+    const fits = cells.every(([r, c]) =>
+      r >= lo && r < hi && c >= lo && c < hi && !isPondTile(r, c),
+    );
+
+    if (fits) {
+      cells.forEach(([r, c]) => {
+        hillTileKeys.add(getGridPositionKey(r, c));
+        terrainTiles[r][c] = HILL_CAP_TILE;
+      });
+      return;
+    }
+  }
 }
 
 // A cell a unit spawns on: the top (enemy) or bottom (player) edge row at one of
@@ -1758,6 +1814,8 @@ function paintCenterTerrain(node) {
       img.src = tileSrc(terrainTiles[row][col]);
     }
   });
+
+  renderArenaHill(arena?.querySelector(".tile-layer"));
 }
 
 // Screen offset (unscaled px) of a cell relative to the current one. World axes
@@ -2083,6 +2141,8 @@ function buildArena() {
     }
   }
 
+  renderArenaHill(tileLayer);
+
   units.filter(isUnitActive).forEach((unit) => {
     placeUnit(unitLayer, unit);
     unit.element.classList.add(unit.team);
@@ -2096,6 +2156,44 @@ function buildArena() {
   arena.parentElement.append(playerActionMenu);
   positionPlayerActionMenu();
   updatePlayerMovePreview();
+}
+
+// (Re)build the tall hill sprites in the live arena's tile layer. Each footprint
+// cell gets a vertical stack of HILL_HEIGHT_LEVELS cube sprites (dirt sides,
+// grass cap). Blocks share the per-cell UNIT depth (GRID_SIZE*2 + row+col + 20)
+// so a wolf standing BEHIND the hill (smaller row+col → lower z) is occluded by
+// it, while a wolf in FRONT (larger row+col → higher z) draws over it. Within a
+// cell the levels share one z-index and are appended base→cap, so DOM order
+// paints the summit last. Positions are in unscaled arena px, so the whole stack
+// scales with --arena-scale like every other tile.
+function renderArenaHill(layer) {
+  if (!layer) {
+    return;
+  }
+
+  layer.querySelectorAll(".hill-block").forEach((el) => el.remove());
+
+  hillTileKeys.forEach((key) => {
+    const [row, col] = key.split(",").map(Number);
+    const position = projectTile(row, col);
+    const depth = GRID_SIZE * 2 + row + col + 20;
+
+    for (let level = 0; level < HILL_HEIGHT_LEVELS; level += 1) {
+      const block = document.createElement("div");
+      const img = document.createElement("img");
+
+      block.className = "hill-block";
+      block.style.left = `${position.x}px`;
+      block.style.top = `${position.y - level * HILL_LEVEL_RISE}px`;
+      block.style.zIndex = depth;
+      img.src = tileSrc(level === HILL_HEIGHT_LEVELS - 1 ? HILL_CAP_TILE : HILL_BLOCK_TILE);
+      img.alt = "";
+      img.draggable = false;
+
+      block.append(img);
+      layer.append(block);
+    }
+  });
 }
 
 function placeUnit(unitLayer, unit) {
