@@ -1597,7 +1597,7 @@ function terrainTilesForSeed(size, seed) {
 let dirtTileGridCache = null;
 function dirtTileGrid(size) {
   if (!dirtTileGridCache || dirtTileGridCache.length !== size) {
-    const dirt = DIRT_BASE_TILES[0];
+    const dirt = DIRT_BASE_TILES[7];
     dirtTileGridCache = Array.from({ length: size }, () =>
       Array.from({ length: size }, () => dirt),
     );

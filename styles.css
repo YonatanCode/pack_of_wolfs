@@ -1236,7 +1236,7 @@ body {
    feel the map's size without seeing what's there — dimmed a little so they
    recede behind the revealed (cleared/adjacent) arenas. */
 .world-neighbor.is-unseen .world-neighbor-board {
-  filter: brightness(0.7);
+  filter: brightness(0.2);
 }
 
 /* Hover/focus just lightens the arena — no frame. */
