@@ -1466,6 +1466,7 @@ function hideWorldMap() {
   if (arena) {
     arena.style.transform = "";
     arena.style.zIndex = "";
+    arena.style.transition = "";
   }
 
   clearWorldNeighbors();
@@ -1501,7 +1502,7 @@ async function chooseCorner(corner) {
   isWorldTraveling = true;
 
   try {
-    await animateMarkerRun(corner);
+    await animateTravel(corner);
   } finally {
     isWorldTraveling = false;
   }
@@ -1519,25 +1520,39 @@ async function chooseCorner(corner) {
   }
 }
 
-// Run the current-cell wolf into the chosen neighbour: swap to the run sprite
-// facing that corner and slide it one arena step over. Resolves when done.
-function animateMarkerRun(corner) {
-  const marker = worldStage && worldStage.querySelector(".world-current-marker");
-
-  if (!marker || !worldMapLayout) {
+// Camera pan: the wolf runs in place (run sprite, facing the travel direction)
+// while the whole map slides one arena step the opposite way, so the chosen
+// tile glides in to the wolf. Resolves when the slide finishes.
+function animateTravel(corner) {
+  if (!worldStage || !worldMapLayout) {
     return wait(0);
   }
 
   const { x, y } = neighborCoord(worldState.x, worldState.y, corner);
   const { ox, oy } = worldCellScreenOffset(x, y);
-  const directionRow = WOLF_DIRECTIONS[corner] ?? WOLF_DIRECTIONS.bottomLeft;
   const scale = worldMapLayout.scale;
+  const panX = -ox * scale;
+  const panY = -oy * scale;
 
-  marker.style.backgroundImage = `url("${WOLF_PATH}/wolf-run.png")`;
-  marker.style.backgroundPositionY = `-${directionRow * WOLF_FRAME_SIZE}px`;
-  marker.classList.add("is-running");
-  marker.style.transition = `transform ${WORLD_TRAVEL_MS}ms linear`;
-  marker.style.transform = markerTransform(ox * scale, oy * scale, scale * WORLD_MARKER_SCALE);
+  const marker = worldStage.querySelector(".world-current-marker");
+  if (marker) {
+    const directionRow = WOLF_DIRECTIONS[corner] ?? WOLF_DIRECTIONS.bottomLeft;
+    marker.style.backgroundImage = `url("${WOLF_PATH}/wolf-run.png")`;
+    marker.style.backgroundPositionY = `-${directionRow * WOLF_FRAME_SIZE}px`;
+    marker.classList.add("is-running"); // runs in place; the map moves under it
+  }
+
+  // Slide every map element (the live arena, the neighbours, the outline) by
+  // the same pan, composed in front of each element's own placement transform.
+  const pan = `translate(${panX}px, ${panY}px)`;
+  const panEls = [
+    ...(arena ? [arena] : []),
+    ...worldStage.querySelectorAll(".world-neighbor, .world-territory-outline"),
+  ];
+  panEls.forEach((el) => {
+    el.style.transition = `transform ${WORLD_TRAVEL_MS}ms linear`;
+    el.style.transform = `${pan} ${el.style.transform}`.trim();
+  });
 
   return wait(WORLD_TRAVEL_MS);
 }
