@@ -1425,6 +1425,12 @@ let worldState = createWorld();
 const worldStage = arena ? arena.parentElement : null;
 const WORLD_MAP_MARGIN = 48;
 const WORLD_MAP_MAX_SCALE = 3;
+const WORLD_TRAVEL_MS = 620; // wolf run-in before the arena transition
+
+// Latest map layout (so the travel animation knows the current scale/centre)
+// and a guard so a corner can't be re-triggered mid-run.
+let worldMapLayout = null;
+let isWorldTraveling = false;
 
 // Tear down the current arena and build the one described by a world node:
 // fresh terrain, the node's enemy type, and a full-health pack (arenas are
@@ -1478,10 +1484,28 @@ function openWorldMap() {
   renderWorldMap(true);
 }
 
-// Player picked a corner on the map: walk there. A fresh cell starts a battle;
-// a previously-cleared cell is safe passage, so we re-centre the map on it.
-// Corners at the world edge are blocked (expandToCorner returns null).
-function chooseCorner(corner) {
+// Player picked a corner on the map: the wolf runs into that tile, then we
+// resolve it. A fresh cell starts a battle; a previously-cleared cell is safe
+// passage (re-centre the map). Edge corners are blocked. Ignored mid-run.
+async function chooseCorner(corner) {
+  if (isWorldTraveling) {
+    return;
+  }
+
+  const { x, y } = neighborCoord(worldState.x, worldState.y, corner);
+
+  if (!isWithinWorldBounds(x, y)) {
+    return; // world edge — nowhere to run to
+  }
+
+  isWorldTraveling = true;
+
+  try {
+    await animateMarkerRun(corner);
+  } finally {
+    isWorldTraveling = false;
+  }
+
   const result = expandToCorner(worldState, corner);
 
   if (!result) {
@@ -1493,6 +1517,29 @@ function chooseCorner(corner) {
   } else {
     renderWorldMap();
   }
+}
+
+// Run the current-cell wolf into the chosen neighbour: swap to the run sprite
+// facing that corner and slide it one arena step over. Resolves when done.
+function animateMarkerRun(corner) {
+  const marker = worldStage && worldStage.querySelector(".world-current-marker");
+
+  if (!marker || !worldMapLayout) {
+    return wait(0);
+  }
+
+  const { x, y } = neighborCoord(worldState.x, worldState.y, corner);
+  const { ox, oy } = worldCellScreenOffset(x, y);
+  const directionRow = WOLF_DIRECTIONS[corner] ?? WOLF_DIRECTIONS.bottomLeft;
+  const scale = worldMapLayout.scale;
+
+  marker.style.backgroundImage = `url("${WOLF_PATH}/wolf-run.png")`;
+  marker.style.backgroundPositionY = `-${directionRow * WOLF_FRAME_SIZE}px`;
+  marker.classList.add("is-running");
+  marker.style.transition = `transform ${WORLD_TRAVEL_MS}ms linear`;
+  marker.style.transform = markerTransform(ox * scale, oy * scale, scale * WORLD_MARKER_SCALE);
+
+  return wait(WORLD_TRAVEL_MS);
 }
 
 function clearWorldNeighbors() {
@@ -1784,6 +1831,7 @@ function renderWorldMap(animate = false) {
 
   const cells = collectWorldMapCells();
   const layout = computeWorldMapLayout(cells);
+  worldMapLayout = layout; // remembered for the travel animation
 
   if (arena) {
     if (!animate) {
@@ -1811,8 +1859,12 @@ function renderWorldMap(animate = false) {
   worldStage.append(buildCurrentMarker(layout));
 }
 
-// A single wolf standing in the middle of the current arena, facing back toward
-// the cell the pack travelled from, to mark where you're moving from.
+function markerTransform(dx, dy, scale) {
+  return `translate(-50%, -50%) translate(${dx}px, ${dy}px) scale(${scale})`;
+}
+
+// A single wolf standing in the middle of the current arena (idle), facing the
+// way the pack last travelled, to mark where you're moving from.
 function buildCurrentMarker(layout) {
   const stageW = worldStage.clientWidth || window.innerWidth;
   const stageH = worldStage.clientHeight || window.innerHeight;
@@ -1826,10 +1878,11 @@ function buildCurrentMarker(layout) {
   marker.style.width = `${WOLF_FRAME_SIZE}px`;
   marker.style.height = `${WOLF_FRAME_SIZE}px`;
   marker.style.backgroundImage = `url("${WOLF_PATH}/wolf-idle.png")`;
-  marker.style.backgroundPosition = `0px -${directionRow * WOLF_FRAME_SIZE}px`;
+  marker.style.backgroundPositionX = "0px";
+  marker.style.backgroundPositionY = `-${directionRow * WOLF_FRAME_SIZE}px`;
   marker.style.left = `${sx}px`;
   marker.style.top = `${sy}px`;
-  marker.style.transform = `translate(-50%, -72%) scale(${layout.scale * WORLD_MARKER_SCALE})`;
+  marker.style.transform = markerTransform(0, 0, layout.scale * WORLD_MARKER_SCALE);
   return marker;
 }
 
@@ -6264,7 +6317,7 @@ const DEV_TEST_SCENARIOS = [
       expandToCorner(worldState, "topRight"); // into (1,0)
       clearCurrentWorldCell(worldState); // win it
       renderWorldMap(); // render path must not throw against the DOM
-      chooseCorner("bottomLeft"); // safe passage back to cleared (0,0)
+      await chooseCorner("bottomLeft"); // safe passage back to cleared (0,0)
       const result = { x: worldState.x, y: worldState.y };
       worldState = createWorld(); // restore a fresh run
       return result;

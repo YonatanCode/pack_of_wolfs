@@ -1168,8 +1168,18 @@ body {
   z-index: 2100; /* above the territory outline/highlight so it isn't overlaid */
   background-repeat: no-repeat;
   image-rendering: pixelated;
-  transform-origin: center bottom;
+  transform-origin: center;
   pointer-events: none;
+}
+
+/* Cycle the 8-frame run sheet while the wolf travels to the chosen tile. */
+.world-current-marker.is-running {
+  animation: worldWolfRun 500ms steps(8) infinite;
+}
+
+@keyframes worldWolfRun {
+  from { background-position-x: 0; }
+  to { background-position-x: -512px; } /* 8 frames × 64px */
 }
 
 /* Light highlight on the arena the wolf stands on. */
