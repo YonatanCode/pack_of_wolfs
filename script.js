@@ -789,6 +789,7 @@ function createUnit({
     element: document.createElement("div"),
     healthBar: null,
     intentTags: null,
+    hiddenTag: null,
     type,
     isActive,
     row,
@@ -1886,6 +1887,7 @@ function paintCenterTerrain(node) {
   });
 
   renderArenaHill(arena?.querySelector(".tile-layer"));
+  refreshConcealmentVisuals(); // the new cell's hill may conceal a unit differently
 }
 
 // Screen offset (unscaled px) of a cell relative to the current one. World axes
@@ -2226,6 +2228,7 @@ function buildArena() {
   arena.parentElement.append(playerActionMenu);
   positionPlayerActionMenu();
   updatePlayerMovePreview();
+  refreshConcealmentVisuals(); // a hill can conceal a unit from the very first frame
 }
 
 // (Re)build the tall hill sprites in the live arena's tile layer. Each footprint
@@ -2282,10 +2285,12 @@ function placeUnit(unitLayer, unit) {
   unit.element.style.setProperty("--unit-nudge-y", `${definition.nudgeY}px`);
   unit.healthBar = createUnitHealthBar();
   unit.intentTags = createUnitIntentTags();
+  unit.hiddenTag = createUnitHiddenTag();
   setUnitPosition(unit, anchorX, anchorY);
   updateUnitDepth(unit);
-  unitLayer.append(unit.element, unit.healthBar, unit.intentTags);
+  unitLayer.append(unit.element, unit.healthBar, unit.intentTags, unit.hiddenTag);
   updateUnitHealthBar(unit);
+  updateUnitConcealment(unit);
 }
 
 function createUnitHealthBar() {
@@ -2308,6 +2313,46 @@ function positionUnitHealthBar(wolf) {
 
   wolf.healthBar.style.left = `${wolf.x}px`;
   wolf.healthBar.style.top = `${wolf.y}px`;
+}
+
+function createUnitHiddenTag() {
+  const tag = document.createElement("div");
+
+  tag.className = "unit-hidden-tag";
+  tag.hidden = true;
+  tag.setAttribute("aria-hidden", "true");
+  tag.textContent = "Hidden";
+  return tag;
+}
+
+function positionUnitHiddenTag(wolf) {
+  if (!wolf.hiddenTag) {
+    return;
+  }
+
+  wolf.hiddenTag.style.left = `${wolf.x}px`;
+  wolf.hiddenTag.style.top = `${wolf.y}px`;
+}
+
+// Toggle a unit's concealment marking from its current isHidden flag: dim the
+// sprite and show the "Hidden" tag. Defeated/inactive units never show it.
+function updateUnitConcealment(unit) {
+  const hidden = isUnitActive(unit) && isUnitAlive(unit) && isUnitHidden(unit);
+
+  if (unit.element) {
+    unit.element.classList.toggle("unit--hidden", hidden);
+  }
+
+  if (unit.hiddenTag) {
+    unit.hiddenTag.hidden = !hidden;
+  }
+}
+
+// Recompute concealment for all units and repaint their markings. Call after any
+// position change (moves) or plan, since one unit moving can hide/reveal another.
+function refreshConcealmentVisuals() {
+  refreshHiddenStates();
+  units.forEach(updateUnitConcealment);
 }
 
 function createUnitIntentTags() {
@@ -2364,6 +2409,14 @@ function updateUnitIntentTagsDepth(wolf) {
   }
 
   wolf.intentTags.style.zIndex = Number(wolf.element.style.zIndex || 0) + 2;
+}
+
+function updateUnitHiddenTagDepth(wolf) {
+  if (!wolf.hiddenTag) {
+    return;
+  }
+
+  wolf.hiddenTag.style.zIndex = Number(wolf.element.style.zIndex || 0) + 3;
 }
 
 function updateUnitHealthBar(wolf) {
@@ -2478,6 +2531,7 @@ function setUnitPosition(unit, x, y) {
   unit.element.style.top = `${y}px`;
   positionUnitHealthBar(unit);
   positionUnitIntentTags(unit);
+  positionUnitHiddenTag(unit);
 
   if (unit === getSelectedPlayerUnit()) {
     positionPlayerActionMenu();
@@ -2490,6 +2544,7 @@ function updateUnitDepth(unit) {
   unit.element.style.zIndex = unit.isDefeated ? liveUnitDepth - 2 : liveUnitDepth;
   updateUnitHealthBarDepth(unit);
   updateUnitIntentTagsDepth(unit);
+  updateUnitHiddenTagDepth(unit);
 
   if (unit === getSelectedPlayerUnit()) {
     positionPlayerActionMenu();
@@ -5609,6 +5664,7 @@ function moveUnitToTile(
   unit.col = col;
   updatePlayerTileLabels();
   updateUnitDepth(unit);
+  refreshConcealmentVisuals(); // a move can hide/reveal any unit, not just this one
 
   if (unit === getSelectedPlayerUnit()) {
     updatePlayerMovePreview();
@@ -5852,6 +5908,7 @@ function resetDevTest(
   renderUnitIntentTags(enemyFlank);
   updatePlayerActionControls();
   updateAnimationControls();
+  refreshConcealmentVisuals();
 
   return getDevTestState();
 }
