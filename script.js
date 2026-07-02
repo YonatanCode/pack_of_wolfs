@@ -4535,14 +4535,22 @@ function getEnemyPackFocusTarget() {
   return getAliveUnitsByTeam("player")[0] ?? player;
 }
 
+// The enemy a friendly wolf auto-steers toward: the nearest one it can SEE.
+// Enemies hidden behind a hill are excluded, so the player's move-to-attack
+// assist won't path at an unseen foe; when none are visible it returns null and
+// the move planner leaves the wolf where it is (no auto-advance — the player
+// can still move manually). Symmetric with the pack's own target filtering.
 function getFriendlyFocusTarget(friendlyUnit = player) {
+  refreshHiddenStates();
+
   return getAliveUnitsByTeam("enemy")
+    .filter((unit) => !isUnitHidden(unit))
     .sort((unit, otherUnit) => {
       return (
         getGridDistance(friendlyUnit.row, friendlyUnit.col, unit.row, unit.col) -
         getGridDistance(friendlyUnit.row, friendlyUnit.col, otherUnit.row, otherUnit.col)
       );
-    })[0] ?? enemy;
+    })[0] ?? null;
 }
 
 function hasQueuedAttackIntentAfterCurrentMove(unit) {
