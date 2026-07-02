@@ -214,6 +214,10 @@ const enemyFlank = createWolf({ row: 0, col: 1, direction: "bottomLeft", team: "
 const units = [player, playerSupport, playerFlank, enemy, enemySupport, enemyFlank];
 const enemyPackActionQueue = [];
 let enemyPackFocusTarget = null;
+// Cells where the pack last SAW a player. When every player is hidden behind a
+// hill the pack has no target, so it advances to the nearest of these to try to
+// re-establish line of sight (falls back to the player spawn edge if never seen).
+let lastSeenPlayerCells = [];
 const unitAnimationPreloads = preloadUnitAnimations();
 
 updateArenaMetrics();
@@ -345,6 +349,11 @@ let pondTileKeys = new Set();
 // pond doesn't). Rebuilt alongside the water in generateTerrain().
 let hillTileKeys = new Set();
 
+// While a dev-test scenario runs, terrain regenerations produce no water/hill so
+// mechanics scenarios play on a clean board even if they resize the arena (which
+// re-stamps terrain). The live game never sets this. See runDevTestScenario.
+let devTestObstaclesDisabled = false;
+
 function isPondTile(row, col) {
   return pondTileKeys.has(getGridPositionKey(row, col));
 }
@@ -402,6 +411,15 @@ function refreshHiddenStates() {
 // Whether a unit is currently concealed from its foes (hidden behind a hill).
 function isUnitHidden(unit) {
   return Boolean(unit.isHidden);
+}
+
+// Empty the arena's impassable/sight-blocking terrain. Used by the dev-test
+// runner so mechanics scenarios play on a clean field (the live arena now
+// always seeds a hill + water, which would otherwise sit on scenario tiles).
+// Terrain-specific scenarios regenerate their own obstacles afterwards.
+function clearArenaObstacles() {
+  pondTileKeys = new Set();
+  hillTileKeys = new Set();
 }
 
 function lerp(a, b, t) {
@@ -649,6 +667,10 @@ function generateTerrainTiles(size, worldX = 0, worldY = 0, clearSpawns = false)
 function stampHill(size) {
   hillTileKeys = new Set();
 
+  if (devTestObstaclesDisabled) {
+    return;
+  }
+
   const shape = HILL_SHAPES[Math.floor(terrainRandom() * HILL_SHAPES.length)];
   const lo = HILL_INTERIOR_MARGIN;
   const hi = size - HILL_INTERIOR_MARGIN;
@@ -684,6 +706,10 @@ function isSpawnCell(size, row, col) {
 // grass so lakes sit in a green frame instead of butting against dirt patches.
 function stampWater(size, worldX, worldY, clearSpawns) {
   pondTileKeys = new Set();
+
+  if (devTestObstaclesDisabled) {
+    return;
+  }
 
   for (let row = 0; row < size; row += 1) {
     for (let col = 0; col < size; col += 1) {
@@ -2988,14 +3014,29 @@ function planEnemyPackTurn(enemyUnits, playerUnits) {
     return enemyPackActionQueue;
   }
 
-  enemyPackFocusTarget = getBestPackFocusTarget(aliveEnemies, alivePlayers);
+  // Only players in line of sight are targetable — hidden ones are ignored for
+  // focus and attacks. If all are hidden the pack goes blind and searches.
+  refreshHiddenStates();
+  const visiblePlayers = alivePlayers.filter((unit) => !isUnitHidden(unit));
+
+  if (visiblePlayers.length > 0) {
+    lastSeenPlayerCells = visiblePlayers.map((unit) => ({ row: unit.row, col: unit.col }));
+  }
+
+  // targetedPlayers drives attacks/surround slots; empty when blind so no wolf
+  // swings at an unseen foe. enemyPackFocusTarget is a real player, or a phantom
+  // search anchor the pack advances toward to regain sight.
+  const targetedPlayers = visiblePlayers;
+  enemyPackFocusTarget = visiblePlayers.length > 0
+    ? getBestPackFocusTarget(aliveEnemies, visiblePlayers)
+    : getEnemySearchAnchor(aliveEnemies);
 
   const plannedStates = new Map(aliveEnemies.map((unit) => [
     unit,
     { row: unit.row, col: unit.col, direction: unit.direction },
   ]));
 
-  assignEnemyPackObjectives(aliveEnemies, enemyPackFocusTarget, alivePlayers, plannedStates);
+  assignEnemyPackObjectives(aliveEnemies, enemyPackFocusTarget, targetedPlayers, plannedStates);
 
   const reservedMoveTargets = new Set();
   const doctrinePool = [...ENEMY_AGGRESSIVE_DOCTRINE];
@@ -3008,7 +3049,7 @@ function planEnemyPackTurn(enemyUnits, playerUnits) {
       reservedMoveTargets,
       enemyPackActionQueue,
       doctrinePool,
-      alivePlayers,
+      targetedPlayers,
     );
 
     if (!assignment) {
@@ -3048,6 +3089,25 @@ function getPackFocusTargetScore(target, enemyUnits) {
   });
 
   return target.health * 5 + nearestDistance * 2 - (attackOpportunity ? 8 : 0);
+}
+
+// A phantom "focus" used only when every player is hidden: the last-seen cell
+// nearest the pack's centre (or the player spawn edge if the pack never had a
+// sighting). Shaped like a target (row/col/health) so the surround/goal/move
+// machinery steers the wolves toward it — moving there tends to re-open sight.
+function getEnemySearchAnchor(enemyUnits) {
+  const anchors = lastSeenPlayerCells.length > 0
+    ? lastSeenPlayerCells
+    : [{ row: GRID_SIZE - 1, col: Math.floor(GRID_SIZE / 2) }];
+
+  const packRow = enemyUnits.reduce((sum, unit) => sum + unit.row, 0) / enemyUnits.length;
+  const packCol = enemyUnits.reduce((sum, unit) => sum + unit.col, 0) / enemyUnits.length;
+
+  const nearest = [...anchors].sort((a, b) => {
+    return getGridDistance(packRow, packCol, a.row, a.col) - getGridDistance(packRow, packCol, b.row, b.col);
+  })[0];
+
+  return { row: nearest.row, col: nearest.col, health: Infinity, isSearchAnchor: true };
 }
 
 function getNearestPlayerDistanceFrom(row, col, players) {
@@ -6723,15 +6783,25 @@ async function runDevTestScenario(scenarioId) {
     throw new Error(`Unknown dev test scenario: ${scenarioId}`);
   }
 
-  const state = await scenario.run();
-  const passed = scenario.expect(state);
+  // Mechanics scenarios assume a clear board; suppress the seeded hill/water for
+  // the whole scenario (including any arena resize that re-stamps terrain) so a
+  // stray obstacle can't derail a movement/pack test.
+  devTestObstaclesDisabled = true;
+  clearArenaObstacles();
 
-  return {
-    id: scenario.id,
-    label: scenario.label,
-    passed,
-    state,
-  };
+  try {
+    const state = await scenario.run();
+    const passed = scenario.expect(state);
+
+    return {
+      id: scenario.id,
+      label: scenario.label,
+      passed,
+      state,
+    };
+  } finally {
+    devTestObstaclesDisabled = false;
+  }
 }
 
 function setDevTestStatus(message, statusClass = "") {
