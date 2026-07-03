@@ -594,6 +594,7 @@ function createUnit({
     animationComplete: null,
     animationStartedAt: 0,
     animationName: "idle",
+    idleStartFrame: getRandomIdleStartFrame(type),
     x: 0,
     y: 0,
   };
@@ -619,6 +620,24 @@ function getUnitAnimationFrameCount(animation) {
 
 function getUnitAnimationFrameIndex(animation, sequenceIndex) {
   return animation.frameSequence?.[sequenceIndex] ?? sequenceIndex;
+}
+
+function getRandomIdleStartFrame(type) {
+  const idleAnimation = getUnitAnimation(type, "idle");
+
+  if (type !== "wolf" || !idleAnimation) {
+    return 0;
+  }
+
+  return Math.floor(Math.random() * getUnitAnimationFrameCount(idleAnimation));
+}
+
+function getUnitAnimationStartFrame(unit, animationName, animation) {
+  if (animationName !== "idle") {
+    return 0;
+  }
+
+  return unit.type === "wolf" ? (unit.idleStartFrame ?? 0) % getUnitAnimationFrameCount(animation) : 0;
 }
 
 function isUnitAnimationSupported(unitOrType, animationName) {
@@ -3323,8 +3342,9 @@ function playUnitAnimation(unit, animationName, shouldUpdateButtons = false) {
 
   unit.animationName = animationName;
   unit.animationStartedAt = performance.now();
+  const startFrame = getUnitAnimationStartFrame(unit, animationName, animation);
   setUnitAnimationSprite(unit, animationName);
-  setUnitFrame(unit, 0);
+  setUnitFrame(unit, getUnitAnimationFrameIndex(animation, startFrame));
 
   if (shouldUpdateButtons) {
     updateAnimationControls(unit);
@@ -3333,7 +3353,7 @@ function playUnitAnimation(unit, animationName, shouldUpdateButtons = false) {
   const animate = (timestamp) => {
     const elapsed = timestamp - unit.animationStartedAt;
     const absoluteFrame = Math.floor(elapsed / animation.frameMs);
-    const sequenceIndex = absoluteFrame % getUnitAnimationFrameCount(animation);
+    const sequenceIndex = (absoluteFrame + startFrame) % getUnitAnimationFrameCount(animation);
     const frameIndex = getUnitAnimationFrameIndex(animation, sequenceIndex);
 
     setUnitAnimationSprite(unit, animationName);
@@ -5405,6 +5425,7 @@ function setUnitType(unit, type) {
   stopUnitAnimation(unit);
   unit.type = nextType;
   unit.animationName = "idle";
+  unit.idleStartFrame = getRandomIdleStartFrame(nextType);
 }
 
 function setUnitActive(unit, isActive) {
