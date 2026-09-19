@@ -21,10 +21,10 @@
   --unit-health-low: #f3181d;
   --unit-health-track: #ffffff;
   --unit-health-low-track: #ff919f;
-  --unit-intent-tags-offset-x: 12px;
-  --unit-intent-tags-offset-y: -50px;
-  --unit-hidden-tag-offset-x: 12px;
-  --unit-hidden-tag-offset-y: -66px;
+  --unit-intent-tags-offset-x: 0px;
+  --unit-intent-tags-offset-y: -32px;
+  --unit-hidden-tag-offset-x: 0px;
+  --unit-hidden-tag-offset-y: -32px;
   --unit-damage-popup-font-size: 32px;
   --unit-damage-popup-font-weight: 400;
   --unit-damage-popup-color: hsl(0, 0%, 100%);
@@ -75,6 +75,12 @@ body {
   cursor: pointer;
 }
 
+/* Hill-editor dev tool: crosshair while drawing hills. */
+.arena.hill-edit,
+.arena.hill-edit.has-hovered-tile {
+  cursor: crosshair;
+}
+
 @keyframes arenaShake {
   0%, 100% { translate: 0 0; }
   15%       { translate: -3px -1px; }
@@ -110,9 +116,7 @@ body {
   -webkit-user-drag: none;
 }
 
-/* Stacked cube sprites that give a hill its height. Positioned like tiles but
-   lifted per level; z-index is set inline (per-cell, on the unit depth scale) so
-   wolves behind the hill are occluded and wolves in front draw over it. */
+/* Rocks use unit depth so units pass visually behind/in front of formations. */
 .hill-block {
   position: absolute;
   width: var(--tile-width);
@@ -129,10 +133,21 @@ body {
   -webkit-user-drag: none;
 }
 
+.rock {
+  --rock-ground-offset: -8px;
+  transform: translate(-50%, var(--rock-ground-offset));
+}
+
 .tile.is-hovered img,
 .tile.is-move-preview img,
 .tile:focus-visible img {
   filter: brightness(1.2) saturate(1.5);
+}
+
+/* Hill-editor: the top cube of the hovered hill lights up so it's clear which
+   stack a click will change. */
+.hill-block.is-hovered img {
+  filter: brightness(1.35) saturate(1.4);
 }
 
 .tile:focus-visible {
