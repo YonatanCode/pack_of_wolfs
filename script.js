@@ -400,6 +400,10 @@ const ROCK_TILES = {
   edge: [65, 67],
   interior: [64, 68],
 };
+// Flower clusters scattered on plain grass — purely decorative, no
+// movement/LOS effect (unlike rocks/hills).
+const FLOWER_TILES = [41, 42, 44, 46];
+const FLOWER_RATIO = 0.03; // ~3% of eligible grass tiles
 const HILL_INTERIOR_MARGIN = 1; // keep the footprint off the spawn-edge rows/cols
 // Footprint templates as (row, col) offsets from an anchor — each is a crescent
 // or bend, so the hill never looks like a solid block. Used by the legacy
@@ -439,6 +443,11 @@ let pondTileKeys = new Set();
 // blocks line of sight (water blocks neither sight nor — for now — anything the
 // pond doesn't). Rebuilt alongside the water in generateTerrain().
 let hillTileKeys = new Set();
+
+// Keys ("row,col") of cells with a flower overlay. Decorative only — never
+// consulted by movement/LOS, unlike hillTileKeys/pondTileKeys. Rebuilt
+// alongside the rest of the terrain in generateTerrain().
+let flowerTileKeys = new Set();
 
 // Per-tile hill height ("row,col" -> level, 1 or 2), authored by the hill-editor
 // dev tool. renderArenaHill falls back to HILL_HEIGHT_LEVELS for any hill tile
@@ -522,6 +531,7 @@ function clearArenaObstacles() {
   pondTileKeys = new Set();
   hillTileKeys = new Set();
   hillTileLevels = new Map();
+  flowerTileKeys = new Set();
 }
 
 function lerp(a, b, t) {
@@ -804,8 +814,33 @@ function generateTerrainTiles(size, worldX = 0, worldY = 0, clearSpawns = false)
 
   stampWater(size, worldX, worldY, clearSpawns);
   stampHill(size);
+  stampFlowers(size, types);
 
   return terrainTiles;
+}
+
+// Scatter flower overlays across plain grass, from the same seeded stream as
+// the rest of the terrain. Skips any cell the water/hill passes already
+// claimed, and — like stampHill — produces nothing while a dev-test scenario
+// wants a clean board.
+function stampFlowers(size, types) {
+  flowerTileKeys = new Set();
+
+  if (devTestObstaclesDisabled) {
+    return;
+  }
+
+  for (let row = 0; row < size; row += 1) {
+    for (let col = 0; col < size; col += 1) {
+      if (types[row][col] !== TERRAIN_GRASS || isBlockedTile(row, col)) {
+        continue;
+      }
+
+      if (terrainRandom() < FLOWER_RATIO) {
+        flowerTileKeys.add(getGridPositionKey(row, col));
+      }
+    }
+  }
 }
 
 // Place this arena's hills from the seeded stream (terrainRandom, deterministic
@@ -2104,18 +2139,21 @@ function terrainTilesForSeed(size, seed, worldX = 0, worldY = 0) {
   const savedPond = pondTileKeys;
   const savedHill = hillTileKeys;
   const savedHillLevels = hillTileLevels;
+  const savedFlowers = flowerTileKeys;
 
   generateTerrain(size, seed, worldX, worldY);
   const result = {
     tiles: terrainTiles.map((typeRow) => typeRow.slice()),
     hillKeys: new Set(hillTileKeys),
     hillLevels: new Map(hillTileLevels),
+    flowerKeys: new Set(flowerTileKeys),
   };
 
   terrainTiles = savedTerrain;
   pondTileKeys = savedPond;
   hillTileKeys = savedHill;
   hillTileLevels = savedHillLevels;
+  flowerTileKeys = savedFlowers;
   worldTerrainCache.set(cacheKey, result);
   return result;
 }
@@ -2135,9 +2173,10 @@ function dirtTileGrid(size) {
 }
 
 // A terrain-only iso layer (no units, anchors, labels, or interactivity) used
-// to preview a neighbouring arena. hillKeys/hillLevels are optional — omitted
-// for the unseen (dirt-placeholder) grid, which has no real hills to draw.
-function buildWorldTerrainLayer(tiles, hillKeys = null, hillLevels = null) {
+// to preview a neighbouring arena. hillKeys/hillLevels/flowerKeys are optional
+// — omitted for the unseen (dirt-placeholder) grid, which has no real terrain
+// features to draw.
+function buildWorldTerrainLayer(tiles, hillKeys = null, hillLevels = null, flowerKeys = null) {
   const layer = document.createElement("div");
   layer.className = "tile-layer";
 
@@ -2163,6 +2202,10 @@ function buildWorldTerrainLayer(tiles, hillKeys = null, hillLevels = null) {
     layer.append(...buildHillBlocks(hillKeys, hillLevels));
   }
 
+  if (flowerKeys) {
+    layer.append(...buildFlowerBlocks(flowerKeys));
+  }
+
   return layer;
 }
 
@@ -2186,6 +2229,7 @@ function paintCenterTerrain(node) {
   });
 
   renderArenaHill(arena?.querySelector(".tile-layer"));
+  renderArenaFlowers(arena?.querySelector(".tile-layer"));
   refreshConcealmentVisuals(); // the new cell's hill may conceal a unit differently
 }
 
@@ -2288,8 +2332,8 @@ function buildWorldCell(cell, layout, animate) {
   inner.className = "world-neighbor-board";
 
   if (revealed) {
-    const { tiles, hillKeys, hillLevels } = terrainTilesForSeed(GRID_SIZE, seed, x, y);
-    inner.append(buildWorldTerrainLayer(tiles, hillKeys, hillLevels));
+    const { tiles, hillKeys, hillLevels, flowerKeys } = terrainTilesForSeed(GRID_SIZE, seed, x, y);
+    inner.append(buildWorldTerrainLayer(tiles, hillKeys, hillLevels, flowerKeys));
   } else {
     inner.append(buildWorldTerrainLayer(dirtTileGrid(GRID_SIZE)));
   }
@@ -2521,6 +2565,7 @@ function buildArena() {
   }
 
   renderArenaHill(tileLayer);
+  renderArenaFlowers(tileLayer);
 
   units.filter(isUnitActive).forEach((unit) => {
     placeUnit(unitLayer, unit);
@@ -2586,6 +2631,54 @@ function renderArenaHill(layer) {
 
   layer.querySelectorAll(".hill-block").forEach((el) => el.remove());
   layer.append(...buildHillBlocks(hillTileKeys, hillTileLevels));
+}
+
+// One flower sprite per decorated cell. Coordinate hashing (same technique as
+// rockTileForCell) keeps the art stable across re-renders without consuming
+// generation RNG.
+function flowerTileForCell(row, col) {
+  const hash = (Math.imul(row + 1, 73856093) ^ Math.imul(col + 1, 19349663)) >>> 0;
+  return FLOWER_TILES[hash % FLOWER_TILES.length];
+}
+
+// Build the flower-sprite overlay blocks for a set of cells. Shared by the
+// live arena (renderArenaFlowers) and the world-map preview (buildWorldCell),
+// same as buildHillBlocks — same z-index/offset scheme as rocks, since a
+// flower is drawn the same way: a sprite overlaid on its grass tile.
+function buildFlowerBlocks(flowerKeys) {
+  const blocks = [];
+
+  flowerKeys.forEach((key) => {
+    const [row, col] = key.split(",").map(Number);
+    const position = projectTile(row, col);
+    const depth = GRID_SIZE * 2 + row + col + 20;
+    const block = document.createElement("div");
+    const img = document.createElement("img");
+
+    block.className = "flower-block";
+    block.dataset.row = row;
+    block.dataset.col = col;
+    block.style.left = `${position.x}px`;
+    block.style.top = `${position.y}px`;
+    block.style.zIndex = depth;
+    img.src = tileSrc(flowerTileForCell(row, col));
+    img.alt = "";
+    img.draggable = false;
+
+    block.append(img);
+    blocks.push(block);
+  });
+
+  return blocks;
+}
+
+function renderArenaFlowers(layer) {
+  if (!layer) {
+    return;
+  }
+
+  layer.querySelectorAll(".flower-block").forEach((el) => el.remove());
+  layer.append(...buildFlowerBlocks(flowerTileKeys));
 }
 
 // --- Hill editor (dev tool) ----------------------------------------------
