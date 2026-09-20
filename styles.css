@@ -21,8 +21,10 @@
   --unit-health-low: #f3181d;
   --unit-health-track: #ffffff;
   --unit-health-low-track: #ff919f;
-  --unit-intent-tags-offset-x: 12px;
-  --unit-intent-tags-offset-y: -50px;
+  --unit-intent-tags-offset-x: 0px;
+  --unit-intent-tags-offset-y: -32px;
+  --unit-hidden-tag-offset-x: 0px;
+  --unit-hidden-tag-offset-y: -32px;
   --unit-damage-popup-font-size: 32px;
   --unit-damage-popup-font-weight: 400;
   --unit-damage-popup-color: hsl(0, 0%, 100%);
@@ -73,6 +75,12 @@ body {
   cursor: pointer;
 }
 
+/* Hill-editor dev tool: crosshair while drawing hills. */
+.arena.hill-edit,
+.arena.hill-edit.has-hovered-tile {
+  cursor: crosshair;
+}
+
 @keyframes arenaShake {
   0%, 100% { translate: 0 0; }
   15%       { translate: -3px -1px; }
@@ -108,10 +116,56 @@ body {
   -webkit-user-drag: none;
 }
 
+/* Rocks use unit depth so units pass visually behind/in front of formations. */
+.hill-block {
+  position: absolute;
+  width: var(--tile-width);
+  height: var(--tile-height);
+  transform: translate(-50%, 0);
+  pointer-events: none;
+}
+
+.hill-block img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.rock {
+  --rock-ground-offset: -8px;
+  transform: translate(-50%, var(--rock-ground-offset));
+}
+
+/* Flower overlay: same footprint/offset as a rock, since it's drawn the same
+   way — a sprite sat on top of its grass tile. */
+.flower-block {
+  position: absolute;
+  width: var(--tile-width);
+  height: var(--tile-height);
+  transform: translate(-50%, -8px);
+  pointer-events: none;
+}
+
+.flower-block img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 .tile.is-hovered img,
 .tile.is-move-preview img,
 .tile:focus-visible img {
   filter: brightness(1.2) saturate(1.5);
+}
+
+/* Hill-editor: the top cube of the hovered hill lights up so it's clear which
+   stack a click will change. */
+.hill-block.is-hovered img {
+  filter: brightness(1.35) saturate(1.4);
 }
 
 .tile:focus-visible {
@@ -253,6 +307,37 @@ body {
 
 .unit-health-bar.is-health-low .unit-health-bar-fill {
   background: var(--unit-health-low);
+}
+
+/* A wolf hidden behind a hill: dimmed sprite + a "hidden" tag, so the player can
+   still see it (marked, not fog) while both sides' targeting ignores it. Uses
+   opacity, not filter, so it stacks with the enemy brightness filter. */
+.unit--hidden {
+  opacity: 0.42;
+}
+
+.unit-hidden-tag {
+  position: absolute;
+  padding: 2px 6px;
+  border: 1px solid rgba(160, 200, 255, 0.4);
+  border-radius: 4px;
+  color: #d6ecff;
+  background: rgba(10, 16, 22, 0.85);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.34);
+  font: 800 9px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(
+    calc(var(--unit-hidden-tag-offset-x) - 50%),
+    var(--unit-hidden-tag-offset-y)
+  ) scale(var(--arena-scale-inverse));
+  transform-origin: center top;
+}
+
+.unit-hidden-tag[hidden] {
+  display: none;
 }
 
 .unit-intent-tags {

@@ -1,4 +1,4 @@
-const DEFAULT_GRID_SIZE = 12;
+const DEFAULT_GRID_SIZE = 16;
 const MIN_GRID_SIZE = 4;
 const MAX_GRID_SIZE = 18;
 let GRID_SIZE = DEFAULT_GRID_SIZE;
@@ -191,6 +191,7 @@ const tileElements = [];
 const unitActionQueues = new WeakMap();
 let reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
 let hoveredTile = null;
+let hoveredHillBlock = null; // top cube highlighted under the cursor in hill-edit mode
 let selectedPlayerUnit = null;
 let isDevToolsEnabled = false;
 let playerActionMenu = null;
@@ -261,18 +262,111 @@ const GRASS_DECOR_CHANCE = 0.12;
 // between the two terrain types reads as a blended edge instead of a hard cut.
 const GRASS_EDGE_TILES = [26, 20];
 
-// Pond: a static, impassable water feature. The shape is hand-placed (not
-// random) to keep the board deterministic, tucked against the quiet right-mid
-// edge — clear of the spawn rows (0 and 11) and the central travel lane — so
-// wolves rarely need to route through it. (Movement path-builders stop at
-// water, but the AI scores goals by straight-line distance and would otherwise
-// stall walking into the shoreline.)
-const POND_LAYOUT = [
-  [4, 9], [4, 10],
-  [5, 8], [5, 9], [5, 10], [5, 11],
-  [6, 8], [6, 9], [6, 10], [6, 11],
-  [7, 9], [7, 10], [7, 11],
-];
+// Water: an impassable feature laid down from a single GLOBAL noise field that
+// spans the whole overworld, not a per-arena shape. Every arena samples the same
+// continuous field at its own world position, so a lake that reaches one arena's
+// edge continues seamlessly into the neighbour on the map (the shorelines line
+// up because both arenas read the same field at the shared coordinate). The
+// field is deterministic (seeded once, world-wide) so previews match battles.
+// (Movement path-builders stop at water; the AI scores goals by straight-line
+// distance and would otherwise stall walking into the shoreline.)
+const WORLD_WATER_SEED = 0x5eed_0a7e; // fixed → stable world water
+// Lattice cell size in tiles for the water field. Larger than the terrain scale
+// so lakes are big, coherent, and likely to bridge the ~GRID_SIZE-wide seams.
+// Tuned with WATER_RATIO for ~6% coverage: most arenas get a lake, none flood.
+const WATER_NOISE_SCALE = 8;
+// Share of the field that becomes water. Value noise clusters near 0.5, so a
+// threshold well below 0.5 keeps water to occasional lakes, not a flooded board.
+const WATER_RATIO = 0.2;
+// Smallest allowed water body, in tiles. The raw noise throws off lots of single
+// and double-tile specks; anything below this reads as a stray puddle, so we
+// treat it as land. Enforced in world-lattice space so a body spanning an arena
+// seam is measured whole and stays continuous (see isWorldWaterBody).
+const MIN_WATER_TILES = 20;
+// Single source of truth for where the six wolves start (enemy on row 0, player
+// on the bottom row). Both getDefaultDevUnitSetup (placement) and
+// getArenaSpawnCells (water-clearing) read this, so the two can never drift out
+// of sync — a mismatch here used to leave a wolf standing in a lake. Columns are
+// offsets from the arena's centre column.
+const SPAWN_COL_OFFSETS = {
+  player: { primary: 0, support: -2, flank: 3 },
+  enemy: { primary: 0, support: 2, flank: -3 },
+};
+
+function getSpawnRow(team, size) {
+  return team === "player" ? size - 1 : 0;
+}
+
+function getSpawnColumn(team, role, size) {
+  const centerCol = Math.floor((size - 1) / 2);
+  const offset = SPAWN_COL_OFFSETS[team]?.[role] ?? 0;
+  return Math.min(size - 1, Math.max(0, centerCol + offset));
+}
+
+// --- Side-based spawns ---------------------------------------------------
+// The player travels into an arena from one of four directions; the pack lines
+// the outermost edge tiles of THAT side of the diamond, and the enemy lines the
+// opposite side. The arena is an isometric diamond whose four sides are:
+//   row 0    = top-right side (from the top corner (0,0) to the right corner (0,N-1))
+//   col 0    = top-left side  (top corner (0,0) to the left corner (N-1,0))
+//   col N-1  = bottom-right side (right corner (0,N-1) to the bottom corner (N-1,N-1))
+//   row N-1  = bottom-left side  (left corner (N-1,0) to the bottom corner (N-1,N-1))
+// This table maps travel direction -> the player's side; it is the single place
+// to flip if a direction ever reads mirrored on screen.
+const SPAWN_EDGE_BY_TRAVEL = {
+  topRight: { axis: "row", line: 0 }, // top-right side
+  topLeft: { axis: "col", line: 0 }, // top-left side
+  bottomRight: { axis: "col", line: "max" }, // bottom-right side
+  bottomLeft: { axis: "row", line: "max" }, // bottom-left side
+};
+// Sprite facing (from DIRECTION_TILE_DELTAS) each side uses to look inward toward
+// the arena centre / the opposite side. Keyed by the side's travel direction.
+const FACING_BY_TRAVEL = {
+  topRight: "bottomLeft", // top-right side looks down-left
+  bottomLeft: "topRight", // bottom-left side looks up-right
+  topLeft: "bottomRight", // top-left side looks down-right
+  bottomRight: "topLeft", // bottom-right side looks up-left
+};
+const OPPOSITE_TRAVEL = {
+  topRight: "bottomLeft",
+  bottomLeft: "topRight",
+  topLeft: "bottomRight",
+  bottomRight: "topLeft",
+};
+// Offsets from the middle of a side for the three roles, so the pack spreads
+// along the edge (centred on the side, never crammed into a corner).
+const SPAWN_SIDE_OFFSETS = { primary: 0, support: -2, flank: 2 };
+// The first/default arena (no travel yet) uses a fixed intro layout: player on
+// the bottom side (row N-1, tiles 241-256 on a 16-grid), enemy on the top-right
+// side (row 0). Expressed as the travel keys whose sides land there, so the
+// edge/facing tables are reused.
+const DEFAULT_SPAWN_TRAVEL = { player: "bottomLeft", enemy: "topRight" };
+// Which direction the arena was entered from; drives side spawns. null until the
+// player first travels, so the bootstrap node (0,0) battle uses DEFAULT_SPAWN_TRAVEL.
+let currentEntryCorner = null;
+
+// A team/role's spawn cell + facing for side-based spawns. After travel the
+// player lines the side it entered from (facing back toward the arena it came
+// from, i.e. the OPPOSITE of the travel direction) and the enemy the far side;
+// before any travel both use the fixed default layout. Packs sit on the
+// outermost edge line (no inset), roles spread along the side from its middle,
+// and facing points inward toward the centre.
+function getEntryCornerSetup(team, role, entryCorner, size) {
+  const travel = SPAWN_EDGE_BY_TRAVEL[entryCorner]
+    ? (team === "player" ? OPPOSITE_TRAVEL[entryCorner] : entryCorner)
+    : DEFAULT_SPAWN_TRAVEL[team];
+  const edge = SPAWN_EDGE_BY_TRAVEL[travel] ?? SPAWN_EDGE_BY_TRAVEL.bottomLeft;
+  const line = edge.line === "max" ? size - 1 : edge.line;
+  const center = Math.floor((size - 1) / 2);
+  const spread = center + (SPAWN_SIDE_OFFSETS[role] ?? 0);
+  const along = Math.min(size - 1, Math.max(0, spread));
+
+  return {
+    row: edge.axis === "row" ? line : along,
+    col: edge.axis === "col" ? line : along,
+    direction: FACING_BY_TRAVEL[travel] ?? "topRight",
+  };
+}
 
 // Water sprites 104-114 are an AUTOTILE set: each cell's sprite is chosen by
 // which of its four isometric edges border LAND. The four edge directions map
@@ -298,6 +392,40 @@ const POND_SHORELINE_TILES = {
   "topLeft,topRight,bottomRight,bottomLeft": 113,
 };
 
+// Rock formations retain the hill footprints and their movement/LOS rules.
+// Editor levels select small or tall artwork instead of stacking terrain cubes.
+const HILL_HEIGHT_LEVELS = 1;
+const ROCK_TILES = {
+  // Rounded boulders and irregular clusters; exclude slabs and paving-like rocks.
+  edge: [65, 67],
+  interior: [64, 68],
+};
+// Flower clusters scattered on plain grass — purely decorative, no
+// movement/LOS effect (unlike rocks/hills).
+const FLOWER_TILES = [41, 42, 44, 46];
+const FLOWER_RATIO = 0.03; // ~3% of eligible grass tiles
+const HILL_INTERIOR_MARGIN = 1; // keep the footprint off the spawn-edge rows/cols
+// Footprint templates as (row, col) offsets from an anchor — each is a crescent
+// or bend, so the hill never looks like a solid block. Used by the legacy
+// "shapes" generator (see HILL_GENERATOR). One is chosen per seed.
+const HILL_SHAPES = [
+  [[0, 0], [1, 1], [2, 1], [3, 0]],
+  [[0, 0], [1, -1], [2, -1], [3, 0]],
+  [[0, 0], [0, 1], [1, 2], [1, 3]],
+  [[0, 0], [0, -1], [1, -2], [1, -3]],
+  [[0, 0], [1, 0], [2, 1], [2, 2]],
+  [[0, 0], [1, 1], [1, 2]],
+];
+
+// Hill placement style. "grown" builds organic blobs/ridges (8-20 tiles, edge-
+// anchored, taller in the middle) modelled on hand-authored layouts; "shapes"
+// is the legacy small-arc placement above. Swap to A/B the two.
+const HILL_GENERATOR = "grown"; // "grown" | "shapes"
+// Grown-hill tuning (all seeded off terrainRandom, so deterministic per node).
+const HILL_COUNT_RANGE = [1, 2]; // how many separate hills per arena
+const HILL_SIZE_RANGE = [8, 20]; // footprint tiles per hill
+const HILL_ALLOW_EDGES = true; // let hills hug the board edge (still off spawns/water)
+
 // Lattice cell size in tiles: larger -> bigger, smoother patches.
 const TERRAIN_NOISE_SCALE = 3.5;
 // Share of the field that becomes dirt. Value noise clusters around 0.5, so a
@@ -311,8 +439,99 @@ let terrainTiles = [];
 // generateTerrain() so the lookup stays correct after an arena-size change.
 let pondTileKeys = new Set();
 
+// Keys ("row,col") of the arena's hill footprint. A hill is impassable AND
+// blocks line of sight (water blocks neither sight nor — for now — anything the
+// pond doesn't). Rebuilt alongside the water in generateTerrain().
+let hillTileKeys = new Set();
+
+// Keys ("row,col") of cells with a flower overlay. Decorative only — never
+// consulted by movement/LOS, unlike hillTileKeys/pondTileKeys. Rebuilt
+// alongside the rest of the terrain in generateTerrain().
+let flowerTileKeys = new Set();
+
+// Per-tile hill height ("row,col" -> level, 1 or 2), authored by the hill-editor
+// dev tool. renderArenaHill falls back to HILL_HEIGHT_LEVELS for any hill tile
+// without an entry, so seeded hills are unaffected.
+let hillTileLevels = new Map();
+
+// Hill-editor dev tool: whether click-to-draw is active, and a snapshot of the
+// terrain taken when it turns on so removing an authored hill restores the tile.
+let isHillEditMode = false;
+let hillEditTerrainSnapshot = null;
+
+// While a dev-test scenario runs, terrain regenerations produce no water/hill so
+// mechanics scenarios play on a clean board even if they resize the arena (which
+// re-stamps terrain). The live game never sets this. See runDevTestScenario.
+let devTestObstaclesDisabled = false;
+
 function isPondTile(row, col) {
   return pondTileKeys.has(getGridPositionKey(row, col));
+}
+
+function isHillTile(row, col) {
+  return hillTileKeys.has(getGridPositionKey(row, col));
+}
+
+// A cell a unit can neither walk through nor stand on: water or hill. Movement
+// path-builders, the walkable distance field, and the AI slot/goal pickers all
+// route around these. Water-only concerns (autotiling, the grass frame) keep
+// calling isPondTile directly.
+function isBlockedTile(row, col) {
+  return isPondTile(row, col) || isHillTile(row, col);
+}
+
+// Line of sight between two cells, blocked ONLY by hills (water is see-over).
+// Densely samples the segment between the cell centres; if it crosses any hill
+// tile that isn't an endpoint, sight is blocked. Endpoints are excluded so a
+// unit standing on/next to a hill is still seen. Symmetric in its arguments.
+function hasLineOfSight(fromRow, fromCol, toRow, toCol) {
+  const deltaRow = toRow - fromRow;
+  const deltaCol = toCol - fromCol;
+  const samples = Math.ceil(Math.hypot(deltaRow, deltaCol) * 4);
+
+  for (let i = 1; i < samples; i += 1) {
+    const t = i / samples;
+    const row = Math.round(fromRow + deltaRow * t);
+    const col = Math.round(fromCol + deltaCol * t);
+
+    if (isHillTile(row, col) && !(row === fromRow && col === fromCol) && !(row === toRow && col === toCol)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// Recompute every live unit's concealment: a unit is hidden when a hill blocks
+// the line of sight from EVERY living enemy (symmetric — players and enemies
+// hide the same way). With no living enemies a unit is never hidden. Callers
+// keep this fresh at plan time and after each executed move. Concealment hides
+// enemy intentions and dims sprites; known positions remain targetable.
+function refreshHiddenStates() {
+  const alive = units.filter(isUnitAlive);
+
+  alive.forEach((unit) => {
+    const foes = alive.filter((other) => other.team !== unit.team);
+    unit.isHidden =
+      foes.length > 0 &&
+      foes.every((foe) => !hasLineOfSight(foe.row, foe.col, unit.row, unit.col));
+  });
+}
+
+// Whether a unit is currently concealed from its foes (hidden behind a hill).
+function isUnitHidden(unit) {
+  return Boolean(unit.isHidden);
+}
+
+// Empty the arena's impassable/sight-blocking terrain. Used by the dev-test
+// runner so mechanics scenarios play on a clean field (the live arena now
+// always seeds a hill + water, which would otherwise sit on scenario tiles).
+// Terrain-specific scenarios regenerate their own obstacles afterwards.
+function clearArenaObstacles() {
+  pondTileKeys = new Set();
+  hillTileKeys = new Set();
+  hillTileLevels = new Map();
+  flowerTileKeys = new Set();
 }
 
 function lerp(a, b, t) {
@@ -325,6 +544,99 @@ function smoothstep(t) {
 
 function tileSrc(index) {
   return `${TILE_PATH}/tile_${String(index).padStart(3, "0")}.png`;
+}
+
+// Map an arena cell (row, col) in the arena at world (worldX, worldY) to a
+// CONTINUOUS global iso-lattice coordinate. Derived from the same constants as
+// worldCellScreenOffset()/projectTile(): a world step shifts the whole arena by
+// GRID_SIZE along the diagonal axes, and a cell projects at (col-row, col+row).
+// Neighbouring arenas therefore map to adjacent regions of one shared space, so
+// the water field is automatically continuous across every seam.
+function worldTileToGlobal(worldX, worldY, row, col) {
+  return {
+    gx: (worldX - worldY) * GRID_SIZE + (col - row),
+    gy: -(worldX + worldY) * GRID_SIZE + (col + row),
+  };
+}
+
+// Deterministic hash of an integer lattice point -> [0, 1). Same point always
+// yields the same value regardless of which arena samples it, which is what
+// makes the field agree across seams.
+function waterLatticeValue(ix, iy) {
+  let h = (Math.imul(ix | 0, 0x9e3779b1) ^ Math.imul(iy | 0, 0x85ebca77) ^ WORLD_WATER_SEED) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), h | 1);
+  h ^= h + Math.imul(h ^ (h >>> 7), h | 61);
+  return ((h ^ (h >>> 14)) >>> 0) / 4294967296;
+}
+
+// Smooth (bilinear + smoothstep) value noise over the global water lattice.
+function sampleWaterNoise(gx, gy) {
+  const sx = gx / WATER_NOISE_SCALE;
+  const sy = gy / WATER_NOISE_SCALE;
+  const x0 = Math.floor(sx);
+  const y0 = Math.floor(sy);
+  const tx = smoothstep(sx - x0);
+  const ty = smoothstep(sy - y0);
+
+  const top = lerp(waterLatticeValue(x0, y0), waterLatticeValue(x0 + 1, y0), tx);
+  const bottom = lerp(waterLatticeValue(x0, y0 + 1), waterLatticeValue(x0 + 1, y0 + 1), tx);
+  return lerp(top, bottom, ty);
+}
+
+// The single source of truth for "is there water here" — a pure function of the
+// global coordinate, used identically by the fill and the shoreline autotiler
+// (including one cell past an arena edge) so seams never disagree.
+function isWorldWater(gx, gy) {
+  return sampleWaterNoise(gx, gy) < WATER_RATIO;
+}
+
+// Water-adjacency steps in global lattice space. A (row,col) edge neighbour maps
+// to a (±1, ±1) diagonal step in (gx, gy) because the lattice is rotated 45°
+// from the tile grid (see worldTileToGlobal), so these are the four cells that
+// share a shoreline edge with (gx, gy).
+const WATER_BODY_STEPS = [
+  [1, 1],
+  [1, -1],
+  [-1, 1],
+  [-1, -1],
+];
+
+// The body-aware water test: true only if this global cell belongs to a
+// connected body of at least MIN_WATER_TILES tiles. Flood-fills the raw field
+// from the cell, exiting as soon as the body is provably big enough, so the cost
+// stays bounded (~a handful of cells) no matter how large the real lake is.
+// Depends only on (gx, gy), so adjacent arenas agree on every shared cell and a
+// cross-seam lake is measured as one body — never trimmed at the boundary.
+function isWorldWaterBody(gx, gy) {
+  if (!isWorldWater(gx, gy)) {
+    return false;
+  }
+
+  const visited = new Set([`${gx},${gy}`]);
+  let frontier = [[gx, gy]];
+
+  while (frontier.length > 0 && visited.size < MIN_WATER_TILES) {
+    const nextFrontier = [];
+
+    for (const [cx, cy] of frontier) {
+      for (const [dx, dy] of WATER_BODY_STEPS) {
+        const nx = cx + dx;
+        const ny = cy + dy;
+        const key = `${nx},${ny}`;
+
+        if (visited.has(key) || !isWorldWater(nx, ny)) {
+          continue;
+        }
+
+        visited.add(key);
+        nextFrontier.push([nx, ny]);
+      }
+    }
+
+    frontier = nextFrontier;
+  }
+
+  return visited.size >= MIN_WATER_TILES;
 }
 
 function pickTerrainTile(type) {
@@ -470,17 +782,21 @@ function hasNeighbourOfType(types, size, row, col, targetType) {
   return false;
 }
 
-function generateTerrain(size, seed = null) {
+// Generate an arena's terrain. worldX/worldY place it in the global water field
+// (default origin for the DOM-free dev-test harness, which passes only a seed).
+// clearSpawns keeps the unit spawn cells dry — set only for the LIVE arena, so
+// map previews render the raw field and seams stay continuous.
+function generateTerrain(size, seed = null, worldX = 0, worldY = 0, clearSpawns = false) {
   terrainRandom = seed === null ? Math.random : createSeededRandom(seed);
 
   try {
-    return generateTerrainTiles(size);
+    return generateTerrainTiles(size, worldX, worldY, clearSpawns);
   } finally {
     terrainRandom = Math.random;
   }
 }
 
-function generateTerrainTiles(size) {
+function generateTerrainTiles(size, worldX = 0, worldY = 0, clearSpawns = false) {
   const types = generateTerrainTypes(size);
   smoothLoneTiles(types, size);
 
@@ -496,28 +812,230 @@ function generateTerrainTiles(size) {
     }),
   );
 
-  stampPond(size);
+  stampWater(size, worldX, worldY, clearSpawns);
+  stampHill(size);
+  stampFlowers(size, types);
 
   return terrainTiles;
 }
 
-// Paint the static pond onto the freshly-generated terrain: rebuild the
-// impassable-tile set, autotile each pond cell's water sprite from its land
-// edges, then force every non-pond neighbour (8-way) to grass so the pond sits
-// in a green frame instead of butting against random dirt patches. Pond cells
-// outside the current grid (e.g. a smaller dev arena) are simply skipped.
-function stampPond(size) {
-  pondTileKeys = new Set();
+// Scatter flower overlays across plain grass, from the same seeded stream as
+// the rest of the terrain. Skips any cell the water/hill passes already
+// claimed, and — like stampHill — produces nothing while a dev-test scenario
+// wants a clean board.
+function stampFlowers(size, types) {
+  flowerTileKeys = new Set();
 
-  POND_LAYOUT.forEach(([row, col]) => {
-    if (row >= 0 && row < size && col >= 0 && col < size) {
-      pondTileKeys.add(getGridPositionKey(row, col));
+  if (devTestObstaclesDisabled) {
+    return;
+  }
+
+  for (let row = 0; row < size; row += 1) {
+    for (let col = 0; col < size; col += 1) {
+      if (types[row][col] !== TERRAIN_GRASS || isBlockedTile(row, col)) {
+        continue;
+      }
+
+      if (terrainRandom() < FLOWER_RATIO) {
+        flowerTileKeys.add(getGridPositionKey(row, col));
+      }
+    }
+  }
+}
+
+// Place this arena's hills from the seeded stream (terrainRandom, deterministic
+// per node). Footprint cells go into hillTileKeys (impassable + sight-blocking),
+// their per-tile height into hillTileLevels, and their ground tile is set to
+// dirt (rock sprites draw on top in the live arena; the dirt is what
+// shows in the map preview and around the base). Dispatches on HILL_GENERATOR.
+function stampHill(size) {
+  hillTileKeys = new Set();
+  hillTileLevels = new Map(); // drop any editor-authored heights on regen
+
+  if (devTestObstaclesDisabled) {
+    return;
+  }
+
+  if (HILL_GENERATOR === "grown") {
+    stampGrownHills(size);
+  } else {
+    stampArcHills(size);
+  }
+}
+
+// Mark a cell as hill ground: impassable, dirt underfoot.
+function addHillTile(row, col) {
+  hillTileKeys.add(getGridPositionKey(row, col));
+  terrainTiles[row][col] = pickTerrainTile(TERRAIN_DIRT);
+}
+
+// Grown hills: 1-2 organic blobs, each a randomised 4-neighbour flood from a
+// seed cell up to a target size, kept off water, spawn cells, and (optionally)
+// the board edge. Heights are then a 2-high core with a 1-high skirt.
+function stampGrownHills(size) {
+  const spawnCells = new Set(
+    getArenaSpawnCells(size).map(([r, c]) => getGridPositionKey(r, c)),
+  );
+  const lo = HILL_ALLOW_EDGES ? 0 : HILL_INTERIOR_MARGIN;
+  const hi = HILL_ALLOW_EDGES ? size : size - HILL_INTERIOR_MARGIN;
+
+  const baseValidCell = (row, col) =>
+    row >= lo && row < hi && col >= lo && col < hi &&
+    !isPondTile(row, col) &&
+    !hillTileKeys.has(getGridPositionKey(row, col)) &&
+    !spawnCells.has(getGridPositionKey(row, col));
+
+  const [minCount, maxCount] = HILL_COUNT_RANGE;
+  const hillCount = minCount + Math.floor(terrainRandom() * (maxCount - minCount + 1));
+
+  for (let hill = 0; hill < hillCount; hill += 1) {
+    // Keep separate hills a tile apart so they don't merge into one giant blob:
+    // forbid cells adjacent to any already-placed hill.
+    const buffer = hill === 0 ? null : hillAdjacencyBuffer();
+    const isValidCell = (row, col) =>
+      baseValidCell(row, col) && !(buffer && buffer.has(getGridPositionKey(row, col)));
+    growOneHill(size, isValidCell);
+  }
+
+  applyHillHeights();
+}
+
+// Cells orthogonally adjacent to an existing hill — the no-grow moat that keeps
+// a second hill from touching the first.
+function hillAdjacencyBuffer() {
+  const buffer = new Set();
+  hillTileKeys.forEach((key) => {
+    const [row, col] = key.split(",").map(Number);
+    for (const { row: dr, col: dc } of WALKABLE_FIELD_DELTAS) {
+      buffer.add(getGridPositionKey(row + dr, col + dc));
     }
   });
+  return buffer;
+}
+
+function growOneHill(size, isValidCell) {
+  const [minSize, maxSize] = HILL_SIZE_RANGE;
+  const targetSize = minSize + Math.floor(terrainRandom() * (maxSize - minSize + 1));
+
+  let seed = null;
+  for (let attempt = 0; attempt < 24 && !seed; attempt += 1) {
+    const row = Math.floor(terrainRandom() * size);
+    const col = Math.floor(terrainRandom() * size);
+    if (isValidCell(row, col)) {
+      seed = [row, col];
+    }
+  }
+  if (!seed) {
+    return;
+  }
+
+  const frontier = [];
+  const pushNeighbours = (row, col) => {
+    for (const { row: dr, col: dc } of WALKABLE_FIELD_DELTAS) {
+      if (isValidCell(row + dr, col + dc)) {
+        frontier.push([row + dr, col + dc]);
+      }
+    }
+  };
+
+  let placed = 0;
+  addHillTile(seed[0], seed[1]);
+  placed += 1;
+  pushNeighbours(seed[0], seed[1]);
+
+  while (placed < targetSize && frontier.length > 0) {
+    const [row, col] = frontier.splice(Math.floor(terrainRandom() * frontier.length), 1)[0];
+    if (!isValidCell(row, col)) {
+      continue; // already claimed by this hill via another frontier entry
+    }
+    addHillTile(row, col);
+    placed += 1;
+    pushNeighbours(row, col);
+  }
+}
+
+// Height grammar (learned from hand-authored hills): a tile whose four orthogonal
+// neighbours are ALL hill sits in the interior and rises to level 2; every other
+// (perimeter) tile is level 1. Small/thin hills stay flat; fat ones get a crown.
+function applyHillHeights() {
+  hillTileKeys.forEach((key) => {
+    const [row, col] = key.split(",").map(Number);
+    const interior = WALKABLE_FIELD_DELTAS.every(({ row: dr, col: dc }) =>
+      hillTileKeys.has(getGridPositionKey(row + dr, col + dc)),
+    );
+    hillTileLevels.set(key, interior ? 2 : 1);
+  });
+}
+
+// Legacy generator: one small arc template placed at a seeded interior anchor.
+function stampArcHills(size) {
+  const shape = HILL_SHAPES[Math.floor(terrainRandom() * HILL_SHAPES.length)];
+  const lo = HILL_INTERIOR_MARGIN;
+  const hi = size - HILL_INTERIOR_MARGIN;
+  const attempts = 16;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const anchorRow = lo + Math.floor(terrainRandom() * (hi - lo));
+    const anchorCol = lo + Math.floor(terrainRandom() * (hi - lo));
+    const cells = shape.map(([dr, dc]) => [anchorRow + dr, anchorCol + dc]);
+
+    const fits = cells.every(([r, c]) =>
+      r >= lo && r < hi && c >= lo && c < hi && !isPondTile(r, c),
+    );
+
+    if (fits) {
+      cells.forEach(([r, c]) => addHillTile(r, c));
+      return;
+    }
+  }
+}
+
+// The exact cells the six wolves start on for a given arena size, from the same
+// formula getDefaultDevUnitSetup uses to place them.
+function getArenaSpawnCells(size) {
+  const cells = [];
+  for (const team of ["player", "enemy"]) {
+    for (const role of ["primary", "support", "flank"]) {
+      const { row, col } = getDefaultDevUnitSetup(team, role, size);
+      cells.push([row, col]);
+    }
+  }
+  return cells;
+}
+
+// A cell a unit spawns on. Water is kept off these in the live arena so nobody
+// starts in a lake.
+function isSpawnCell(size, row, col) {
+  return getArenaSpawnCells(size).some(([r, c]) => r === row && c === col);
+}
+
+// Lay this arena's water down from the global field: mark every water cell,
+// autotile each one's shoreline sprite, then force the non-water 8-neighbours to
+// grass so lakes sit in a green frame instead of butting against dirt patches.
+function stampWater(size, worldX, worldY, clearSpawns) {
+  pondTileKeys = new Set();
+
+  if (devTestObstaclesDisabled) {
+    return;
+  }
+
+  for (let row = 0; row < size; row += 1) {
+    for (let col = 0; col < size; col += 1) {
+      if (clearSpawns && isSpawnCell(size, row, col)) {
+        continue; // keep spawns dry; leaves the field untouched elsewhere
+      }
+
+      const { gx, gy } = worldTileToGlobal(worldX, worldY, row, col);
+
+      if (isWorldWaterBody(gx, gy)) {
+        pondTileKeys.add(getGridPositionKey(row, col));
+      }
+    }
+  }
 
   pondTileKeys.forEach((key) => {
     const [row, col] = key.split(",").map(Number);
-    terrainTiles[row][col] = getPondTileForCell(row, col, size);
+    terrainTiles[row][col] = getWaterTileForCell(row, col, size, worldX, worldY);
   });
 
   pondTileKeys.forEach((key) => {
@@ -534,16 +1052,22 @@ function stampPond(size) {
   });
 }
 
-// Choose a single pond cell's water sprite by which of its four isometric edges
-// border land (an on-board, non-pond neighbour). Off-board neighbours count as
-// open water, so the pond ends cleanly at the board edge with no phantom shore.
-function getPondTileForCell(row, col, size) {
+// Choose a water cell's sprite by which of its four isometric edges border land.
+// On-board neighbours read the stamped set (so shorelines respect spawn-clearing
+// and hills); OFF-board neighbours sample the global field one cell past the
+// edge, so a lake continuing into the next arena draws no phantom shore.
+function getWaterTileForCell(row, col, size, worldX, worldY) {
   const groundEdges = POND_EDGE_DIRECTIONS.filter((direction) => {
     const delta = DIRECTION_TILE_DELTAS[direction];
     const r = row + delta.row;
     const c = col + delta.col;
 
-    return r >= 0 && r < size && c >= 0 && c < size && !isPondTile(r, c);
+    if (r >= 0 && r < size && c >= 0 && c < size) {
+      return !isPondTile(r, c);
+    }
+
+    const { gx, gy } = worldTileToGlobal(worldX, worldY, r, c);
+    return !isWorldWaterBody(gx, gy);
   });
 
   if (groundEdges.length === 0) {
@@ -573,6 +1097,7 @@ function createUnit({
     element: document.createElement("div"),
     healthBar: null,
     intentTags: null,
+    hiddenTag: null,
     type,
     isActive,
     row,
@@ -585,6 +1110,7 @@ function createUnit({
     turnsSinceHit: 0,
     tookDamageThisTurn: false,
     isFleeing: false,
+    isHidden: false,
     packObjective: null,
     isDefeated: false,
     hasPlayedDeathAnimation: false,
@@ -1513,11 +2039,22 @@ let isWorldTraveling = false;
 // Tear down the current arena and build the one described by a world node:
 // fresh terrain, the node's enemy type, and a full-health pack (arenas are
 // self-contained — no carry-over damage).
-function startArena(node) {
+function startArena(node, entryCorner = currentEntryCorner) {
   hideWorldMap();
 
   if (gameResultOverlay) {
     gameResultOverlay.hidden = true;
+  }
+
+  // Set before buildArena so water-clearing and spawn placement both use it.
+  currentEntryCorner = entryCorner;
+
+  // TEMP debug (remove once corner mapping is confirmed): what you clicked and
+  // where each pack lands, so a mis-mapping is obvious from the console.
+  {
+    const p = getEntryCornerSetup("player", "primary", entryCorner, GRID_SIZE);
+    const e = getEntryCornerSetup("enemy", "primary", entryCorner, GRID_SIZE);
+    console.log(`[spawn] entryCorner=${entryCorner} | player primary=(${p.row},${p.col}) facing ${p.direction} | enemy primary=(${e.row},${e.col})`);
   }
 
   reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
@@ -1592,7 +2129,7 @@ async function chooseCorner(corner) {
   }
 
   if (result.isBattle) {
-    startArena(result.node);
+    startArena(result.node, corner);
   } else {
     renderWorldMap(); // fixed layout → lands exactly where the pan ended
   }
@@ -1646,10 +2183,15 @@ function clearWorldNeighbors() {
     .forEach((el) => el.remove());
 }
 
-// Generate a node's terrain without disturbing the live arena's terrain/pond.
-// Cached by size+seed since the same cell is redrawn every render.
-function terrainTilesForSeed(size, seed) {
-  const cacheKey = `${size}:${seed}`;
+// Generate a node's terrain without disturbing the live arena's terrain/water/
+// hill. Cached by size+world-position since water depends on where the arena
+// sits in the global field (previews use the raw field — clearSpawns stays off).
+// Returns { tiles, hillKeys, hillLevels } for the given arena node: the same
+// ground tiles and hill (rock) overlay data the live arena would generate for
+// that seed, so the world-map preview can render exactly what the arena will
+// look like when entered.
+function terrainTilesForSeed(size, seed, worldX = 0, worldY = 0) {
+  const cacheKey = `${size}:${seed}:${worldX}:${worldY}`;
   const cached = worldTerrainCache.get(cacheKey);
 
   if (cached) {
@@ -1658,14 +2200,25 @@ function terrainTilesForSeed(size, seed) {
 
   const savedTerrain = terrainTiles;
   const savedPond = pondTileKeys;
+  const savedHill = hillTileKeys;
+  const savedHillLevels = hillTileLevels;
+  const savedFlowers = flowerTileKeys;
 
-  generateTerrain(size, seed);
-  const tiles = terrainTiles.map((typeRow) => typeRow.slice());
+  generateTerrain(size, seed, worldX, worldY);
+  const result = {
+    tiles: terrainTiles.map((typeRow) => typeRow.slice()),
+    hillKeys: new Set(hillTileKeys),
+    hillLevels: new Map(hillTileLevels),
+    flowerKeys: new Set(flowerTileKeys),
+  };
 
   terrainTiles = savedTerrain;
   pondTileKeys = savedPond;
-  worldTerrainCache.set(cacheKey, tiles);
-  return tiles;
+  hillTileKeys = savedHill;
+  hillTileLevels = savedHillLevels;
+  flowerTileKeys = savedFlowers;
+  worldTerrainCache.set(cacheKey, result);
+  return result;
 }
 
 // A flat all-dirt grid used to render hidden (unseen) arenas — shows the arena's
@@ -1683,8 +2236,10 @@ function dirtTileGrid(size) {
 }
 
 // A terrain-only iso layer (no units, anchors, labels, or interactivity) used
-// to preview a neighbouring arena.
-function buildWorldTerrainLayer(tiles) {
+// to preview a neighbouring arena. hillKeys/hillLevels/flowerKeys are optional
+// — omitted for the unseen (dirt-placeholder) grid, which has no real terrain
+// features to draw.
+function buildWorldTerrainLayer(tiles, hillKeys = null, hillLevels = null, flowerKeys = null) {
   const layer = document.createElement("div");
   layer.className = "tile-layer";
 
@@ -1706,6 +2261,14 @@ function buildWorldTerrainLayer(tiles) {
     }
   }
 
+  if (hillKeys) {
+    layer.append(...buildHillBlocks(hillKeys, hillLevels));
+  }
+
+  if (flowerKeys) {
+    layer.append(...buildFlowerBlocks(flowerKeys));
+  }
+
   return layer;
 }
 
@@ -1716,7 +2279,7 @@ function paintCenterTerrain(node) {
     return;
   }
 
-  generateTerrain(GRID_SIZE, node.seed);
+  generateTerrain(GRID_SIZE, node.seed, node.x, node.y, true);
 
   tileElements.forEach((tile) => {
     const row = Number(tile.dataset.row);
@@ -1727,6 +2290,10 @@ function paintCenterTerrain(node) {
       img.src = tileSrc(terrainTiles[row][col]);
     }
   });
+
+  renderArenaHill(arena?.querySelector(".tile-layer"));
+  renderArenaFlowers(arena?.querySelector(".tile-layer"));
+  refreshConcealmentVisuals(); // the new cell's hill may conceal a unit differently
 }
 
 // Screen offset (unscaled px) of a cell relative to the current one. World axes
@@ -1821,11 +2388,19 @@ function buildWorldCell(cell, layout, animate) {
   // Stack by isometric depth: arenas lower on screen sit in front.
   el.style.zIndex = String(1000 + Math.round(oy));
 
-  // Revealed cells show their real terrain; hidden cells show plain dirt.
-  const tiles = revealed ? terrainTilesForSeed(GRID_SIZE, seed) : dirtTileGrid(GRID_SIZE);
+  // Revealed cells show their real terrain (ground + rock overlay, matching
+  // exactly what the live arena will generate for this seed); hidden cells
+  // show plain dirt with no overlay.
   const inner = document.createElement("div");
   inner.className = "world-neighbor-board";
-  inner.append(buildWorldTerrainLayer(tiles));
+
+  if (revealed) {
+    const { tiles, hillKeys, hillLevels, flowerKeys } = terrainTilesForSeed(GRID_SIZE, seed, x, y);
+    inner.append(buildWorldTerrainLayer(tiles, hillKeys, hillLevels, flowerKeys));
+  } else {
+    inner.append(buildWorldTerrainLayer(dirtTileGrid(GRID_SIZE)));
+  }
+
   el.append(inner);
 
   if (corner) {
@@ -2015,7 +2590,8 @@ function buildArena() {
   tileLayer.className = "tile-layer";
   unitLayer.className = "unit-layer";
 
-  generateTerrain(GRID_SIZE, getCurrentWorldNode(worldState)?.seed ?? null);
+  const initialNode = getCurrentWorldNode(worldState);
+  generateTerrain(GRID_SIZE, initialNode?.seed ?? null, initialNode?.x ?? 0, initialNode?.y ?? 0, true);
 
   for (let row = 0; row < GRID_SIZE; row += 1) {
     for (let col = 0; col < GRID_SIZE; col += 1) {
@@ -2051,6 +2627,9 @@ function buildArena() {
     }
   }
 
+  renderArenaHill(tileLayer);
+  renderArenaFlowers(tileLayer);
+
   units.filter(isUnitActive).forEach((unit) => {
     placeUnit(unitLayer, unit);
     unit.element.classList.add(unit.team);
@@ -2064,6 +2643,238 @@ function buildArena() {
   arena.parentElement.append(playerActionMenu);
   positionPlayerActionMenu();
   updatePlayerMovePreview();
+  refreshConcealmentVisuals(); // a hill can conceal a unit from the very first frame
+}
+
+// One rock sprite per blocked cell, using the same depth as the former hills.
+// Coordinate hashing keeps artwork stable without consuming generation RNG.
+function rockTileForCell(row, col, hillLevels = hillTileLevels) {
+  const levels = hillLevels.get(getGridPositionKey(row, col)) ?? HILL_HEIGHT_LEVELS;
+  const tiles = levels > 1 ? ROCK_TILES.interior : ROCK_TILES.edge;
+  const hash = (Math.imul(row + 1, 73856093) ^ Math.imul(col + 1, 19349663)) >>> 0;
+  return tiles[hash % tiles.length];
+}
+
+// Build the rock-sprite overlay blocks for a hill footprint. Shared by the live
+// arena (renderArenaHill) and the world-map preview (buildWorldCell) so any
+// terrain feature drawn as an overlay — not baked into terrainTiles, the way
+// water is — renders identically in both places instead of only in the live
+// arena.
+function buildHillBlocks(hillKeys, hillLevels) {
+  const blocks = [];
+
+  hillKeys.forEach((key) => {
+    const [row, col] = key.split(",").map(Number);
+    const position = projectTile(row, col);
+    const depth = GRID_SIZE * 2 + row + col + 20;
+    const block = document.createElement("div");
+    const img = document.createElement("img");
+
+    block.className = "hill-block hill-block--top rock";
+    block.dataset.row = row;
+    block.dataset.col = col;
+    block.style.left = `${position.x}px`;
+    block.style.top = `${position.y}px`;
+    block.style.zIndex = depth;
+    img.src = tileSrc(rockTileForCell(row, col, hillLevels));
+    img.alt = "";
+    img.draggable = false;
+
+    block.append(img);
+    blocks.push(block);
+  });
+
+  return blocks;
+}
+
+function renderArenaHill(layer) {
+  if (!layer) {
+    return;
+  }
+
+  layer.querySelectorAll(".hill-block").forEach((el) => el.remove());
+  layer.append(...buildHillBlocks(hillTileKeys, hillTileLevels));
+}
+
+// One flower sprite per decorated cell. Coordinate hashing (same technique as
+// rockTileForCell) keeps the art stable across re-renders without consuming
+// generation RNG.
+function flowerTileForCell(row, col) {
+  const hash = (Math.imul(row + 1, 73856093) ^ Math.imul(col + 1, 19349663)) >>> 0;
+  return FLOWER_TILES[hash % FLOWER_TILES.length];
+}
+
+// Build the flower-sprite overlay blocks for a set of cells. Shared by the
+// live arena (renderArenaFlowers) and the world-map preview (buildWorldCell),
+// same as buildHillBlocks — same z-index/offset scheme as rocks, since a
+// flower is drawn the same way: a sprite overlaid on its grass tile.
+function buildFlowerBlocks(flowerKeys) {
+  const blocks = [];
+
+  flowerKeys.forEach((key) => {
+    const [row, col] = key.split(",").map(Number);
+    const position = projectTile(row, col);
+    const depth = GRID_SIZE * 2 + row + col + 20;
+    const block = document.createElement("div");
+    const img = document.createElement("img");
+
+    block.className = "flower-block";
+    block.dataset.row = row;
+    block.dataset.col = col;
+    block.style.left = `${position.x}px`;
+    block.style.top = `${position.y}px`;
+    block.style.zIndex = depth;
+    img.src = tileSrc(flowerTileForCell(row, col));
+    img.alt = "";
+    img.draggable = false;
+
+    block.append(img);
+    blocks.push(block);
+  });
+
+  return blocks;
+}
+
+function renderArenaFlowers(layer) {
+  if (!layer) {
+    return;
+  }
+
+  layer.querySelectorAll(".flower-block").forEach((el) => el.remove());
+  layer.append(...buildFlowerBlocks(flowerTileKeys));
+}
+
+// --- Hill editor (dev tool) ----------------------------------------------
+// Repaint one tile's ground sprite from the current terrainTiles value.
+function repaintTileSprite(row, col) {
+  const img = tileElements[row * GRID_SIZE + col]?.querySelector("img");
+  if (img) {
+    img.src = tileSrc(terrainTiles[row][col]);
+  }
+}
+
+function setHillEditMode(enabled) {
+  isHillEditMode = enabled;
+  if (enabled) {
+    // Snapshot terrain so removing an authored hill restores the original tile.
+    hillEditTerrainSnapshot = terrainTiles.map((row) => row.slice());
+  }
+  arena?.classList.toggle("hill-edit", enabled);
+}
+
+// Click cycle for one tile: none -> level 1 -> level 2 -> none. Adding sets the
+// ground to dirt (like stampHill); removing restores the snapshotted terrain.
+function cycleHillTileAt(row, col) {
+  if (
+    !Number.isInteger(row) || !Number.isInteger(col) ||
+    row < 0 || col < 0 || row >= GRID_SIZE || col >= GRID_SIZE
+  ) {
+    return;
+  }
+
+  const key = getGridPositionKey(row, col);
+  const level = hillTileLevels.get(key) ?? (hillTileKeys.has(key) ? HILL_HEIGHT_LEVELS : 0);
+
+  if (level === 0) {
+    hillTileKeys.add(key);
+    hillTileLevels.set(key, 1);
+    terrainTiles[row][col] = pickTerrainTile(TERRAIN_DIRT);
+    repaintTileSprite(row, col);
+  } else if (level === 1) {
+    hillTileLevels.set(key, 2);
+  } else {
+    hillTileKeys.delete(key);
+    hillTileLevels.delete(key);
+    if (hillEditTerrainSnapshot?.[row]) {
+      terrainTiles[row][col] = hillEditTerrainSnapshot[row][col];
+      repaintTileSprite(row, col);
+    }
+  }
+
+  renderArenaHill(arena?.querySelector(".tile-layer"));
+  refreshConcealmentVisuals(); // hills change line of sight
+}
+
+// Group hill tiles into connected hills (4-neighbour) and export the full terrain
+// grid plus normalized shape templates. Consumed by the Copy button.
+function buildHillLayoutExport() {
+  const steps = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  const visited = new Set();
+  const hills = [];
+
+  hillTileKeys.forEach((startKey) => {
+    if (visited.has(startKey)) {
+      return;
+    }
+
+    const component = [];
+    const stack = [startKey];
+    visited.add(startKey);
+
+    while (stack.length > 0) {
+      const [r, c] = stack.pop().split(",").map(Number);
+      component.push({ row: r, col: c });
+
+      for (const [dr, dc] of steps) {
+        const nKey = getGridPositionKey(r + dr, c + dc);
+        if (hillTileKeys.has(nKey) && !visited.has(nKey)) {
+          visited.add(nKey);
+          stack.push(nKey);
+        }
+      }
+    }
+
+    const anchorRow = Math.min(...component.map((t) => t.row));
+    const anchorCol = Math.min(...component.map((t) => t.col));
+    const tiles = component
+      .map(({ row, col }) => ({
+        row,
+        col,
+        level: hillTileLevels.get(getGridPositionKey(row, col)) ?? HILL_HEIGHT_LEVELS,
+      }))
+      .sort((a, b) => a.row - b.row || a.col - b.col);
+
+    hills.push({
+      anchor: { row: anchorRow, col: anchorCol },
+      tiles,
+      shape: tiles.map((t) => [t.row - anchorRow, t.col - anchorCol, t.level]),
+    });
+  });
+
+  hills.sort((a, b) => a.anchor.row - b.anchor.row || a.anchor.col - b.anchor.col);
+
+  return {
+    size: GRID_SIZE,
+    entryCorner: currentEntryCorner,
+    terrain: terrainTiles.map((row) => row.slice()),
+    hills,
+  };
+}
+
+// Round-trip: apply an exported layout's hills (tiles + levels) to the current
+// arena and re-render. Lets an authored layout be reloaded to verify or seed a
+// test. Terrain grid in the export is context only; ground under hills is dirt.
+function loadHillLayout(layout) {
+  hillTileKeys = new Set();
+  hillTileLevels = new Map();
+
+  (layout?.hills ?? []).forEach((hill) => {
+    (hill.tiles ?? []).forEach(({ row, col, level }) => {
+      if (row < 0 || col < 0 || row >= GRID_SIZE || col >= GRID_SIZE) {
+        return;
+      }
+      const key = getGridPositionKey(row, col);
+      hillTileKeys.add(key);
+      hillTileLevels.set(key, level ?? 1);
+      if (terrainTiles[row]) {
+        terrainTiles[row][col] = pickTerrainTile(TERRAIN_DIRT);
+        repaintTileSprite(row, col);
+      }
+    });
+  });
+
+  renderArenaHill(arena?.querySelector(".tile-layer"));
+  refreshConcealmentVisuals();
 }
 
 function placeUnit(unitLayer, unit) {
@@ -2082,10 +2893,12 @@ function placeUnit(unitLayer, unit) {
   unit.element.style.setProperty("--unit-nudge-y", `${definition.nudgeY}px`);
   unit.healthBar = createUnitHealthBar();
   unit.intentTags = createUnitIntentTags();
+  unit.hiddenTag = createUnitHiddenTag();
   setUnitPosition(unit, anchorX, anchorY);
   updateUnitDepth(unit);
-  unitLayer.append(unit.element, unit.healthBar, unit.intentTags);
+  unitLayer.append(unit.element, unit.healthBar, unit.intentTags, unit.hiddenTag);
   updateUnitHealthBar(unit);
+  updateUnitConcealment(unit);
 }
 
 function createUnitHealthBar() {
@@ -2108,6 +2921,51 @@ function positionUnitHealthBar(wolf) {
 
   wolf.healthBar.style.left = `${wolf.x}px`;
   wolf.healthBar.style.top = `${wolf.y}px`;
+}
+
+function createUnitHiddenTag() {
+  const tag = document.createElement("div");
+
+  tag.className = "unit-hidden-tag";
+  tag.hidden = true;
+  tag.setAttribute("aria-hidden", "true");
+  tag.textContent = "Hidden";
+  return tag;
+}
+
+function positionUnitHiddenTag(wolf) {
+  if (!wolf.hiddenTag) {
+    return;
+  }
+
+  wolf.hiddenTag.style.left = `${wolf.x}px`;
+  wolf.hiddenTag.style.top = `${wolf.y}px`;
+}
+
+// Toggle a unit's concealment marking from its current isHidden flag: dim the
+// sprite and show the "Hidden" tag. Defeated/inactive units never show it.
+function updateUnitConcealment(unit) {
+  const hidden = isUnitActive(unit) && isUnitAlive(unit) && isUnitHidden(unit);
+
+  if (unit.element) {
+    unit.element.classList.toggle("unit--hidden", hidden);
+  }
+
+  if (unit.hiddenTag) {
+    unit.hiddenTag.hidden = !hidden;
+  }
+}
+
+// Recompute concealment for all units and repaint their markings. Call after any
+// position change (moves) or plan, since one unit moving can hide/reveal another.
+function refreshConcealmentVisuals() {
+  refreshHiddenStates();
+  units.forEach(updateUnitConcealment);
+  units.filter((unit) => unit.team === "enemy").forEach((unit) => {
+    renderUnitIntentTags(unit, enemyMode === "wolves"
+      ? getEnemyPackActionsForUnit(unit)
+      : getUnitActionQueue(unit));
+  });
 }
 
 function createUnitIntentTags() {
@@ -2133,7 +2991,10 @@ function renderUnitIntentTags(unit, actions = getUnitActionQueue(unit)) {
     return;
   }
 
-  const visibleActions = actions.slice(0, ACTION_QUEUE_SLOT_COUNT);
+  const concealIntent = unit.team === "enemy" && isUnitHidden(unit);
+  const visibleActions = isUnitAlive(unit) && !concealIntent
+    ? actions.slice(0, ACTION_QUEUE_SLOT_COUNT)
+    : [];
   const tags = visibleActions.map((action, index) => {
     const tag = document.createElement("span");
     const label = document.createElement("span");
@@ -2164,6 +3025,14 @@ function updateUnitIntentTagsDepth(wolf) {
   }
 
   wolf.intentTags.style.zIndex = Number(wolf.element.style.zIndex || 0) + 2;
+}
+
+function updateUnitHiddenTagDepth(wolf) {
+  if (!wolf.hiddenTag) {
+    return;
+  }
+
+  wolf.hiddenTag.style.zIndex = Number(wolf.element.style.zIndex || 0) + 3;
 }
 
 function updateUnitHealthBar(wolf) {
@@ -2278,6 +3147,7 @@ function setUnitPosition(unit, x, y) {
   unit.element.style.top = `${y}px`;
   positionUnitHealthBar(unit);
   positionUnitIntentTags(unit);
+  positionUnitHiddenTag(unit);
 
   if (unit === getSelectedPlayerUnit()) {
     positionPlayerActionMenu();
@@ -2290,6 +3160,7 @@ function updateUnitDepth(unit) {
   unit.element.style.zIndex = unit.isDefeated ? liveUnitDepth - 2 : liveUnitDepth;
   updateUnitHealthBarDepth(unit);
   updateUnitIntentTagsDepth(unit);
+  updateUnitHiddenTagDepth(unit);
 
   if (unit === getSelectedPlayerUnit()) {
     positionPlayerActionMenu();
@@ -2537,6 +3408,38 @@ function setHoveredTile(tile) {
   if (hoveredTile) {
     hoveredTile.classList.add("is-hovered");
   }
+
+  updateHoveredHillTop(tile);
+}
+
+// While drawing hills, highlight the top cube of the hovered hill so it's clear
+// which stack a click will affect (the cube sits above its tile, hiding the
+// tile's own hover tint).
+function updateHoveredHillTop(tile) {
+  if (hoveredHillBlock) {
+    hoveredHillBlock.classList.remove("is-hovered");
+    hoveredHillBlock = null;
+  }
+
+  if (!isHillEditMode || !tile) {
+    return;
+  }
+
+  const row = Number(tile.dataset.row);
+  const col = Number(tile.dataset.col);
+
+  if (!isHillTile(row, col)) {
+    return;
+  }
+
+  const top = arena
+    ?.querySelector(".tile-layer")
+    ?.querySelector(`.hill-block--top[data-row="${row}"][data-col="${col}"]`);
+
+  if (top) {
+    top.classList.add("is-hovered");
+    hoveredHillBlock = top;
+  }
 }
 
 function getDirectionFromDelta(deltaX, deltaY) {
@@ -2607,7 +3510,7 @@ function getTileInDirection(row, col, direction, tileCount) {
 
     if (
       !isGridPosition(nextRow, nextCol) ||
-      isPondTile(nextRow, nextCol) ||
+      isBlockedTile(nextRow, nextCol) ||
       getBlockingUnitAtPosition(nextRow, nextCol)
     ) {
       break;
@@ -2636,7 +3539,7 @@ function getTileInDirectionForPlan(row, col, direction, tileCount, planningUnit)
 
     if (
       !isGridPosition(nextRow, nextCol) ||
-      isPondTile(nextRow, nextCol) ||
+      isBlockedTile(nextRow, nextCol) ||
       (blockingUnit && blockingUnit !== planningUnit)
     ) {
       break;
@@ -2689,7 +3592,7 @@ function buildWalkableDistanceField(targetRow, targetCol, size = GRID_SIZE) {
     targetRow >= size ||
     targetCol < 0 ||
     targetCol >= size ||
-    isPondTile(targetRow, targetCol)
+    isBlockedTile(targetRow, targetCol)
   ) {
     return field;
   }
@@ -2712,7 +3615,7 @@ function buildWalkableDistanceField(targetRow, targetCol, size = GRID_SIZE) {
           nextRow >= size ||
           nextCol < 0 ||
           nextCol >= size ||
-          isPondTile(nextRow, nextCol) ||
+          isBlockedTile(nextRow, nextCol) ||
           field[nextRow][nextCol] <= nextDistance
         ) {
           return;
@@ -2814,14 +3717,17 @@ function planEnemyPackTurn(enemyUnits, playerUnits) {
     return enemyPackActionQueue;
   }
 
-  enemyPackFocusTarget = getBestPackFocusTarget(aliveEnemies, alivePlayers);
+  // Concealment hides intentions, not locations: both packs can still pursue.
+  refreshHiddenStates();
+  const targetedPlayers = alivePlayers;
+  enemyPackFocusTarget = getBestPackFocusTarget(aliveEnemies, targetedPlayers);
 
   const plannedStates = new Map(aliveEnemies.map((unit) => [
     unit,
     { row: unit.row, col: unit.col, direction: unit.direction },
   ]));
 
-  assignEnemyPackObjectives(aliveEnemies, enemyPackFocusTarget, alivePlayers, plannedStates);
+  assignEnemyPackObjectives(aliveEnemies, enemyPackFocusTarget, targetedPlayers, plannedStates);
 
   const reservedMoveTargets = new Set();
   const doctrinePool = [...ENEMY_AGGRESSIVE_DOCTRINE];
@@ -2834,7 +3740,7 @@ function planEnemyPackTurn(enemyUnits, playerUnits) {
       reservedMoveTargets,
       enemyPackActionQueue,
       doctrinePool,
-      alivePlayers,
+      targetedPlayers,
     );
 
     if (!assignment) {
@@ -2919,7 +3825,7 @@ function getReachableSurroundDeltas(focusTarget, players) {
 
     return (
       isGridPosition(row, col) &&
-      !isPondTile(row, col) &&
+      !isBlockedTile(row, col) &&
       !players.some((player) => player.row === row && player.col === col)
     );
   });
@@ -3008,7 +3914,7 @@ function getEnemyPackGoalPosition(unit, focusTarget) {
   const row = focusTarget.row + objective.slotDelta.row;
   const col = focusTarget.col + objective.slotDelta.col;
 
-  return isGridPosition(row, col) && !isPondTile(row, col)
+  return isGridPosition(row, col) && !isBlockedTile(row, col)
     ? { row, col }
     : { row: focusTarget.row, col: focusTarget.col };
 }
@@ -3190,7 +4096,7 @@ function getTileInDirectionForPackPlan(row, col, direction, tileCount, planningU
     const nextCol = targetCol + delta.col;
     const blockingUnit = getPackPlanBlockingUnitAtPosition(nextRow, nextCol, planningUnit, plannedStates);
 
-    if (!isGridPosition(nextRow, nextCol) || isPondTile(nextRow, nextCol) || blockingUnit) {
+    if (!isGridPosition(nextRow, nextCol) || isBlockedTile(nextRow, nextCol) || blockingUnit) {
       break;
     }
 
@@ -3622,6 +4528,7 @@ function getBattleDebugUnitSnapshot(unit) {
     maxHealth: unit.maxHealth,
     movementMode: unit.team === "player" ? unit.movementMode : "",
     isDefeated: unit.isDefeated,
+    isHidden: isUnitHidden(unit),
     queue: getBattleDebugQueue(unit),
   };
 }
@@ -3634,16 +4541,19 @@ function getBattleDebugUnitSnapshots() {
 
 function formatBattleDebugUnitLine(snapshot, { includeQueue = false } = {}) {
   const defeated = snapshot.isDefeated ? " defeated" : "";
+  const hidden = snapshot.isHidden ? " hidden" : "";
   const movementMode = snapshot.movementMode ? ` mode ${snapshot.movementMode}` : "";
   const queue = includeQueue ? ` queue: ${snapshot.queue.length ? snapshot.queue.join(", ") : "-"}` : "";
 
-  return `${snapshot.id} ${snapshot.label} hp ${snapshot.health}/${snapshot.maxHealth}${defeated} at ${formatBattleDebugPosition(snapshot)} facing ${snapshot.direction}${movementMode}${queue}`;
+  return `${snapshot.id} ${snapshot.label} hp ${snapshot.health}/${snapshot.maxHealth}${defeated}${hidden} at ${formatBattleDebugPosition(snapshot)} facing ${snapshot.direction}${movementMode}${queue}`;
 }
 
 function beginBattleDebugLog() {
+  refreshHiddenStates();
   activeBattleDebugLog = {
     enemyMode,
     gridSize: GRID_SIZE,
+    terrain: { hills: [...hillTileKeys], water: [...pondTileKeys] },
     before: getBattleDebugUnitSnapshots(),
     ticks: [],
     after: [],
@@ -3661,7 +4571,8 @@ function recordBattleDebugTick(tickActions, startStates, moveTargets, damageResu
     const movement = `${formatBattleDebugPosition(start)} -> ${formatBattleDebugPosition(end)}`;
 
     if (action === "Move") {
-      return `${getBattleDebugUnitName(unit)} Move ${movement}`;
+      const debug = moveTargets.get(unit)?.debug;
+      return `${getBattleDebugUnitName(unit)} Move ${movement}${debug ? ` [${debug}]` : ""}`;
     }
 
     if (action === "Attack") {
@@ -3690,6 +4601,10 @@ function formatBattleDebugReport(log) {
     "Comment:",
     "",
     `Mode: ${log.enemyMode} | Grid: ${log.gridSize}x${log.gridSize}`,
+    ...(log.terrain ? [
+      `Hills: ${log.terrain.hills.join("; ") || "-"}`,
+      `Water: ${log.terrain.water.join("; ") || "-"}`,
+    ] : []),
     "",
     "Before:",
     ...log.before.map((snapshot) => formatBattleDebugUnitLine(snapshot, { includeQueue: true })),
@@ -4091,6 +5006,9 @@ function resolveMovePlans(movePlans, startStates) {
       row: resolvedPosition.row,
       col: resolvedPosition.col,
       direction,
+      ...(plan.debug ? {
+        debug: `${plan.debug}${!areSameGridPosition(resolvedPosition, plan.target) ? "; movement shortened by engagement or collision" : ""}`,
+      } : {}),
     };
     plan.path = getResolvedMovePath(plan.path, resolvedPosition);
 
@@ -4302,6 +5220,8 @@ function getEnemyPackFocusTarget() {
   return getAliveUnitsByTeam("player")[0] ?? player;
 }
 
+// Hunt the nearest living enemy, including concealed enemies whose positions
+// are still known. Hills continue to block movement and require a detour.
 function getFriendlyFocusTarget(friendlyUnit = player) {
   return getAliveUnitsByTeam("enemy")
     .sort((unit, otherUnit) => {
@@ -4309,7 +5229,7 @@ function getFriendlyFocusTarget(friendlyUnit = player) {
         getGridDistance(friendlyUnit.row, friendlyUnit.col, unit.row, unit.col) -
         getGridDistance(friendlyUnit.row, friendlyUnit.col, otherUnit.row, otherUnit.col)
       );
-    })[0] ?? enemy;
+    })[0] ?? null;
 }
 
 function hasQueuedAttackIntentAfterCurrentMove(unit) {
@@ -4467,7 +5387,7 @@ function isValidEngagementEndpoint(position, unit, otherPosition, startStates, o
 
   return (
     isGridPosition(position.row, position.col) &&
-    !isPondTile(position.row, position.col) &&
+    !isBlockedTile(position.row, position.col) &&
     !areSameGridPosition(position, otherPosition) &&
     (
       !blockingUnit ||
@@ -4634,13 +5554,16 @@ function getMovementModeMovePlanFromSnapshot(
   };
 
   if (!targetStartState || !isUnitAlive(targetUnit)) {
+    fallbackPlan.debug = "no living target";
     return fallbackPlan;
   }
 
-  return getModeMovePlanFromTargetState(movingUnit, targetStartState, startStates, movementMode, {
+  const plan = getModeMovePlanFromTargetState(movingUnit, targetStartState, startStates, movementMode, {
     actionQueue,
     ignoredBlockingUnits,
   });
+  plan.debug = `target ${getBattleDebugUnitId(targetUnit)} at ${formatBattleDebugPosition(targetStartState)}; ${plan.debug}`;
+  return plan;
 }
 
 // Mode-based move planning toward a bare board position (not necessarily a unit).
@@ -4672,14 +5595,22 @@ function getModeMovePlanFromTargetState(
     ignoredBlockingUnits,
   });
   const candidate = getMoveCandidateForMode(movementMode, context);
+  const debug = candidate
+    ? `planned ${formatBattleDebugPosition(candidate.target)}`
+    : !Number.isFinite(context.currentDistance)
+      ? "no terrain route to target"
+      : context.candidates.length === 0
+        ? "no open movement path"
+        : `no move accepted by ${movementMode} scoring`;
 
   return candidate
     ? {
       unit: movingUnit,
       path: candidate.path,
       target: { ...candidate.target, direction: candidate.direction },
+      debug,
     }
-    : fallbackPlan;
+    : { ...fallbackPlan, debug };
 }
 
 function getUnitMoveContext(
@@ -5053,7 +5984,7 @@ function getMovePathFromSnapshot(
 
     if (
       !isGridPosition(nextRow, nextCol) ||
-      isPondTile(nextRow, nextCol) ||
+      isBlockedTile(nextRow, nextCol) ||
       isSnapshotMoveBlockedByUnit(blockingUnit, movingUnit, ignoredBlockingUnits)
     ) {
       break;
@@ -5368,6 +6299,7 @@ function moveUnitToTile(
   unit.col = col;
   updatePlayerTileLabels();
   updateUnitDepth(unit);
+  refreshConcealmentVisuals(); // a move can hide/reveal any unit, not just this one
 
   if (unit === getSelectedPlayerUnit()) {
     updatePlayerMovePreview();
@@ -5443,18 +6375,17 @@ function clampGridCoordinate(value) {
   return Math.min(GRID_SIZE - 1, Math.max(0, value));
 }
 
-function getDefaultDevUnitSetup(team, role = "primary") {
-  const centerCol = clampGridCoordinate(Math.floor((GRID_SIZE - 1) / 2));
-  const roleOffsets = {
-    primary: 0,
-    support: team === "player" ? -2 : 2,
-    flank: team === "player" ? 3 : -3,
-  };
-  const col = clampGridCoordinate(centerCol + (roleOffsets[role] ?? 0));
+function getDefaultDevUnitSetup(team, role = "primary", size = GRID_SIZE) {
+  // Live arenas spawn each pack near the corner the player entered from; the
+  // dev-test / obstacle-free path keeps the simple edge layout so scenarios that
+  // rely on the default (enemy row 0, player bottom row) are unaffected.
+  if (!devTestObstaclesDisabled) {
+    return getEntryCornerSetup(team, role, currentEntryCorner, size);
+  }
 
   return {
-    row: team === "player" ? GRID_SIZE - 1 : 0,
-    col,
+    row: getSpawnRow(team, size),
+    col: getSpawnColumn(team, role, size),
     direction: team === "player" ? "topRight" : "bottomLeft",
   };
 }
@@ -5551,6 +6482,152 @@ function resetUnitForDev(unit, setup = {}) {
   }
 }
 
+// The largest connected region of walkable tiles (4-neighbour flood, matching
+// the movement BFS in WALKABLE_FIELD_DELTAS; walls are hills, water, and the
+// board edge). A unit must start inside this region — otherwise it can be
+// marooned on a little island pocket, able to shuffle a tile or two but never
+// reach the fight. Recomputed each reconcile from the current terrain.
+function getLargestWalkableRegion() {
+  const visited = new Set();
+  let largest = new Set();
+
+  for (let row = 0; row < GRID_SIZE; row += 1) {
+    for (let col = 0; col < GRID_SIZE; col += 1) {
+      const startKey = getGridPositionKey(row, col);
+
+      if (visited.has(startKey) || isBlockedTile(row, col)) {
+        continue;
+      }
+
+      const region = new Set([startKey]);
+      const stack = [[row, col]];
+      visited.add(startKey);
+
+      while (stack.length > 0) {
+        const [r, c] = stack.pop();
+
+        for (const { row: deltaRow, col: deltaCol } of WALKABLE_FIELD_DELTAS) {
+          const nextRow = r + deltaRow;
+          const nextCol = c + deltaCol;
+          const key = getGridPositionKey(nextRow, nextCol);
+
+          if (
+            nextRow >= 0 &&
+            nextRow < GRID_SIZE &&
+            nextCol >= 0 &&
+            nextCol < GRID_SIZE &&
+            !visited.has(key) &&
+            !isBlockedTile(nextRow, nextCol)
+          ) {
+            visited.add(key);
+            region.add(key);
+            stack.push([nextRow, nextCol]);
+          }
+        }
+      }
+
+      if (region.size > largest.size) {
+        largest = region;
+      }
+    }
+  }
+
+  return largest;
+}
+
+// A cell a unit may start on: unclaimed by another spawn and part of the main
+// walkable region — which already guarantees it is open ground, has a way out,
+// and can reach the rest of the arena (never trapped on an isolated island).
+function isStandableSpawnCell(row, col, occupied, mainRegion) {
+  const key = getGridPositionKey(row, col);
+  return mainRegion.has(key) && !occupied.has(key);
+}
+
+// Nearest standable cell to (row, col), searched in rings of growing Chebyshev
+// radius. Ties prefer staying on the same edge row (so the formation hugs its
+// spawn edge) and then the nearest column. Falls back to the original cell if
+// the region is somehow full.
+function findSafeSpawnCell(row, col, occupied, mainRegion) {
+  if (isStandableSpawnCell(row, col, occupied, mainRegion)) {
+    return { row, col };
+  }
+
+  for (let radius = 1; radius < GRID_SIZE; radius += 1) {
+    let best = null;
+    let bestScore = Infinity;
+
+    for (let deltaRow = -radius; deltaRow <= radius; deltaRow += 1) {
+      for (let deltaCol = -radius; deltaCol <= radius; deltaCol += 1) {
+        if (Math.max(Math.abs(deltaRow), Math.abs(deltaCol)) !== radius) {
+          continue; // only the ring's perimeter
+        }
+
+        const candidateRow = row + deltaRow;
+        const candidateCol = col + deltaCol;
+
+        if (!isStandableSpawnCell(candidateRow, candidateCol, occupied, mainRegion)) {
+          continue;
+        }
+
+        const score = Math.abs(deltaRow) * GRID_SIZE + Math.abs(deltaCol);
+        if (score < bestScore) {
+          bestScore = score;
+          best = { row: candidateRow, col: candidateCol };
+        }
+      }
+    }
+
+    if (best) {
+      return best;
+    }
+  }
+
+  return { row, col };
+}
+
+// After terrain (re)generation, nudge any active unit that a freshly placed hill
+// or lake left on an obstacle, boxed in, or marooned on an isolated pocket onto
+// the nearest cell of the main walkable region — so every wolf starts on open
+// ground that can actually reach the fight. No-op when obstacles are absent or
+// disabled (dev-test scenarios manage their own layout).
+function reconcileSpawnPositions() {
+  if (devTestObstaclesDisabled) {
+    return;
+  }
+
+  if (hillTileKeys.size === 0 && pondTileKeys.size === 0) {
+    return;
+  }
+
+  const mainRegion = getLargestWalkableRegion();
+
+  if (mainRegion.size === 0) {
+    return; // no walkable ground at all — nothing sane to relocate onto
+  }
+
+  const activeUnits = units.filter(isUnitActive);
+  const occupied = new Set(
+    activeUnits.map((unit) => getGridPositionKey(unit.row, unit.col)),
+  );
+
+  activeUnits.forEach((unit) => {
+    if (mainRegion.has(getGridPositionKey(unit.row, unit.col))) {
+      return; // already on the main landmass
+    }
+
+    occupied.delete(getGridPositionKey(unit.row, unit.col));
+    const safe = findSafeSpawnCell(unit.row, unit.col, occupied, mainRegion);
+    occupied.add(getGridPositionKey(safe.row, safe.col));
+
+    unit.row = safe.row;
+    unit.col = safe.col;
+    const anchor = getTileAnchor(safe.row, safe.col);
+    setUnitPosition(unit, anchor.x, anchor.y);
+    updateUnitDepth(unit);
+    updateUnitHealthBar(unit);
+  });
+}
+
 function resetDevTest(
   playerSetup = {},
   enemySetup = {},
@@ -5604,6 +6681,7 @@ function resetDevTest(
     health: UNIT_MAX_HEALTH,
     ...(enemyFlankSetup ?? {}),
   });
+  reconcileSpawnPositions(); // keep nobody standing on / boxed in by an obstacle
   updatePlayerTileLabels();
   updateActiveDirection(getDevPreviewUnit().direction);
   renderActionQueue(getSelectedPlayerUnit());
@@ -5612,6 +6690,7 @@ function resetDevTest(
   renderUnitIntentTags(enemyFlank);
   updatePlayerActionControls();
   updateAnimationControls();
+  refreshConcealmentVisuals();
 
   return getDevTestState();
 }
@@ -6461,7 +7540,8 @@ const DEV_TEST_SCENARIOS = [
       generateTerrain(8, 99999);
       const c = JSON.stringify(terrainTiles);
       // Restore the live arena's terrain for any later scenario.
-      generateTerrain(GRID_SIZE, getCurrentWorldNode(worldState)?.seed ?? null);
+      const node = getCurrentWorldNode(worldState);
+      generateTerrain(GRID_SIZE, node?.seed ?? null, node?.x ?? 0, node?.y ?? 0, true);
       return { sameSeedMatches: a === b, diffSeedDiffers: a !== c };
     },
     expect: (state) => state.sameSeedMatches === true && state.diffSeedDiffers === true,
@@ -6527,6 +7607,99 @@ const DEV_TEST_SCENARIOS = [
       state.topFacing === "topRight"
     ),
   },
+  {
+    id: "obstacles-block-movement",
+    label: "Obstacles: water and hill are both impassable",
+    run: async () => {
+      const savedPond = pondTileKeys;
+      const savedHill = hillTileKeys;
+      pondTileKeys = new Set([getGridPositionKey(4, 4)]);
+      hillTileKeys = new Set([getGridPositionKey(4, 5)]);
+      const state = {
+        water: isBlockedTile(4, 4),
+        hill: isBlockedTile(4, 5),
+        open: isBlockedTile(4, 6),
+      };
+      pondTileKeys = savedPond;
+      hillTileKeys = savedHill;
+      return state;
+    },
+    expect: (state) => state.water === true && state.hill === true && state.open === false,
+  },
+  {
+    id: "hill-blocks-line-of-sight",
+    label: "Hill: blocks line of sight, clear elsewhere, symmetric",
+    run: async () => {
+      const savedHill = hillTileKeys;
+      hillTileKeys = new Set([
+        getGridPositionKey(5, 5),
+        getGridPositionKey(5, 6),
+        getGridPositionKey(6, 5),
+      ]);
+      const state = {
+        blocked: hasLineOfSight(3, 5, 8, 5), // line crosses the hill
+        clear: hasLineOfSight(7, 7, 7, 3), // open row, no hill
+        symmetric: hasLineOfSight(3, 5, 8, 5) === hasLineOfSight(8, 5, 3, 5),
+      };
+      hillTileKeys = savedHill;
+      return state;
+    },
+    expect: (state) => state.blocked === false && state.clear === true && state.symmetric === true,
+  },
+  {
+    id: "hidden-player-remains-pack-focus",
+    label: "Stealth: pack pursues a player hidden behind a hill",
+    run: async () => {
+      // One enemy at top-centre; two players below. A hill sits between the enemy
+      // and the near player only. The concealed player remains the best target.
+      setEnemyMode("wolves"); // a prior scenario may have left stag mode active
+      resetDevTest(
+        { row: 6, col: 5, direction: "topRight" },
+        { row: 0, col: 5, direction: "bottomLeft" },
+        { row: 9, col: 9, direction: "topRight" },
+        { isActive: false },
+        { isActive: false },
+        { isActive: false },
+      );
+      const savedHill = hillTileKeys;
+      hillTileKeys = new Set([getGridPositionKey(3, 5)]); // between enemy(6,5) and player(0,5)
+      refreshHiddenStates();
+      const nearHidden = isUnitHidden(player);
+      const farVisible = !isUnitHidden(playerSupport);
+      // Concealment must not remove the nearer player from target selection.
+      planEnemyPackTurn(
+        units.filter((unit) => unit.team === "enemy"),
+        units.filter((unit) => unit.team === "player"),
+      );
+      const focusIsNear = enemyPackFocusTarget === player;
+      hillTileKeys = savedHill;
+      return { nearHidden, farVisible, focusIsNear };
+    },
+    expect: (state) => state.nearHidden === true && state.farVisible === true && state.focusIsNear === true,
+  },
+  {
+    id: "water-field-tiles-seamlessly",
+    label: "Water: global field tiles arenas with no overlap",
+    run: async () => {
+      const seen = new Set();
+      let overlap = 0;
+      for (const [nx, ny] of [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1]]) {
+        for (let r = 0; r < GRID_SIZE; r += 1) {
+          for (let c = 0; c < GRID_SIZE; c += 1) {
+            const { gx, gy } = worldTileToGlobal(nx, ny, r, c);
+            const key = `${gx},${gy}`;
+            if (seen.has(key)) {
+              overlap += 1;
+            } else {
+              seen.add(key);
+            }
+          }
+        }
+      }
+      return { overlap, deterministic: isWorldWater(3, 7) === isWorldWater(3, 7) };
+    },
+    expect: (state) => state.overlap === 0 && state.deterministic === true,
+  },
 ];
 
 const INTERACTION_DEV_TEST_SCENARIO_IDS = [
@@ -6550,15 +7723,25 @@ async function runDevTestScenario(scenarioId) {
     throw new Error(`Unknown dev test scenario: ${scenarioId}`);
   }
 
-  const state = await scenario.run();
-  const passed = scenario.expect(state);
+  // Mechanics scenarios assume a clear board; suppress the seeded hill/water for
+  // the whole scenario (including any arena resize that re-stamps terrain) so a
+  // stray obstacle can't derail a movement/pack test.
+  devTestObstaclesDisabled = true;
+  clearArenaObstacles();
 
-  return {
-    id: scenario.id,
-    label: scenario.label,
-    passed,
-    state,
-  };
+  try {
+    const state = await scenario.run();
+    const passed = scenario.expect(state);
+
+    return {
+      id: scenario.id,
+      label: scenario.label,
+      passed,
+      state,
+    };
+  } finally {
+    devTestObstaclesDisabled = false;
+  }
 }
 
 function setDevTestStatus(message, statusClass = "") {
@@ -6835,6 +8018,8 @@ window.devTest = {
   world: () => worldState,
   openWorldMap,
   chooseCorner,
+  exportHillLayout: buildHillLayoutExport,
+  loadHillLayout,
 };
 
 function getTileFromEvent(event) {
@@ -6971,6 +8156,7 @@ if (devRotateButton) {
 }
 
 buildArena();
+resetDevTest(); // place units at their spawns and clear obstacle/boxed-in cells (as startArena does)
 refillAvailableActions();
 updateReshuffleControl();
 renderActionQueue(getSelectedPlayerUnit());
@@ -7248,6 +8434,16 @@ arena.addEventListener("click", (event) => {
     return;
   }
 
+  // Hill-editor mode intercepts every tile click for drawing (ignores units).
+  if (isHillEditMode) {
+    const editTile = getTileFromPointerEvent(event);
+    if (editTile) {
+      cycleHillTileAt(Number(editTile.dataset.row), Number(editTile.dataset.col));
+      event.stopPropagation();
+    }
+    return;
+  }
+
   const tile = getTileFromPointerEvent(event);
   const clickedFriendlyUnit = getFriendlyUnitAtTile(tile) ?? getFriendlyUnitFromPointerEvent(event);
 
@@ -7316,6 +8512,51 @@ if (toggleTileNumbers) {
     const hidden = document.getElementById("arena").classList.toggle("tile-numbers-hidden");
     toggleTileNumbers.classList.toggle("is-active", !hidden);
     toggleTileNumbers.setAttribute("aria-pressed", String(!hidden));
+  });
+}
+
+const hillEditorToggle = document.getElementById("hill-editor-toggle");
+const hillEditorStatus = document.getElementById("hill-editor-status");
+if (hillEditorToggle) {
+  hillEditorToggle.addEventListener("click", () => {
+    const on = !isHillEditMode;
+    setHillEditMode(on);
+    hillEditorToggle.classList.toggle("is-active", on);
+    hillEditorToggle.setAttribute("aria-pressed", String(on));
+    if (hillEditorStatus) {
+      hillEditorStatus.textContent = on
+        ? "On — click a tile: none → 1 → 2 → none."
+        : "Off. Click a tile to cycle none → 1 → 2 → none.";
+    }
+  });
+}
+
+const copyHillsButton = document.getElementById("copy-hills");
+if (copyHillsButton) {
+  copyHillsButton.addEventListener("click", async () => {
+    const layout = buildHillLayoutExport();
+    const text = JSON.stringify(layout, null, 2);
+    const setStatus = (message) => {
+      if (hillEditorStatus) {
+        hillEditorStatus.textContent = message;
+      }
+    };
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else if (!copyTextWithSelectionFallback(text)) {
+        throw new Error("Clipboard copy failed");
+      }
+      setStatus(`Copied ${layout.hills.length} hill(s).`);
+    } catch (error) {
+      if (copyTextWithSelectionFallback(text)) {
+        setStatus(`Copied ${layout.hills.length} hill(s).`);
+      } else {
+        window.lastHillLayout = layout;
+        setStatus("Copy failed — layout is at window.lastHillLayout.");
+      }
+    }
   });
 }
 
