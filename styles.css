@@ -163,8 +163,23 @@ body {
 .tree-block {
   position: absolute;
   width: calc(var(--tile-width) * 2);
-  transform: translate(-50%, calc(-100% + 24px));
+  transform: translate(-54%, calc(-100% + 18px));
   pointer-events: none;
+  transition: mask-image 150ms ease, -webkit-mask-image 150ms ease;
+}
+
+/* Ground shadow at the trunk base, same soft dark blur as the one baked
+   into the wolf sprite. ::before so it paints behind the tree image. */
+.tree-block::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 34%;
+  height: 8px;
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgba(8, 12, 10, 0.45), rgba(8, 12, 10, 0) 100%);
+  border-radius: 50%;
 }
 
 .tree-block img {

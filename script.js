@@ -414,6 +414,16 @@ const TREE_COUNT_RANGE = [0, 3];
 const TREE_DENSITY_RADIUS = 1; // checks the 3x3 neighbourhood around a candidate
 const TREE_DENSITY_MIN_RATIO = 0.8; // that neighbourhood must be mostly grass
 const TREE_MIN_SPACING = 3; // tiles apart (Manhattan), so trees don't cluster
+
+// A tree visually overlaps units standing "behind" it on screen — checked in
+// projected screen space (not row/col) since this grid's row/col axes run
+// diagonally on screen: moving row-1 alone drifts up-RIGHT (see projectTile),
+// not straight up. "Steps" below is how many true-vertical tiles (row-1,
+// col-1 together) the sprite reaches above its base; tune alongside
+// .tree-block's scale/anchor.
+const TREE_TRANSPARENCY_ROW_SPAN = 6;
+const TREE_TRANSPARENCY_HEIGHT_PX = TREE_TRANSPARENCY_ROW_SPAN * ISO_Y_STEP * 2;
+const TREE_TRANSPARENCY_HALF_WIDTH_PX = TILE_WIDTH; // ~half the tree sprite's on-screen width
 const HILL_INTERIOR_MARGIN = 1; // keep the footprint off the spawn-edge rows/cols
 // Footprint templates as (row, col) offsets from an anchor — each is a crescent
 // or bend, so the hill never looks like a solid block. Used by the legacy
@@ -2902,6 +2912,61 @@ function renderArenaTrees(layer) {
   layer.append(...buildTreeBlocks(treeTileKeys));
 }
 
+// The height (in the same local px projectTile uses, above the tree's base)
+// at which the tree should be fully transparent, so a unit hiding behind it
+// stays visible — or null if nothing currently occludes it. When several
+// units are behind the tree, the lowest one (closest to the base) sets the
+// fade point: taller occluders sit above it, already inside the fully
+// transparent region, so they're revealed for free.
+function findTreeFadeStopPx(treeRow, treeCol) {
+  const treePos = projectTile(treeRow, treeCol);
+  let fadeStopPx = null;
+
+  units.forEach((unit) => {
+    if (!isUnitAlive(unit)) {
+      return;
+    }
+
+    const unitPos = projectTile(unit.row, unit.col);
+    const dx = Math.abs(unitPos.x - treePos.x);
+    const dy = treePos.y - unitPos.y; // positive when the unit is above the tree on screen
+
+    if (dx > TREE_TRANSPARENCY_HALF_WIDTH_PX || dy <= 0 || dy > TREE_TRANSPARENCY_HEIGHT_PX) {
+      return;
+    }
+
+    if (fadeStopPx === null || dy < fadeStopPx) {
+      fadeStopPx = dy;
+    }
+  });
+
+  return fadeStopPx;
+}
+
+// Fade each occluding tree from fully opaque at its base to fully transparent
+// at the height of the unit hiding behind it, via a mask gradient (a flat
+// on/off opacity would hide the whole tree, not just the part in front of the
+// unit). Call after any unit position change, alongside concealment.
+function refreshTreeTransparency() {
+  const layer = arena?.querySelector(".tile-layer");
+
+  layer?.querySelectorAll(".tree-block").forEach((block) => {
+    const row = Number(block.dataset.row);
+    const col = Number(block.dataset.col);
+    const fadeStopPx = findTreeFadeStopPx(row, col);
+
+    if (fadeStopPx === null) {
+      block.style.maskImage = "";
+      block.style.webkitMaskImage = "";
+      return;
+    }
+
+    const gradient = `linear-gradient(to top, black 0px, transparent ${fadeStopPx}px)`;
+    block.style.maskImage = gradient;
+    block.style.webkitMaskImage = gradient;
+  });
+}
+
 // --- Hill editor (dev tool) ----------------------------------------------
 // Repaint one tile's ground sprite from the current terrainTiles value.
 function repaintTileSprite(row, col) {
@@ -3118,6 +3183,7 @@ function updateUnitConcealment(unit) {
 // position change (moves) or plan, since one unit moving can hide/reveal another.
 function refreshConcealmentVisuals() {
   refreshHiddenStates();
+  refreshTreeTransparency();
   units.forEach(updateUnitConcealment);
   units.filter((unit) => unit.team === "enemy").forEach((unit) => {
     renderUnitIntentTags(unit, enemyMode === "wolves"
