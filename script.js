@@ -4860,6 +4860,13 @@ async function executeActionTick(combatants) {
   const damageResult = await resolveTickDamage(damageIntents);
   recordBattleDebugTick(tickActions, startStates, moveTargets, damageResult);
 
+  if (enemyMode === "wolves" && damageResult.defeated.some((unit) => unit.team === "enemy")) {
+    planEnemyPackTurn(
+      units.filter((unit) => unit.team === "enemy" && unit.type === "wolf"),
+      units.filter((unit) => unit.team === "player"),
+    );
+  }
+
   tickActions.forEach(({ renderQueue }) => {
     renderQueue?.();
   });
@@ -6216,6 +6223,7 @@ async function resolveTickDamage(damageIntents) {
   return {
     hits: validIntents.map(({ attacker, target, damage }) => ({ attacker, target, damage })),
     misses: Array.from(missedAttackers),
+    defeated: damageResults.filter(({ defeated }) => defeated).map(({ target }) => target),
   };
 }
 
@@ -7433,6 +7441,39 @@ const DEV_TEST_SCENARIOS = [
       state.enemy.col,
       state.player.row,
       state.player.col,
+    ),
+  },
+  {
+    // Regression: a pack plan is drawn once per turn, split across whoever is
+    // alive at that instant. If two packmates die mid-turn, the survivor must
+    // get a fresh plan reflecting the new pack size instead of replaying a
+    // stale "Defend" queued back when it was competing with two packmates for
+    // the doctrine's Move/Attack slots.
+    id: "pack-replans-after-teammate-deaths",
+    label: "Pack: replans after teammate deaths",
+    run: async () => {
+      resetDevTest(
+        { row: 5, col: 5, direction: "topLeft" },
+        { row: 5, col: 6, direction: "bottomLeft", health: 1 },
+        { row: 5, col: 1, direction: "topRight", isActive: true },
+        { row: 5, col: 2, direction: "bottomRight", health: 1, isActive: true },
+        { isActive: false },
+        { row: 5, col: 14, direction: "bottomLeft", isActive: true },
+      );
+      queueDevTestPackActions([
+        { unitId: "enemy", action: "Defend" },
+        { unitId: "enemySupport", action: "Defend" },
+        { unitId: "enemyFlank", action: "Defend" },
+      ]);
+      getUnitActionQueue(player).push("Attack");
+      getUnitActionQueue(playerSupport).push("Attack");
+      return runDevTestTick();
+    },
+    expect: (state) => (
+      state.enemy.isDefeated &&
+      state.enemySupport.isDefeated &&
+      state.enemyPackQueue.length > 0 &&
+      state.enemyPackQueue.some((entry) => entry.action === "Move")
     ),
   },
   {
