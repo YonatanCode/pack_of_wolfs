@@ -404,6 +404,26 @@ const ROCK_TILES = {
 // movement/LOS effect (unlike rocks/hills).
 const FLOWER_TILES = [41, 42, 44, 46];
 const FLOWER_RATIO = 0.03; // ~3% of eligible grass tiles
+
+// Trees: 0-3 per arena, placed only on cells surrounded mostly by grass. Block
+// movement (see isBlockedTile) but NOT line of sight, unlike hills — a tree is
+// a single static sprite (not a tileset index), swapped for transparency once
+// a unit stands behind it (not yet implemented).
+const TREE_IMAGE_PATH = "isometric tileset/Tree.png";
+const TREE_COUNT_RANGE = [0, 3];
+const TREE_DENSITY_RADIUS = 1; // checks the 3x3 neighbourhood around a candidate
+const TREE_DENSITY_MIN_RATIO = 0.8; // that neighbourhood must be mostly grass
+const TREE_MIN_SPACING = 3; // tiles apart (Manhattan), so trees don't cluster
+
+// A tree visually overlaps units standing "behind" it on screen — checked in
+// projected screen space (not row/col) since this grid's row/col axes run
+// diagonally on screen: moving row-1 alone drifts up-RIGHT (see projectTile),
+// not straight up. "Steps" below is how many true-vertical tiles (row-1,
+// col-1 together) the sprite reaches above its base; tune alongside
+// .tree-block's scale/anchor.
+const TREE_TRANSPARENCY_ROW_SPAN = 6;
+const TREE_TRANSPARENCY_HEIGHT_PX = TREE_TRANSPARENCY_ROW_SPAN * ISO_Y_STEP * 2;
+const TREE_TRANSPARENCY_HALF_WIDTH_PX = TILE_WIDTH; // ~half the tree sprite's on-screen width
 const HILL_INTERIOR_MARGIN = 1; // keep the footprint off the spawn-edge rows/cols
 // Footprint templates as (row, col) offsets from an anchor — each is a crescent
 // or bend, so the hill never looks like a solid block. Used by the legacy
@@ -449,6 +469,11 @@ let hillTileKeys = new Set();
 // alongside the rest of the terrain in generateTerrain().
 let flowerTileKeys = new Set();
 
+// Keys ("row,col") of the arena's tree cells. A tree is impassable but does
+// NOT block line of sight (unlike a hill) — see isBlockedTile/hasLineOfSight.
+// Rebuilt alongside the rest of the terrain in generateTerrain().
+let treeTileKeys = new Set();
+
 // Per-tile hill height ("row,col" -> level, 1 or 2), authored by the hill-editor
 // dev tool. renderArenaHill falls back to HILL_HEIGHT_LEVELS for any hill tile
 // without an entry, so seeded hills are unaffected.
@@ -472,12 +497,16 @@ function isHillTile(row, col) {
   return hillTileKeys.has(getGridPositionKey(row, col));
 }
 
-// A cell a unit can neither walk through nor stand on: water or hill. Movement
-// path-builders, the walkable distance field, and the AI slot/goal pickers all
-// route around these. Water-only concerns (autotiling, the grass frame) keep
-// calling isPondTile directly.
+function isTreeTile(row, col) {
+  return treeTileKeys.has(getGridPositionKey(row, col));
+}
+
+// A cell a unit can neither walk through nor stand on: water, hill, or tree.
+// Movement path-builders, the walkable distance field, and the AI slot/goal
+// pickers all route around these. Water-only concerns (autotiling, the grass
+// frame) keep calling isPondTile directly.
 function isBlockedTile(row, col) {
-  return isPondTile(row, col) || isHillTile(row, col);
+  return isPondTile(row, col) || isHillTile(row, col) || isTreeTile(row, col);
 }
 
 // Line of sight between two cells, blocked ONLY by hills (water is see-over).
@@ -532,6 +561,7 @@ function clearArenaObstacles() {
   hillTileKeys = new Set();
   hillTileLevels = new Map();
   flowerTileKeys = new Set();
+  treeTileKeys = new Set();
 }
 
 function lerp(a, b, t) {
@@ -815,6 +845,7 @@ function generateTerrainTiles(size, worldX = 0, worldY = 0, clearSpawns = false)
   stampWater(size, worldX, worldY, clearSpawns);
   stampHill(size);
   stampFlowers(size, types);
+  stampTrees(size, types);
 
   return terrainTiles;
 }
@@ -840,6 +871,95 @@ function stampFlowers(size, types) {
         flowerTileKeys.add(getGridPositionKey(row, col));
       }
     }
+  }
+}
+
+// Whether the TREE_DENSITY_RADIUS neighbourhood around (row, col) is mostly
+// grass — the "a lot of green tiles" gate for tree placement. Out-of-bounds
+// neighbours are excluded from both the count and the denominator.
+function isGrassDense(types, size, row, col) {
+  let total = 0;
+  let grassCount = 0;
+
+  for (let dr = -TREE_DENSITY_RADIUS; dr <= TREE_DENSITY_RADIUS; dr += 1) {
+    for (let dc = -TREE_DENSITY_RADIUS; dc <= TREE_DENSITY_RADIUS; dc += 1) {
+      const r = row + dr;
+      const c = col + dc;
+
+      if (r < 0 || r >= size || c < 0 || c >= size) {
+        continue;
+      }
+
+      total += 1;
+      if (types[r][c] === TERRAIN_GRASS) {
+        grassCount += 1;
+      }
+    }
+  }
+
+  return total > 0 && grassCount / total >= TREE_DENSITY_MIN_RATIO;
+}
+
+function isTooCloseToExistingTree(row, col) {
+  for (const key of treeTileKeys) {
+    const [existingRow, existingCol] = key.split(",").map(Number);
+    if (Math.abs(existingRow - row) + Math.abs(existingCol - col) < TREE_MIN_SPACING) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Place 0-3 trees on grass-dense cells, from the same seeded stream as the
+// rest of the terrain. Skips water/hill/flower/spawn cells and the board-edge
+// margin (like stampHill), and keeps trees spaced apart. Like stampHill, this
+// produces nothing while a dev-test scenario wants a clean board.
+function stampTrees(size, types) {
+  treeTileKeys = new Set();
+
+  if (devTestObstaclesDisabled) {
+    return;
+  }
+
+  const spawnCells = new Set(
+    getArenaSpawnCells(size).map(([r, c]) => getGridPositionKey(r, c)),
+  );
+  const lo = HILL_INTERIOR_MARGIN;
+  const hi = size - HILL_INTERIOR_MARGIN;
+  const candidates = [];
+
+  for (let row = lo; row < hi; row += 1) {
+    for (let col = lo; col < hi; col += 1) {
+      const key = getGridPositionKey(row, col);
+
+      if (
+        types[row][col] !== TERRAIN_GRASS ||
+        isBlockedTile(row, col) ||
+        flowerTileKeys.has(key) ||
+        spawnCells.has(key)
+      ) {
+        continue;
+      }
+
+      if (isGrassDense(types, size, row, col)) {
+        candidates.push([row, col]);
+      }
+    }
+  }
+
+  const [minCount, maxCount] = TREE_COUNT_RANGE;
+  const targetCount = minCount + Math.floor(terrainRandom() * (maxCount - minCount + 1));
+
+  while (treeTileKeys.size < targetCount && candidates.length > 0) {
+    const index = Math.floor(terrainRandom() * candidates.length);
+    const [row, col] = candidates.splice(index, 1)[0];
+
+    if (isTooCloseToExistingTree(row, col)) {
+      continue;
+    }
+
+    treeTileKeys.add(getGridPositionKey(row, col));
   }
 }
 
@@ -2203,6 +2323,7 @@ function terrainTilesForSeed(size, seed, worldX = 0, worldY = 0) {
   const savedHill = hillTileKeys;
   const savedHillLevels = hillTileLevels;
   const savedFlowers = flowerTileKeys;
+  const savedTrees = treeTileKeys;
 
   generateTerrain(size, seed, worldX, worldY);
   const result = {
@@ -2210,6 +2331,7 @@ function terrainTilesForSeed(size, seed, worldX = 0, worldY = 0) {
     hillKeys: new Set(hillTileKeys),
     hillLevels: new Map(hillTileLevels),
     flowerKeys: new Set(flowerTileKeys),
+    treeKeys: new Set(treeTileKeys),
   };
 
   terrainTiles = savedTerrain;
@@ -2217,6 +2339,7 @@ function terrainTilesForSeed(size, seed, worldX = 0, worldY = 0) {
   hillTileKeys = savedHill;
   hillTileLevels = savedHillLevels;
   flowerTileKeys = savedFlowers;
+  treeTileKeys = savedTrees;
   worldTerrainCache.set(cacheKey, result);
   return result;
 }
@@ -2239,7 +2362,7 @@ function dirtTileGrid(size) {
 // to preview a neighbouring arena. hillKeys/hillLevels/flowerKeys are optional
 // — omitted for the unseen (dirt-placeholder) grid, which has no real terrain
 // features to draw.
-function buildWorldTerrainLayer(tiles, hillKeys = null, hillLevels = null, flowerKeys = null) {
+function buildWorldTerrainLayer(tiles, hillKeys = null, hillLevels = null, flowerKeys = null, treeKeys = null) {
   const layer = document.createElement("div");
   layer.className = "tile-layer";
 
@@ -2269,6 +2392,10 @@ function buildWorldTerrainLayer(tiles, hillKeys = null, hillLevels = null, flowe
     layer.append(...buildFlowerBlocks(flowerKeys));
   }
 
+  if (treeKeys) {
+    layer.append(...buildTreeBlocks(treeKeys));
+  }
+
   return layer;
 }
 
@@ -2293,6 +2420,7 @@ function paintCenterTerrain(node) {
 
   renderArenaHill(arena?.querySelector(".tile-layer"));
   renderArenaFlowers(arena?.querySelector(".tile-layer"));
+  renderArenaTrees(arena?.querySelector(".tile-layer"));
   refreshConcealmentVisuals(); // the new cell's hill may conceal a unit differently
 }
 
@@ -2395,8 +2523,8 @@ function buildWorldCell(cell, layout, animate) {
   inner.className = "world-neighbor-board";
 
   if (revealed) {
-    const { tiles, hillKeys, hillLevels, flowerKeys } = terrainTilesForSeed(GRID_SIZE, seed, x, y);
-    inner.append(buildWorldTerrainLayer(tiles, hillKeys, hillLevels, flowerKeys));
+    const { tiles, hillKeys, hillLevels, flowerKeys, treeKeys } = terrainTilesForSeed(GRID_SIZE, seed, x, y);
+    inner.append(buildWorldTerrainLayer(tiles, hillKeys, hillLevels, flowerKeys, treeKeys));
   } else {
     inner.append(buildWorldTerrainLayer(dirtTileGrid(GRID_SIZE)));
   }
@@ -2629,6 +2757,7 @@ function buildArena() {
 
   renderArenaHill(tileLayer);
   renderArenaFlowers(tileLayer);
+  renderArenaTrees(tileLayer);
 
   units.filter(isUnitActive).forEach((unit) => {
     placeUnit(unitLayer, unit);
@@ -2742,6 +2871,100 @@ function renderArenaFlowers(layer) {
 
   layer.querySelectorAll(".flower-block").forEach((el) => el.remove());
   layer.append(...buildFlowerBlocks(flowerTileKeys));
+}
+
+// Build the tree-sprite overlay blocks for a set of cells. Shared by the live
+// arena (renderArenaTrees) and the world-map preview (buildWorldCell), same
+// pattern as buildFlowerBlocks — a single static image, no per-cell variant.
+function buildTreeBlocks(treeKeys) {
+  const blocks = [];
+
+  treeKeys.forEach((key) => {
+    const [row, col] = key.split(",").map(Number);
+    const position = projectTile(row, col);
+    const depth = GRID_SIZE * 2 + row + col + 20;
+    const block = document.createElement("div");
+    const img = document.createElement("img");
+
+    block.className = "tree-block";
+    block.dataset.row = row;
+    block.dataset.col = col;
+    block.style.left = `${position.x}px`;
+    block.style.top = `${position.y}px`;
+    block.style.zIndex = depth;
+    img.src = TREE_IMAGE_PATH;
+    img.alt = "";
+    img.draggable = false;
+
+    block.append(img);
+    blocks.push(block);
+  });
+
+  return blocks;
+}
+
+function renderArenaTrees(layer) {
+  if (!layer) {
+    return;
+  }
+
+  layer.querySelectorAll(".tree-block").forEach((el) => el.remove());
+  layer.append(...buildTreeBlocks(treeTileKeys));
+}
+
+// The height (in the same local px projectTile uses, above the tree's base)
+// at which the tree should be fully transparent, so a unit hiding behind it
+// stays visible — or null if nothing currently occludes it. When several
+// units are behind the tree, the lowest one (closest to the base) sets the
+// fade point: taller occluders sit above it, already inside the fully
+// transparent region, so they're revealed for free.
+function findTreeFadeStopPx(treeRow, treeCol) {
+  const treePos = projectTile(treeRow, treeCol);
+  let fadeStopPx = null;
+
+  units.forEach((unit) => {
+    if (!isUnitAlive(unit)) {
+      return;
+    }
+
+    const unitPos = projectTile(unit.row, unit.col);
+    const dx = Math.abs(unitPos.x - treePos.x);
+    const dy = treePos.y - unitPos.y; // positive when the unit is above the tree on screen
+
+    if (dx > TREE_TRANSPARENCY_HALF_WIDTH_PX || dy <= 0 || dy > TREE_TRANSPARENCY_HEIGHT_PX) {
+      return;
+    }
+
+    if (fadeStopPx === null || dy < fadeStopPx) {
+      fadeStopPx = dy;
+    }
+  });
+
+  return fadeStopPx;
+}
+
+// Fade each occluding tree from fully opaque at its base to fully transparent
+// at the height of the unit hiding behind it, via a mask gradient (a flat
+// on/off opacity would hide the whole tree, not just the part in front of the
+// unit). Call after any unit position change, alongside concealment.
+function refreshTreeTransparency() {
+  const layer = arena?.querySelector(".tile-layer");
+
+  layer?.querySelectorAll(".tree-block").forEach((block) => {
+    const row = Number(block.dataset.row);
+    const col = Number(block.dataset.col);
+    const fadeStopPx = findTreeFadeStopPx(row, col);
+
+    if (fadeStopPx === null) {
+      block.style.maskImage = "";
+      block.style.webkitMaskImage = "";
+      return;
+    }
+
+    const gradient = `linear-gradient(to top, black 0px, transparent ${fadeStopPx}px)`;
+    block.style.maskImage = gradient;
+    block.style.webkitMaskImage = gradient;
+  });
 }
 
 // --- Hill editor (dev tool) ----------------------------------------------
@@ -2960,6 +3183,7 @@ function updateUnitConcealment(unit) {
 // position change (moves) or plan, since one unit moving can hide/reveal another.
 function refreshConcealmentVisuals() {
   refreshHiddenStates();
+  refreshTreeTransparency();
   units.forEach(updateUnitConcealment);
   units.filter((unit) => unit.team === "enemy").forEach((unit) => {
     renderUnitIntentTags(unit, enemyMode === "wolves"
@@ -4553,7 +4777,7 @@ function beginBattleDebugLog() {
   activeBattleDebugLog = {
     enemyMode,
     gridSize: GRID_SIZE,
-    terrain: { hills: [...hillTileKeys], water: [...pondTileKeys] },
+    terrain: { hills: [...hillTileKeys], water: [...pondTileKeys], trees: [...treeTileKeys] },
     before: getBattleDebugUnitSnapshots(),
     ticks: [],
     after: [],
@@ -6603,7 +6827,7 @@ function reconcileSpawnPositions() {
     return;
   }
 
-  if (hillTileKeys.size === 0 && pondTileKeys.size === 0) {
+  if (hillTileKeys.size === 0 && pondTileKeys.size === 0 && treeTileKeys.size === 0) {
     return;
   }
 
