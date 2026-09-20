@@ -156,6 +156,25 @@ body {
   -webkit-user-drag: none;
 }
 
+/* Tree overlay: a single tall sprite anchored at its tile like a rock/flower,
+   but sized across multiple tiles and left to grow upward from the ground.
+   The 2x width and +24px anchor are a first guess — tune both once we see it
+   in the browser. */
+.tree-block {
+  position: absolute;
+  width: calc(var(--tile-width) * 2);
+  transform: translate(-50%, calc(-100% + 24px));
+  pointer-events: none;
+}
+
+.tree-block img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 .tile.is-hovered img,
 .tile.is-move-preview img,
 .tile:focus-visible img {
