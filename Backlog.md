@@ -54,7 +54,7 @@ This file tracks possible mechanics, UX improvements, content ideas, and design 
 | TBD | World / Open World | Feature | Explore | Zoomed-out open world with territories and habitats. | Free roam; encountering another animal or wolf pack drops into fight mode. Map surfaces rival pack *territories* (entering risks attack) and *habitats* where specific prey live — easier prey gives less meat, harder prey more. Richest but heaviest option. Competing overworld structure. Pairs with meat currency, hunting, and scouting. |
 | TBD | World / Overworld Travel | Feature | Idea | Fallout 1/2-style overworld travel with random encounters. | A zoomed-out map where you pick a spot/direction to travel; encounters may or may not happen en route. Player flagged the downside: with no fixed destination it can feel aimless — would need objectives/hooks. Competing overworld structure. |
 | TBD | World / Level Structure | Feature | Idea | Linear levels with optional sidetracks. | Levels 1→2→3→4 with optional detours (e.g. between 2 and 3, fight a bigger animal for extra perks). Variant: an "islands/bridges" version where you choose which island to start from. Simplest, most authorable structure. Competing overworld structure. Pairs with the boss/bear and Stag levels. |
-| P1 | Map / Terrain | Bug | Explore | Trees on the zoomed-out world-map preview don't match the trees on the live battlefield for the same arena. | Rocks/hills/flowers share one top-level generation pass (generateTerrain, seeded) plus buildWorldTerrainLayer/buildWorldCell rendering, so the preview matches the arena exactly. Trees need to follow that same pattern. Check whether this is a real gap in the tree wiring or a stale worldTerrainCache entry from before trees existed. |
+| P1 | Map / Terrain | Bug | Done | Trees on the zoomed-out world-map preview don't match the trees on the live battlefield for the same arena. | Fixed, two real desync bugs in generateTerrainTiles/terrainTilesForSeed (not just a tree wiring gap — flowers were affected too, hills occasionally): (1) the preview generated terrain with clearSpawns=false while entering an arena always uses clearSpawns=true, shifting the pond footprint and desyncing every seeded-RNG draw placed afterward; (2) stampHill/stampFlowers call isBlockedTile (which checks treeTileKeys) but ran before stampTrees reset it, so they read leftover tree data from the previous generation call. Verified headlessly (script.js loaded in a Node vm sandbox) across 6 seeds/sizes/world positions — hills/flowers/trees now match exactly every time. |
 
 ## Candidate Groupings
 
@@ -63,7 +63,7 @@ This file tracks possible mechanics, UX improvements, content ideas, and design 
 - Health recovery after two safe turns (done)
 - Obstacles
 - Small hill obstacle
-- Match tree obstacles between world-map preview and battlefield (see Map / Terrain bug)
+- Match tree obstacles between world-map preview and battlefield (done — see Map / Terrain bug)
 - More tile types
 - Double-move / combined attack powerups
 - Action combos — multi-verb sequences (hit-and-run, triple-defend heal)
