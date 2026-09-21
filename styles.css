@@ -174,12 +174,12 @@ body {
   content: "";
   position: absolute;
   left: 50%;
-  bottom: 2px;
-  width: 34%;
-  height: 8px;
+  bottom: -2px;
+  width: 50%;
+  height: 10px;
   transform: translateX(-50%);
-  background: radial-gradient(closest-side, rgba(8, 12, 10, 0.45), rgba(8, 12, 10, 0) 100%);
-  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(8, 12, 10, 0.5), rgba(8, 12, 10, 0) 100%);
+  border-radius: 20%;
 }
 
 .tree-block img {

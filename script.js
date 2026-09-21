@@ -827,6 +827,13 @@ function generateTerrain(size, seed = null, worldX = 0, worldY = 0, clearSpawns 
 }
 
 function generateTerrainTiles(size, worldX = 0, worldY = 0, clearSpawns = false) {
+  // Cleared up front, not just at the top of stampTrees: stampHill and
+  // stampFlowers both consult isBlockedTile (which now checks treeTileKeys
+  // too), and they run BEFORE stampTrees. Without this, they'd read whatever
+  // tree layout the previous generateTerrain() call left behind, making their
+  // own seeded-RNG draw counts depend on unrelated prior state.
+  treeTileKeys = new Set();
+
   const types = generateTerrainTypes(size);
   smoothLoneTiles(types, size);
 
@@ -2325,7 +2332,12 @@ function terrainTilesForSeed(size, seed, worldX = 0, worldY = 0) {
   const savedFlowers = flowerTileKeys;
   const savedTrees = treeTileKeys;
 
-  generateTerrain(size, seed, worldX, worldY);
+  // clearSpawns MUST match what happens when this node is actually entered
+  // (paintCenterTerrain always passes true) — otherwise the pond footprint
+  // differs at spawn cells, which shifts how many seeded-RNG draws stampWater
+  // consumes before hills/flowers/trees are placed, desyncing every stamp
+  // that follows and making the preview diverge from the real arena.
+  generateTerrain(size, seed, worldX, worldY, true);
   const result = {
     tiles: terrainTiles.map((typeRow) => typeRow.slice()),
     hillKeys: new Set(hillTileKeys),
