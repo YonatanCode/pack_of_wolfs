@@ -410,6 +410,9 @@ const FLOWER_RATIO = 0.03; // ~3% of eligible grass tiles
 // a single static sprite (not a tileset index), swapped for transparency once
 // a unit stands behind it (not yet implemented).
 const TREE_IMAGE_PATH = "isometric tileset/Tree.png";
+// Outline sprite shown wherever the tree fades transparent, so its silhouette
+// stays readable even when hiding a unit — see refreshTreeTransparency.
+const TREE_OUTLINE_IMAGE_PATH = "isometric tileset/Tree_outline.png";
 const TREE_COUNT_RANGE = [0, 3];
 const TREE_DENSITY_RADIUS = 1; // checks the 3x3 neighbourhood around a candidate
 const TREE_DENSITY_MIN_RATIO = 0.8; // that neighbourhood must be mostly grass
@@ -2897,6 +2900,7 @@ function buildTreeBlocks(treeKeys) {
     const depth = GRID_SIZE * 2 + row + col + 20;
     const block = document.createElement("div");
     const img = document.createElement("img");
+    const outline = document.createElement("img");
 
     block.className = "tree-block";
     block.dataset.row = row;
@@ -2904,11 +2908,16 @@ function buildTreeBlocks(treeKeys) {
     block.style.left = `${position.x}px`;
     block.style.top = `${position.y}px`;
     block.style.zIndex = depth;
+    img.className = "tree-sprite";
     img.src = TREE_IMAGE_PATH;
     img.alt = "";
     img.draggable = false;
+    outline.className = "tree-outline";
+    outline.src = TREE_OUTLINE_IMAGE_PATH;
+    outline.alt = "";
+    outline.draggable = false;
 
-    block.append(img);
+    block.append(img, outline);
     blocks.push(block);
   });
 
@@ -2958,24 +2967,49 @@ function findTreeFadeStopPx(treeRow, treeCol) {
 // Fade each occluding tree from fully opaque at its base to fully transparent
 // at the height of the unit hiding behind it, via a mask gradient (a flat
 // on/off opacity would hide the whole tree, not just the part in front of the
-// unit). Call after any unit position change, alongside concealment.
+// unit). The outline sprite gets the opposite mask — transparent where the
+// tree sprite is still opaque, opaque where the tree sprite has faded — so it
+// only fills in the part of the silhouette the tree itself no longer shows.
+// Skipped entirely when --tree-outline-opacity is 0 (nothing to show). Call
+// after any unit position change, alongside concealment.
 function refreshTreeTransparency() {
   const layer = arena?.querySelector(".tile-layer");
 
   layer?.querySelectorAll(".tree-block").forEach((block) => {
     const row = Number(block.dataset.row);
     const col = Number(block.dataset.col);
+    const sprite = block.querySelector(".tree-sprite");
+    const outline = block.querySelector(".tree-outline");
+    const outlineOpacity = outline
+      ? Number(getComputedStyle(outline).getPropertyValue("--tree-outline-opacity"))
+      : 0;
     const fadeStopPx = findTreeFadeStopPx(row, col);
 
-    if (fadeStopPx === null) {
-      block.style.maskImage = "";
-      block.style.webkitMaskImage = "";
+    if (fadeStopPx === null || !(outlineOpacity > 0)) {
+      if (sprite) {
+        sprite.style.maskImage = "";
+        sprite.style.webkitMaskImage = "";
+      }
+      if (outline) {
+        outline.style.maskImage = "";
+        outline.style.webkitMaskImage = "";
+        outline.classList.remove("is-visible");
+      }
       return;
     }
 
-    const gradient = `linear-gradient(to top, black 0px, transparent ${fadeStopPx}px)`;
-    block.style.maskImage = gradient;
-    block.style.webkitMaskImage = gradient;
+    const spriteGradient = `linear-gradient(to top, black 0px, transparent ${fadeStopPx}px)`;
+    const outlineGradient = `linear-gradient(to top, transparent 0px, black ${fadeStopPx}px)`;
+
+    if (sprite) {
+      sprite.style.maskImage = spriteGradient;
+      sprite.style.webkitMaskImage = spriteGradient;
+    }
+    if (outline) {
+      outline.style.maskImage = outlineGradient;
+      outline.style.webkitMaskImage = outlineGradient;
+      outline.classList.add("is-visible");
+    }
   });
 }
 

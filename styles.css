@@ -161,11 +161,15 @@ body {
    The 2x width and +24px anchor are a first guess — tune both once we see it
    in the browser. */
 .tree-block {
+  /* Opacity of the outline overlay where the tree sprite has faded out; tune
+     to taste (0 = invisible, 1 = as solid as the tree sprite itself). */
+  --tree-outline-opacity: 1;
+  /* Dark halo behind the line so it reads against light backgrounds (grass). */
+  --tree-outline-halo: 0 0 2px rgba(0, 0, 0, 0.9);
   position: absolute;
   width: calc(var(--tile-width) * 2);
   transform: translate(-54%, calc(-100% + 18px));
   pointer-events: none;
-  transition: mask-image 150ms ease, -webkit-mask-image 150ms ease;
 }
 
 /* Ground shadow at the trunk base, same soft dark blur as the one baked
@@ -188,6 +192,32 @@ body {
   height: auto;
   user-select: none;
   -webkit-user-drag: none;
+}
+
+.tree-block .tree-sprite {
+  transition: mask-image 150ms ease, -webkit-mask-image 150ms ease;
+}
+
+/* Hidden by default; shown only where the tree sprite has faded (see
+   refreshTreeTransparency), so it fills in exactly the part of the
+   silhouette the tree itself no longer shows. */
+.tree-block .tree-outline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  /* brightness(0) + invert(1) forces every visible pixel to solid white
+     (regardless of the source line's gray value), then the drop-shadow adds
+     a dark halo so it stays legible over light backgrounds (grass). */
+  filter:
+    brightness(0)
+    invert(1)
+    drop-shadow(var(--tree-outline-halo));
+  transition: mask-image 150ms ease, -webkit-mask-image 150ms ease, opacity 150ms ease;
+}
+
+.tree-block .tree-outline.is-visible {
+  opacity: var(--tree-outline-opacity);
 }
 
 .tile.is-hovered img,
