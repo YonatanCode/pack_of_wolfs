@@ -2995,7 +2995,10 @@ function refreshTreeTransparency() {
     }
 
     const spriteGradient = `linear-gradient(to top, black 0px, transparent ${fadeStopPx}px)`;
-    const outlineGradient = `linear-gradient(to top, transparent 0px, black ${fadeStopPx}px)`;
+    // Hard cutoff (no gradient) so the outline itself stays at a flat,
+    // constant opacity in the faded region instead of fading in/out like the
+    // tree sprite it's covering for.
+    const outlineGradient = `linear-gradient(to top, transparent ${fadeStopPx}px, black ${fadeStopPx}px)`;
 
     if (sprite) {
       sprite.style.maskImage = spriteGradient;
