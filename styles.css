@@ -161,11 +161,13 @@ body {
    The 2x width and +24px anchor are a first guess — tune both once we see it
    in the browser. */
 .tree-block {
+  /* Opacity of the outline overlay where the tree sprite has faded out; tune
+     to taste (0 = invisible, 1 = as solid as the tree sprite itself). */
+  --tree-outline-opacity: 0.6;
   position: absolute;
   width: calc(var(--tile-width) * 2);
   transform: translate(-54%, calc(-100% + 18px));
   pointer-events: none;
-  transition: mask-image 150ms ease, -webkit-mask-image 150ms ease;
 }
 
 /* Ground shadow at the trunk base, same soft dark blur as the one baked
@@ -188,6 +190,25 @@ body {
   height: auto;
   user-select: none;
   -webkit-user-drag: none;
+}
+
+.tree-block .tree-sprite {
+  transition: mask-image 150ms ease, -webkit-mask-image 150ms ease;
+}
+
+/* Overlay kept in step with .tree-sprite: it only shows through the region
+   the tree sprite has faded out of (see refreshTreeTransparency), so the
+   tree's outline stays visible instead of a unit-shaped hole. */
+.tree-block .tree-outline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  transition: mask-image 150ms ease, -webkit-mask-image 150ms ease, opacity 150ms ease;
+}
+
+.tree-block .tree-outline.is-visible {
+  opacity: var(--tree-outline-opacity);
 }
 
 .tile.is-hovered img,
