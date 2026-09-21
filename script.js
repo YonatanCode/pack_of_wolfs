@@ -2967,10 +2967,11 @@ function findTreeFadeStopPx(treeRow, treeCol) {
 // Fade each occluding tree from fully opaque at its base to fully transparent
 // at the height of the unit hiding behind it, via a mask gradient (a flat
 // on/off opacity would hide the whole tree, not just the part in front of the
-// unit). The outline sprite gets the inverse mask, so it fills in exactly the
-// region the tree sprite faded out of, keeping the tree's silhouette readable
-// (its own opacity is controlled separately by --tree-outline-opacity in CSS).
-// Call after any unit position change, alongside concealment.
+// unit). The outline sprite is unmasked — whenever the tree sprite is fading
+// at all, the outline shows in full, on top of it, at a constant
+// --tree-outline-opacity — so the tree's silhouette stays fully readable
+// rather than only the faded slice of it. Call after any unit position
+// change, alongside concealment.
 function refreshTreeTransparency() {
   const layer = arena?.querySelector(".tile-layer");
 
@@ -2986,29 +2987,17 @@ function refreshTreeTransparency() {
         sprite.style.maskImage = "";
         sprite.style.webkitMaskImage = "";
       }
-      if (outline) {
-        outline.style.maskImage = "";
-        outline.style.webkitMaskImage = "";
-        outline.classList.remove("is-visible");
-      }
+      outline?.classList.remove("is-visible");
       return;
     }
 
     const spriteGradient = `linear-gradient(to top, black 0px, transparent ${fadeStopPx}px)`;
-    // Hard cutoff (no gradient) so the outline itself stays at a flat,
-    // constant opacity in the faded region instead of fading in/out like the
-    // tree sprite it's covering for.
-    const outlineGradient = `linear-gradient(to top, transparent ${fadeStopPx}px, black ${fadeStopPx}px)`;
 
     if (sprite) {
       sprite.style.maskImage = spriteGradient;
       sprite.style.webkitMaskImage = spriteGradient;
     }
-    if (outline) {
-      outline.style.maskImage = outlineGradient;
-      outline.style.webkitMaskImage = outlineGradient;
-      outline.classList.add("is-visible");
-    }
+    outline?.classList.add("is-visible");
   });
 }
 

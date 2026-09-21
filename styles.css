@@ -163,7 +163,7 @@ body {
 .tree-block {
   /* Opacity of the outline overlay where the tree sprite has faded out; tune
      to taste (0 = invisible, 1 = as solid as the tree sprite itself). */
-  --tree-outline-opacity: 0.6;
+  --tree-outline-opacity: 1;
   position: absolute;
   width: calc(var(--tile-width) * 2);
   transform: translate(-54%, calc(-100% + 18px));
@@ -196,9 +196,9 @@ body {
   transition: mask-image 150ms ease, -webkit-mask-image 150ms ease;
 }
 
-/* Overlay kept in step with .tree-sprite: it only shows through the region
-   the tree sprite has faded out of (see refreshTreeTransparency), so the
-   tree's outline stays visible instead of a unit-shaped hole. */
+/* Full, unmasked overlay shown on top of the tree sprite whenever it's
+   fading (see refreshTreeTransparency), so the tree's outline stays fully
+   visible instead of a unit-shaped hole. */
 .tree-block .tree-outline {
   position: absolute;
   top: 0;
