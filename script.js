@@ -2967,11 +2967,11 @@ function findTreeFadeStopPx(treeRow, treeCol) {
 // Fade each occluding tree from fully opaque at its base to fully transparent
 // at the height of the unit hiding behind it, via a mask gradient (a flat
 // on/off opacity would hide the whole tree, not just the part in front of the
-// unit). The outline sprite is unmasked — whenever the tree sprite is fading
-// at all, the outline shows in full, on top of it, at a constant
-// --tree-outline-opacity — so the tree's silhouette stays fully readable
-// rather than only the faded slice of it. Call after any unit position
-// change, alongside concealment.
+// unit). The outline sprite gets the opposite mask — transparent where the
+// tree sprite is still opaque, opaque where the tree sprite has faded — so it
+// only fills in the part of the silhouette the tree itself no longer shows.
+// Skipped entirely when --tree-outline-opacity is 0 (nothing to show). Call
+// after any unit position change, alongside concealment.
 function refreshTreeTransparency() {
   const layer = arena?.querySelector(".tile-layer");
 
@@ -2980,24 +2980,36 @@ function refreshTreeTransparency() {
     const col = Number(block.dataset.col);
     const sprite = block.querySelector(".tree-sprite");
     const outline = block.querySelector(".tree-outline");
+    const outlineOpacity = outline
+      ? Number(getComputedStyle(outline).getPropertyValue("--tree-outline-opacity"))
+      : 0;
     const fadeStopPx = findTreeFadeStopPx(row, col);
 
-    if (fadeStopPx === null) {
+    if (fadeStopPx === null || !(outlineOpacity > 0)) {
       if (sprite) {
         sprite.style.maskImage = "";
         sprite.style.webkitMaskImage = "";
       }
-      outline?.classList.remove("is-visible");
+      if (outline) {
+        outline.style.maskImage = "";
+        outline.style.webkitMaskImage = "";
+        outline.classList.remove("is-visible");
+      }
       return;
     }
 
     const spriteGradient = `linear-gradient(to top, black 0px, transparent ${fadeStopPx}px)`;
+    const outlineGradient = `linear-gradient(to top, transparent 0px, black ${fadeStopPx}px)`;
 
     if (sprite) {
       sprite.style.maskImage = spriteGradient;
       sprite.style.webkitMaskImage = spriteGradient;
     }
-    outline?.classList.add("is-visible");
+    if (outline) {
+      outline.style.maskImage = outlineGradient;
+      outline.style.webkitMaskImage = outlineGradient;
+      outline.classList.add("is-visible");
+    }
   });
 }
 
