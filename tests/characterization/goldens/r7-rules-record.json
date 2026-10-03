@@ -1,0 +1,179 @@
+{
+  "header": "REQUIREMENT — P1c acceptance",
+  "version": "0.1.0-current",
+  "hash": "0d3ce2ec6fa6de",
+  "pinnedChecked": [
+    "DEFAULT_GRID_SIZE",
+    "MIN_GRID_SIZE",
+    "MAX_GRID_SIZE",
+    "PLAYER_MOVE_SPEED",
+    "PLAYER_MOVE_ANIMATION_STOP_EARLY_FRAMES",
+    "PLAYER_MOVE_ANIMATION_MIN_VISIBLE_FRAMES",
+    "UNIT_MAX_HEALTH",
+    "UNIT_RECOVERY_SAFE_TURNS",
+    "UNIT_RECOVERY_HEAL_AMOUNT",
+    "UNIT_ATTACK_DAMAGE",
+    "UNIT_DEFENDED_DAMAGE",
+    "UNIT_HIT_REACTION_MS",
+    "ACTIONS",
+    "ACTION_SLOT_COUNT",
+    "ACTION_QUEUE_SLOT_COUNT",
+    "RESHUFFLE_CHARGES_PER_BATTLE",
+    "MOVE_ACTION_TILE_COUNT",
+    "MAX_SAME_ACTION",
+    "ENEMY_PLAN_ACTION_COUNT",
+    "ENEMY_AGGRESSIVE_DOCTRINE",
+    "ENEMY_LOW_HEALTH_RATIO",
+    "ENEMY_FLEE_TRIGGER_RANGE",
+    "ENEMY_FLEE_SAFE_RANGE"
+  ],
+  "leavesHashed": 32,
+  "orderIndependent": true,
+  "arrayOrderSignificant": true,
+  "tamper": [
+    "activeRules.handSize = 9 -> TypeError",
+    "activeRules.drawWeights.Move = 9 -> TypeError",
+    "activeRules.enemyActionPool.push('Move') -> TypeError",
+    "RULES.perBattle.handSize = 9 -> TypeError",
+    "RULES.buildDefaults.combat.attackDamage = 99 -> TypeError",
+    "delete RULES.perBattle.maxSameAction -> TypeError"
+  ],
+  "sloppyTamperIgnored": true,
+  "retakeOn": [
+    "loadScenario",
+    "restartBattle",
+    "resetGame",
+    "startArena"
+  ],
+  "pointOfUseEvidence": {
+    "handSize3": 3,
+    "handSize7": 7,
+    "capOneMaxCount": 1,
+    "queueFull": {
+      "queued": 2,
+      "full": true
+    },
+    "tagSlice": {
+      "queued": 3,
+      "defaultBudget": 3,
+      "budget1": 1,
+      "budget2": 2
+    },
+    "packPlan": {
+      "defaultBudget": 3,
+      "budget1": 1
+    },
+    "planEnemyTurn": {
+      "defaultBudget": 3,
+      "budget2": 2
+    },
+    "doctrinePool": {
+      "default": {
+        "single": [
+          "Attack",
+          "Attack",
+          "Defend"
+        ],
+        "pack": [
+          "Attack",
+          "Attack",
+          "Move",
+          "Defend"
+        ]
+      },
+      "allDefend": {
+        "single": [
+          "Defend"
+        ],
+        "pack": [
+          "Defend",
+          "Defend",
+          "Defend",
+          "Defend",
+          "Defend"
+        ]
+      },
+      "attackAttack": {
+        "single": [
+          "Attack",
+          "Attack"
+        ],
+        "pack": [
+          "Attack",
+          "Attack"
+        ]
+      },
+      "allMoveFar": {
+        "single": [
+          "Move",
+          "Move",
+          "Move"
+        ],
+        "pack": [
+          "Move",
+          "Move",
+          "Move",
+          "Move",
+          "Move"
+        ]
+      }
+    },
+    "reshuffleCharges": 2
+  },
+  "drawWeightsNotConsulted": {
+    "seeds": 500,
+    "identical": true,
+    "sampleHands": [
+      [
+        "Move",
+        "Move",
+        "Move",
+        "Attack",
+        "Attack"
+      ],
+      [
+        "Attack",
+        "Move",
+        "Attack",
+        "Defend",
+        "Defend"
+      ],
+      [
+        "Defend",
+        "Move",
+        "Move",
+        "Attack",
+        "Defend"
+      ]
+    ]
+  },
+  "aliasReferenceContexts": {
+    "ACTION_SLOT_COUNT": [
+      "alias-definition"
+    ],
+    "ACTION_QUEUE_SLOT_COUNT": [
+      "alias-definition",
+      "dev-scenario:player-shared-action-cap",
+      "dev-scenario:player-shared-action-cap",
+      "dev-scenario:player-shared-action-cap"
+    ],
+    "RESHUFFLE_CHARGES_PER_BATTLE": [
+      "alias-definition"
+    ],
+    "MAX_SAME_ACTION": [
+      "alias-definition"
+    ],
+    "ENEMY_PLAN_ACTION_COUNT": [
+      "alias-definition"
+    ],
+    "ENEMY_AGGRESSIVE_DOCTRINE": [
+      "alias-definition"
+    ]
+  },
+  "usage": {
+    "contexts": 23,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

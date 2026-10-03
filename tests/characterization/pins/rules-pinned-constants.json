@@ -1,0 +1,38 @@
+{
+  "header": "REQUIREMENT — constants pinned from HEAD e4c1627 before P1c; RULES must reproduce them exactly",
+  "constants": {
+    "DEFAULT_GRID_SIZE": 16,
+    "MIN_GRID_SIZE": 4,
+    "MAX_GRID_SIZE": 18,
+    "PLAYER_MOVE_SPEED": 60,
+    "PLAYER_MOVE_ANIMATION_STOP_EARLY_FRAMES": 5,
+    "PLAYER_MOVE_ANIMATION_MIN_VISIBLE_FRAMES": 2,
+    "UNIT_MAX_HEALTH": 10,
+    "UNIT_RECOVERY_SAFE_TURNS": 2,
+    "UNIT_RECOVERY_HEAL_AMOUNT": 1,
+    "UNIT_ATTACK_DAMAGE": 3,
+    "UNIT_DEFENDED_DAMAGE": 1,
+    "UNIT_HIT_REACTION_MS": 220,
+    "ACTIONS": [
+      "Move",
+      "Attack",
+      "Defend"
+    ],
+    "ACTION_SLOT_COUNT": 5,
+    "ACTION_QUEUE_SLOT_COUNT": 5,
+    "RESHUFFLE_CHARGES_PER_BATTLE": 2,
+    "MOVE_ACTION_TILE_COUNT": 3,
+    "MAX_SAME_ACTION": 3,
+    "ENEMY_PLAN_ACTION_COUNT": 5,
+    "ENEMY_AGGRESSIVE_DOCTRINE": [
+      "Move",
+      "Move",
+      "Defend",
+      "Attack",
+      "Attack"
+    ],
+    "ENEMY_LOW_HEALTH_RATIO": 0.35,
+    "ENEMY_FLEE_TRIGGER_RANGE": 4,
+    "ENEMY_FLEE_SAFE_RANGE": 7
+  }
+}
