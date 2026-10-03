@@ -1,6 +1,114 @@
-const DEFAULT_GRID_SIZE = 16;
-const MIN_GRID_SIZE = 4;
-const MAX_GRID_SIZE = 18;
+// ---------------------------------------------------------------------------
+// RULES: every tunable gameplay number, in one frozen record (P1c, behaviour-preserving).
+// Two classes:
+//  - perBattle: the approved per-battle configurable set. activeRules takes a frozen
+//    snapshot of it at every battle load/restart (see takeActiveRulesSnapshot) and game code
+//    READS activeRules AT THE POINT OF USE. Changing RULES mid-battle changes nothing until
+//    the next load/restart.
+//  - buildDefaults: everything else. Recorded and hashed, but the top-level consts below are
+//    read-once aliases of it; editing a value changes the build (and the rules hash).
+// Do not tune values here as part of the record work: this mirrors the pre-P1c constants.
+// ---------------------------------------------------------------------------
+const RULES_VERSION = "0.1.0-current";
+
+function deepFreeze(value) {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.values(value).forEach(deepFreeze);
+    Object.freeze(value);
+  }
+  return value;
+}
+
+function cloneRulesData(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+const RULES = deepFreeze({
+  perBattle: {
+    playerActionBudget: 5, // shared queued-action cap across the player pack
+    handSize: 5, // cards in the shared hand
+    reshuffleCharges: 2, // reshuffles per battle
+    maxSameAction: 3, // duplicate cap per action type in a hand
+    // Draw weights are DATA ONLY: stored and hashed, NOT consulted by randomAction.
+    // P2 implements weighted drawing + validation.
+    drawWeights: { Move: 1, Attack: 1, Defend: 1 },
+    enemyActionBudget: 5, // actions an enemy plan is filled to
+    enemyActionPool: ["Move", "Move", "Defend", "Attack", "Attack"], // ordered doctrine pool (copied per plan)
+  },
+  buildDefaults: {
+    grid: { defaultSize: 16, minSize: 4, maxSize: 18 },
+    actions: { list: ["Move", "Attack", "Defend"] },
+    combat: {
+      maxHealth: 10,
+      attackDamage: 3,
+      defendedDamageDivisor: 3, // defended damage = ceil(attackDamage / divisor)
+      hitReactionMs: 220,
+    },
+    recovery: { safeTurns: 2, healAmount: 1 },
+    movement: {
+      playerMoveSpeed: 60,
+      animationStopEarlyFrames: 5,
+      animationMinVisibleFrames: 2,
+      moveActionTileCount: 3,
+    },
+    enemy: {
+      lowHealthRatio: 0.35,
+      fleeTriggerRange: 4,
+      fleeSafeRange: 7,
+    },
+  },
+});
+
+// Stable, order-independent canonical form: object keys sorted, array order kept.
+function canonicalizeRules(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalizeRules).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalizeRules(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+// cyrb53 (non-crypto, synchronous): 53-bit hash as 14 hex digits.
+function hashString53(text) {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).padStart(14, "0");
+}
+
+function computeRulesHash(rules) {
+  return hashString53(canonicalizeRules(rules));
+}
+
+const RULES_HASH = computeRulesHash(RULES);
+
+function getRulesRecord() {
+  return { version: RULES_VERSION, hash: RULES_HASH, values: cloneRulesData(RULES) };
+}
+
+// Frozen per-battle snapshot, re-taken from RULES at every battle load/restart.
+function createActiveRulesSnapshot() {
+  return deepFreeze({ version: RULES_VERSION, hash: RULES_HASH, ...cloneRulesData(RULES.perBattle) });
+}
+
+let activeRules = createActiveRulesSnapshot();
+
+function takeActiveRulesSnapshot() {
+  activeRules = createActiveRulesSnapshot();
+  return activeRules;
+}
+
+const DEFAULT_GRID_SIZE = RULES.buildDefaults.grid.defaultSize;
+const MIN_GRID_SIZE = RULES.buildDefaults.grid.minSize;
+const MAX_GRID_SIZE = RULES.buildDefaults.grid.maxSize;
 let GRID_SIZE = DEFAULT_GRID_SIZE;
 const TILE_WIDTH = 32;
 const TILE_HEIGHT = 32;
@@ -13,15 +121,15 @@ const TILE_OPAQUE_TOP = 8;
 const TILE_OPAQUE_FULL_TOP = 16;
 const TILE_OPAQUE_FULL_BOTTOM = 24;
 const DEFAULT_UNIT_TYPE = "wolf";
-const PLAYER_MOVE_SPEED = 60;
-const PLAYER_MOVE_ANIMATION_STOP_EARLY_FRAMES = 5;
-const PLAYER_MOVE_ANIMATION_MIN_VISIBLE_FRAMES = 2;
-const UNIT_MAX_HEALTH = 10;
-const UNIT_RECOVERY_SAFE_TURNS = 2;
-const UNIT_RECOVERY_HEAL_AMOUNT = 1;
-const UNIT_ATTACK_DAMAGE = 3;
-const UNIT_DEFENDED_DAMAGE = Math.ceil(UNIT_ATTACK_DAMAGE / 3);
-const UNIT_HIT_REACTION_MS = 220;
+const PLAYER_MOVE_SPEED = RULES.buildDefaults.movement.playerMoveSpeed;
+const PLAYER_MOVE_ANIMATION_STOP_EARLY_FRAMES = RULES.buildDefaults.movement.animationStopEarlyFrames;
+const PLAYER_MOVE_ANIMATION_MIN_VISIBLE_FRAMES = RULES.buildDefaults.movement.animationMinVisibleFrames;
+const UNIT_MAX_HEALTH = RULES.buildDefaults.combat.maxHealth;
+const UNIT_RECOVERY_SAFE_TURNS = RULES.buildDefaults.recovery.safeTurns;
+const UNIT_RECOVERY_HEAL_AMOUNT = RULES.buildDefaults.recovery.healAmount;
+const UNIT_ATTACK_DAMAGE = RULES.buildDefaults.combat.attackDamage;
+const UNIT_DEFENDED_DAMAGE = Math.ceil(UNIT_ATTACK_DAMAGE / RULES.buildDefaults.combat.defendedDamageDivisor);
+const UNIT_HIT_REACTION_MS = RULES.buildDefaults.combat.hitReactionMs;
 const TILE_PATH = "isometric tileset/separated images";
 const WOLF_PATH = "wolf/no effects";
 const STAG_PATH = "stag";
@@ -39,16 +147,18 @@ const STAG_DIRECTIONS = {
 };
 const ENEMY_MODES = ["wolves", "stag"];
 const DEFAULT_ENEMY_MODE = "wolves";
-const ACTIONS = ["Move", "Attack", "Defend"];
-const ACTION_SLOT_COUNT = 5;
-const ACTION_QUEUE_SLOT_COUNT = 5;
-const RESHUFFLE_CHARGES_PER_BATTLE = 2;
+const ACTIONS = RULES.buildDefaults.actions.list;
+// Per-battle configurable values: these names are BUILD-DEFAULT aliases kept for dev-test
+// scenarios/fixtures only. Game code reads activeRules at the point of use.
+const ACTION_SLOT_COUNT = RULES.perBattle.handSize;
+const ACTION_QUEUE_SLOT_COUNT = RULES.perBattle.playerActionBudget;
+const RESHUFFLE_CHARGES_PER_BATTLE = RULES.perBattle.reshuffleCharges;
 const ACTION_ICONS = {
   Move: "assets/icons/move.svg",
   Attack: "assets/icons/attack.svg",
   Defend: "assets/icons/defend.svg",
 };
-const MOVE_ACTION_TILE_COUNT = 3;
+const MOVE_ACTION_TILE_COUNT = RULES.buildDefaults.movement.moveActionTileCount;
 const DIRECTION_TILE_DELTAS = {
   topLeft: { row: 0, col: -1 },
   topRight: { row: -1, col: 0 },
@@ -77,15 +187,16 @@ const ACTION_ANIMATIONS = {
   Attack: { animationName: "bite", cycles: 1 },
   Defend: { animationName: "howl", cycles: 1 },
 };
-const ENEMY_PLAN_ACTION_COUNT = 5;
-const ENEMY_AGGRESSIVE_DOCTRINE = ["Move", "Move", "Defend", "Attack", "Attack"];
-const ENEMY_LOW_HEALTH_RATIO = 0.35;
+// Build-default aliases of the per-battle enemy values (game code reads activeRules).
+const ENEMY_PLAN_ACTION_COUNT = RULES.perBattle.enemyActionBudget;
+const ENEMY_AGGRESSIVE_DOCTRINE = RULES.perBattle.enemyActionPool;
+const ENEMY_LOW_HEALTH_RATIO = RULES.buildDefaults.enemy.lowHealthRatio;
 // A wounded wolf bolts when a player is within this range and only rejoins the
 // pack once it has opened up at least the (larger) safe range — the gap between
 // the two values is intentional hysteresis so it commits to retreating instead
 // of flip-flopping on the boundary.
-const ENEMY_FLEE_TRIGGER_RANGE = 4;
-const ENEMY_FLEE_SAFE_RANGE = 7;
+const ENEMY_FLEE_TRIGGER_RANGE = RULES.buildDefaults.enemy.fleeTriggerRange;
+const ENEMY_FLEE_SAFE_RANGE = RULES.buildDefaults.enemy.fleeSafeRange;
 const CLOSE_ICON = "assets/icons/close.svg";
 const CLOCKWISE_DIRECTIONS = ["topLeft", "topRight", "bottomRight", "bottomLeft"];
 const PLAYER_MOVEMENT_MODES = ["Dodge", "Flank", "Hunt"];
@@ -189,7 +300,7 @@ const tutorialNextButton = document.querySelector("#tutorial-next");
 const tutorialSkipButton = document.querySelector("#tutorial-skip");
 const tileElements = [];
 const unitActionQueues = new WeakMap();
-let reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
+let reshuffleChargesRemaining = activeRules.reshuffleCharges;
 
 // Battle-scenario mode. activeScenario is the fixed battlefield definition from
 // window.BATTLE_SCENARIOS (null in ?mode=world / sandbox). While set, buildArena
@@ -1354,7 +1465,8 @@ function preloadUnitAnimations() {
 
 // No randomized hand should ever contain more than this many of the same
 // action — too many duplicates makes a draw feel degenerate and removes choice.
-const MAX_SAME_ACTION = 3;
+// (build-default alias; randomAction reads activeRules.maxSameAction)
+const MAX_SAME_ACTION = RULES.perBattle.maxSameAction;
 
 // Tally how many of each action are currently in the shared hand.
 function countAvailableActions() {
@@ -1374,7 +1486,7 @@ function countAvailableActions() {
 // (can't happen at the current slot count) we fall back to an unconstrained
 // pick so we never return undefined.
 function randomAction(counts = {}) {
-  const eligible = ACTIONS.filter((action) => (counts[action] ?? 0) < MAX_SAME_ACTION);
+  const eligible = ACTIONS.filter((action) => (counts[action] ?? 0) < activeRules.maxSameAction);
   const pool = eligible.length > 0 ? eligible : ACTIONS;
 
   return pool[Math.floor(handRandom() * pool.length)];
@@ -1420,7 +1532,7 @@ function createAvailableActionItem(action) {
 }
 
 function refillAvailableActions() {
-  const emptySlotCount = ACTION_SLOT_COUNT - getAvailableActionTotal();
+  const emptySlotCount = activeRules.handSize - getAvailableActionTotal();
 
   if (emptySlotCount <= 0) {
     return;
@@ -1487,7 +1599,7 @@ function reshuffleActions() {
 }
 
 function fillAvailableActions(action) {
-  const items = Array.from({ length: ACTION_SLOT_COUNT }, () => createAvailableActionItem(action));
+  const items = Array.from({ length: activeRules.handSize }, () => createAvailableActionItem(action));
 
   actionsList.replaceChildren(...items);
   updatePlayerActionControls();
@@ -1501,7 +1613,7 @@ function addAvailableAction(action) {
 // guided tutorial can showcase Move, Attack and Defend. Remaining slots are
 // filled randomly. Affects only the shared hand, not queued unit actions.
 function seedTutorialActionHand() {
-  const fillerCount = Math.max(0, ACTION_SLOT_COUNT - ACTIONS.length);
+  const fillerCount = Math.max(0, activeRules.handSize - ACTIONS.length);
 
   // The hand starts with one of every action, so seed the cap counter with
   // those before drawing the random fillers.
@@ -1529,12 +1641,15 @@ function getUnitActionQueue(unit) {
   return unitActionQueues.get(unit);
 }
 
+// NOTE (P2): the enemy branch below still caps at the player's shared budget, as it
+// always has. It is not tied to activeRules.enemyActionBudget; decide that in P2 if the
+// two budgets are allowed to differ.
 function isUnitActionQueueFull(unit) {
   if (unit.team === "player") {
-    return getQueuedPlayerActionTotal() >= ACTION_QUEUE_SLOT_COUNT;
+    return getQueuedPlayerActionTotal() >= activeRules.playerActionBudget;
   }
 
-  return getUnitActionQueue(unit).length >= ACTION_QUEUE_SLOT_COUNT;
+  return getUnitActionQueue(unit).length >= activeRules.playerActionBudget;
 }
 
 function getAvailableActionCount(action) {
@@ -2212,7 +2327,8 @@ function startArena(node, entryCorner = currentEntryCorner) {
     console.log(`[spawn] entryCorner=${entryCorner} | player primary=(${p.row},${p.col}) facing ${p.direction} | enemy primary=(${e.row},${e.col})`);
   }
 
-  reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
+  takeActiveRulesSnapshot();
+  reshuffleChargesRemaining = activeRules.reshuffleCharges;
 
   if (node && node.enemyMode && ENEMY_MODES.includes(node.enemyMode)) {
     enemyMode = node.enemyMode;
@@ -3292,7 +3408,7 @@ function renderUnitIntentTags(unit, actions = getUnitActionQueue(unit)) {
 
   const concealIntent = unit.team === "enemy" && isUnitHidden(unit);
   const visibleActions = isUnitAlive(unit) && !concealIntent
-    ? actions.slice(0, ACTION_QUEUE_SLOT_COUNT)
+    ? actions.slice(0, activeRules.playerActionBudget)
     : [];
   const tags = visibleActions.map((action, index) => {
     const tag = document.createElement("span");
@@ -4029,9 +4145,9 @@ function planEnemyPackTurn(enemyUnits, playerUnits) {
   assignEnemyPackObjectives(aliveEnemies, enemyPackFocusTarget, targetedPlayers, plannedStates);
 
   const reservedMoveTargets = new Set();
-  const doctrinePool = [...ENEMY_AGGRESSIVE_DOCTRINE];
+  const doctrinePool = [...activeRules.enemyActionPool];
 
-  while (enemyPackActionQueue.length < ENEMY_PLAN_ACTION_COUNT) {
+  while (enemyPackActionQueue.length < activeRules.enemyActionBudget) {
     const assignment = getBestEnemyPackAction(
       aliveEnemies,
       enemyPackFocusTarget,
@@ -4433,12 +4549,12 @@ function planEnemyTurn(enemyUnit, targetUnit) {
   }
 
   const isLowHealth = enemyUnit.health / enemyUnit.maxHealth <= ENEMY_LOW_HEALTH_RATIO;
-  const doctrinePool = [...ENEMY_AGGRESSIVE_DOCTRINE];
+  const doctrinePool = [...activeRules.enemyActionPool];
   let plannedRow = enemyUnit.row;
   let plannedCol = enemyUnit.col;
   let hasDefended = false;
 
-  while (actionQueue.length < ENEMY_PLAN_ACTION_COUNT) {
+  while (actionQueue.length < activeRules.enemyActionBudget) {
     if (isAdjacentTile(plannedRow, plannedCol, targetUnit.row, targetUnit.col)) {
       if (isLowHealth && !hasDefended) {
         if (pushEnemyPlannedAction(actionQueue, doctrinePool, "Defend")) {
@@ -4761,7 +4877,8 @@ function resetGame() {
   }
 
   if (gameResultOverlay) gameResultOverlay.hidden = true;
-  reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
+  takeActiveRulesSnapshot();
+  reshuffleChargesRemaining = activeRules.reshuffleCharges;
   resetDevTest();
   refillAvailableActions();
   updateEnemyIntentPreview();
@@ -8384,6 +8501,9 @@ window.devTest = {
   loadScenario,
   restartBattle,
   getBattleSeeds,
+  getBattleRecord,
+  getRulesRecord,
+  getActiveRules: () => activeRules,
 };
 
 function getTileFromEvent(event) {
@@ -8545,6 +8665,11 @@ function getBattleSeeds() {
   };
 }
 
+// Seeds plus the rules identity, so replays/results can attach it (getBattleSeeds stays as is).
+function getBattleRecord() {
+  return { ...getBattleSeeds(), rules: { version: activeRules.version, hash: activeRules.hash } };
+}
+
 function updateScenarioLabel(text = null) {
   if (!scenarioLabelElement) {
     scenarioLabelElement = document.getElementById("scenario-label");
@@ -8654,7 +8779,8 @@ function loadScenario(id = "intro", seed) {
     gameResultOverlay.hidden = true;
   }
 
-  reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
+  takeActiveRulesSnapshot();
+  reshuffleChargesRemaining = activeRules.reshuffleCharges;
   enemyMode = "wolves";
   activeBattleDebugLog = null; // the previous battle's debug note is not this battle's
   lastBattleDebugReport = "";
