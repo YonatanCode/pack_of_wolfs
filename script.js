@@ -327,6 +327,15 @@ let playerActionMenu = null;
 let playerMovePreview = null;
 let playerMovePreviewTile = null;
 let isExecutingActionQueue = false;
+// Turn-lifecycle core state (see "TURN LIFECYCLE" below). Declared up here so the purity guard is
+// initialised before any startup code can reach a presentation function.
+let turnCoreDepth = 0; // > 0 while a turn-core generator body runs (between two yields)
+let lastTurnEventLog = []; // events of the most recent full turn (drained or played)
+const unitHealthReplayValues = new Map(); // unit -> { health, isDefeated } shown by the step being replayed
+const pendingMoveReplays = new Map(); // unit -> move event the core already applied (read by moveUnitToTile)
+// The shared action hand as ordered data (index 0 = first <li> of #actions-list); the list is its view.
+const playerHand = [];
+let playerHandViewItems = []; // the <li> elements the view last rendered, in order (presentation state)
 let isGuidedTutorialActive = false;
 let enemyMode = DEFAULT_ENEMY_MODE;
 let activeBattleDebugLog = null;
@@ -1468,16 +1477,127 @@ function preloadUnitAnimations() {
 // (build-default alias; randomAction reads activeRules.maxSameAction)
 const MAX_SAME_ACTION = RULES.perBattle.maxSameAction;
 
-// Tally how many of each action are currently in the shared hand.
+// --- Player hand: ordered DATA is the source of truth, #actions-list is its VIEW -----------------
+// playerHand[0] is the first <li> of actionsList. Draws prepend (newest first) and removal by card name
+// is first-match in list order, exactly as when the DOM list itself was the hand. Rules code (the turn
+// core's end-of-turn draw) only touches the array; the view is brought up to date by presentation code
+// (refillAvailableActions / renderPlayerHandDraws / rebuildPlayerHandView).
+// Legacy direct DOM edits (dev tools and fixtures that clear the list with actionsList.replaceChildren())
+// are adopted back into the data by the next hand operation: the view remembers which <li> elements it
+// rendered, so an edited list (different elements) is told apart from a merely stale one (data ahead of
+// an untouched view after a core draw).
+
+// Tally how many of each action are currently in the shared hand (data; the draw cap reads this).
 function countAvailableActions() {
   const counts = {};
 
-  Array.from(actionsList.children).forEach((item) => {
-    const action = item.dataset.action;
+  playerHand.forEach((action) => {
     counts[action] = (counts[action] ?? 0) + 1;
   });
 
   return counts;
+}
+
+// RULES (core-safe): fill the hand data up to activeRules.handSize. Same stream (handRandom), same
+// randomAction cap algorithm and same order as the old DOM refill: the k new cards are drawn in order
+// and prepended as a block, so draw #1 ends up first. Idempotent when the hand is already full.
+function drawPlayerHandToSize() {
+  const emptySlotCount = activeRules.handSize - playerHand.length;
+
+  if (emptySlotCount <= 0) {
+    return [];
+  }
+
+  // Count actions already in the hand so the new draws keep the whole hand
+  // (kept + drawn) within MAX_SAME_ACTION per type, not just the new slots.
+  const counts = countAvailableActions();
+  const drawn = Array.from({ length: emptySlotCount }, () => {
+    const action = randomAction(counts);
+    counts[action] = (counts[action] ?? 0) + 1;
+    return action;
+  });
+
+  playerHand.unshift(...drawn);
+  return drawn;
+}
+
+function isPlayerHandViewExternallyEdited() {
+  const children = Array.from(actionsList.children);
+
+  return (
+    children.length !== playerHandViewItems.length ||
+    children.some((item, index) => item !== playerHandViewItems[index])
+  );
+}
+
+// PRESENTATION-side: view -> data adoption of a direct DOM edit (see above). No-op otherwise.
+function adoptExternalPlayerHandEdits() {
+  assertNotInCore("adoptExternalPlayerHandEdits");
+
+  if (!isPlayerHandViewExternallyEdited()) {
+    return false;
+  }
+
+  const children = Array.from(actionsList.children);
+
+  playerHand.splice(0, playerHand.length, ...children.map((item) => item.dataset.action));
+  playerHandViewItems = children;
+  return true;
+}
+
+// PRESENTATION: rebuild the whole view from the data (no slide-in delays, like a replaceChildren hand).
+function rebuildPlayerHandView() {
+  assertNotInCore("rebuildPlayerHandView");
+
+  const items = playerHand.map((action) => createAvailableActionItem(action));
+
+  actionsList.replaceChildren(...items);
+  playerHandViewItems = items;
+}
+
+// PRESENTATION: show cards the data gained at the head since the view last rendered (a draw), with the
+// staggered --slide-delay the refill always used (last-drawn card slides first). Falls back to a full
+// rebuild if the data changed in any other way. Returns true when the view changed.
+function renderPlayerHandDraws() {
+  assertNotInCore("renderPlayerHandDraws");
+
+  const viewActions = playerHandViewItems.map((item) => item.dataset.action);
+  const addedCount = playerHand.length - viewActions.length;
+  const viewIsSuffix = addedCount >= 0 && viewActions.every((action, index) => action === playerHand[addedCount + index]);
+
+  if (!viewIsSuffix) {
+    rebuildPlayerHandView();
+    return true;
+  }
+
+  if (addedCount === 0) {
+    return false;
+  }
+
+  const newItems = playerHand.slice(0, addedCount).map((action, index) => {
+    const item = createAvailableActionItem(action);
+    item.style.setProperty("--slide-delay", `${(addedCount - 1 - index) * 120}ms`);
+    return item;
+  });
+
+  actionsList.prepend(...newItems);
+  playerHandViewItems = [...newItems, ...playerHandViewItems];
+  return true;
+}
+
+// PRESENTATION: make data and view agree before an edit (adopt a DOM edit, show pending draws).
+function preparePlayerHandForEdit() {
+  adoptExternalPlayerHandEdits();
+  renderPlayerHandDraws();
+}
+
+// Data + view: empty the hand (scenario load, reshuffle). Same DOM call the old code made.
+function clearPlayerHand() {
+  assertNotInCore("clearPlayerHand");
+
+  playerHand.length = 0;
+  actionsList.replaceChildren();
+  playerHandViewItems = [];
 }
 
 // Pick a random action, skipping any type that has already hit MAX_SAME_ACTION
@@ -1531,27 +1651,18 @@ function createAvailableActionItem(action) {
   return item;
 }
 
+// PRESENTATION-side entry point (name kept: the turn trace records it at the same point of the turn end).
+// Role now: adopt any direct DOM edit, fill the DATA to hand size if it is not full yet (the turn core has
+// usually drawn already, so this is idempotent there), then render the new head cards into the view.
+// Draws use drawPlayerHandToSize (same stream/algorithm/order); controls update only when cards were added.
 function refillAvailableActions() {
-  const emptySlotCount = activeRules.handSize - getAvailableActionTotal();
+  adoptExternalPlayerHandEdits();
+  drawPlayerHandToSize();
 
-  if (emptySlotCount <= 0) {
+  if (!renderPlayerHandDraws()) {
     return;
   }
 
-  // Count actions already in the hand so the new draws keep the whole hand
-  // (kept + drawn) within MAX_SAME_ACTION per type, not just the new slots.
-  const counts = countAvailableActions();
-
-  const newItems = Array.from({ length: emptySlotCount }, (_, index) => {
-    const action = randomAction(counts);
-    counts[action] = (counts[action] ?? 0) + 1;
-
-    const item = createAvailableActionItem(action);
-    item.style.setProperty("--slide-delay", `${(emptySlotCount - 1 - index) * 120}ms`);
-    return item;
-  });
-
-  actionsList.prepend(...newItems);
   updatePlayerActionControls();
 }
 
@@ -1560,6 +1671,8 @@ function canReshuffle() {
 }
 
 function updateReshuffleControl() {
+  assertNotInCore("updateReshuffleControl");
+
   if (!reshuffleButton) {
     return;
   }
@@ -1589,7 +1702,7 @@ function reshuffleActions() {
   reshuffleChargesRemaining -= 1;
 
   getPlayerTimelineUnits().forEach(clearUnitActionQueue);
-  actionsList.replaceChildren();
+  clearPlayerHand();
   refillAvailableActions();
 
   renderActionQueue(getSelectedPlayerUnit());
@@ -1599,14 +1712,19 @@ function reshuffleActions() {
 }
 
 function fillAvailableActions(action) {
-  const items = Array.from({ length: activeRules.handSize }, () => createAvailableActionItem(action));
-
-  actionsList.replaceChildren(...items);
+  playerHand.splice(0, playerHand.length, ...Array.from({ length: activeRules.handSize }, () => action));
+  rebuildPlayerHandView();
   updatePlayerActionControls();
 }
 
+// A card returned from a wolf's queue goes back to the FRONT of the hand (no slide-in delay, as before).
 function addAvailableAction(action) {
-  actionsList.prepend(createAvailableActionItem(action));
+  preparePlayerHandForEdit();
+  const item = createAvailableActionItem(action);
+
+  playerHand.unshift(action);
+  actionsList.prepend(item);
+  playerHandViewItems.unshift(item);
 }
 
 // Deal a fresh hand that contains at least one of every action type, so the
@@ -1629,7 +1747,8 @@ function seedTutorialActionHand() {
   });
   const hand = [...ACTIONS, ...fillers];
 
-  actionsList.replaceChildren(...hand.map(createAvailableActionItem));
+  playerHand.splice(0, playerHand.length, ...hand);
+  rebuildPlayerHandView();
   updatePlayerActionControls();
 }
 
@@ -1653,14 +1772,18 @@ function isUnitActionQueueFull(unit) {
 }
 
 function getAvailableActionCount(action) {
-  return Array.from(actionsList.children).filter((item) => item.dataset.action === action).length;
+  adoptExternalPlayerHandEdits();
+  return playerHand.filter((card) => card === action).length;
 }
 
 function getAvailableActionTotal() {
-  return actionsList.children.length;
+  adoptExternalPlayerHandEdits();
+  return playerHand.length;
 }
 
 function updateActionQueueControls() {
+  assertNotInCore("updateActionQueueControls");
+
   updateReshuffleControl();
 
   if (!executeQueueButton) {
@@ -1694,10 +1817,14 @@ function getPlayerUnitLabel(unit) {
 }
 
 function renderActionQueue() {
+  assertNotInCore("renderActionQueue");
+
   renderPlayerTimeline();
 }
 
 function renderPlayerTimeline() {
+  assertNotInCore("renderPlayerTimeline");
+
   const selectedUnit = getSelectedPlayerUnit();
   const rows = getPlayerTimelineUnits().map((unit) => {
     const row = document.createElement("li");
@@ -1844,22 +1971,25 @@ function createPlayerMovementModeSelector() {
   return selector;
 }
 
+// Removes the FIRST card with this name (data), and its <li> (view) with the FLIP slide of the rest.
 function consumeAvailableAction(action) {
-  const matchingItem = Array.from(actionsList.children).find(
-    (item) => item.dataset.action === action,
-  );
+  preparePlayerHandForEdit();
+  const index = playerHand.indexOf(action);
 
-  if (!matchingItem) {
+  if (index === -1) {
     return false;
   }
 
+  const matchingItem = playerHandViewItems[index];
   const rects = new Map(
-    Array.from(actionsList.children).map((item) => [item, item.getBoundingClientRect().top]),
+    playerHandViewItems.map((item) => [item, item.getBoundingClientRect().top]),
   );
 
+  playerHand.splice(index, 1);
+  playerHandViewItems.splice(index, 1);
   matchingItem.remove();
 
-  Array.from(actionsList.children).forEach((item) => {
+  playerHandViewItems.forEach((item) => {
     const oldTop = rects.get(item);
     if (oldTop === undefined) return;
     const newTop = item.getBoundingClientRect().top;
@@ -1911,6 +2041,8 @@ function positionPlayerActionMenu() {
 }
 
 function updatePlayerActionControls() {
+  assertNotInCore("updatePlayerActionControls");
+
   updateRestartBattleControl();
 
   if (!playerActionMenu) {
@@ -1960,6 +2092,8 @@ function getSelectedPlayerUnit() {
 }
 
 function clearPlayerSelection() {
+  assertNotInCore("clearPlayerSelection");
+
   if (!selectedPlayerUnit) {
     return;
   }
@@ -1971,6 +2105,8 @@ function clearPlayerSelection() {
 }
 
 function setPlayerSelected(unitOrNull) {
+  assertNotInCore("setPlayerSelected");
+
   const nextUnit = unitOrNull && unitOrNull.team === "player" && isUnitAlive(unitOrNull)
     ? unitOrNull
     : null;
@@ -2083,15 +2219,17 @@ function renderPlayerMovementModeSelector() {
   });
 }
 
-function updateEnemyIntentPreview() {
+// RULES half of updateEnemyIntentPreview: (re)plan or clear the pack queue that the intent tags preview.
+// Returns what the presentation half must render: { renderUnits: unit[] | null (= default enemy set),
+// viaPackPlanner } or null when skipped mid-turn.
+function planEnemyIntentPreview() {
   if (isExecutingActionQueue) {
-    return;
+    return null;
   }
 
   if (enemyMode === "stag") {
     clearEnemyPackActionQueue();
-    renderEnemyPackIntentTags();
-    return;
+    return { renderUnits: null, viaPackPlanner: false };
   }
 
   const enemyUnits = units.filter((unit) => unit.team === "enemy");
@@ -2099,14 +2237,42 @@ function updateEnemyIntentPreview() {
 
   if (!hasAliveUnitsByTeam("player") || !hasAliveUnitsByTeam("enemy")) {
     clearEnemyPackActionQueue();
-    renderEnemyPackIntentTags(enemyUnits);
-    return;
+    return { renderUnits: enemyUnits, viaPackPlanner: false };
   }
 
   planEnemyPackTurn(enemyUnits, playerUnits);
+  return { renderUnits: enemyUnits, viaPackPlanner: true };
+}
+
+// PRESENTATION half: render the intent tags for a preview result (same call shapes as before).
+function presentEnemyIntentPreview(preview) {
+  if (!preview) {
+    return;
+  }
+
+  if (preview.renderUnits === null) {
+    renderEnemyPackIntentTags();
+  } else {
+    renderEnemyPackIntentTags(preview.renderUnits);
+  }
+}
+
+// Trace-recorded rules entry point (name kept; c10 order marker). Outside the turn core it behaves as
+// before: plan + render (when the pack planner runs it renders its own tags, as it always did). Called by
+// the turn core it runs only the rules half; the turn-end step replays the render from its event.
+function updateEnemyIntentPreview() {
+  const preview = planEnemyIntentPreview();
+
+  if (!isTurnCoreRunning() && preview && !preview.viaPackPlanner) {
+    presentEnemyIntentPreview(preview);
+  }
+
+  return preview;
 }
 
 function updatePlayerTileLabels() {
+  assertNotInCore("updatePlayerTileLabels");
+
   tileElements.forEach((tile) => {
     const tileNumber = tile.dataset.tileNumber;
     let label = `Move wolf to tile ${tileNumber}`;
@@ -3372,8 +3538,14 @@ function updateUnitConcealment(unit) {
 
 // Recompute concealment for all units and repaint their markings. Call after any
 // position change (moves) or plan, since one unit moving can hide/reveal another.
-function refreshConcealmentVisuals() {
-  refreshHiddenStates();
+// recomputeHidden=false: a move replayed from the turn core, which already recomputed concealment (rules).
+function refreshConcealmentVisuals({ recomputeHidden = true } = {}) {
+  assertNotInCore("refreshConcealmentVisuals");
+
+  if (recomputeHidden) {
+    refreshHiddenStates();
+  }
+
   refreshTreeTransparency();
   units.forEach(updateUnitConcealment);
   units.filter((unit) => unit.team === "enemy").forEach((unit) => {
@@ -3402,6 +3574,8 @@ function positionUnitIntentTags(wolf) {
 }
 
 function renderUnitIntentTags(unit, actions = getUnitActionQueue(unit)) {
+  assertNotInCore("renderUnitIntentTags");
+
   if (!unit.intentTags) {
     return;
   }
@@ -3450,13 +3624,20 @@ function updateUnitHiddenTagDepth(wolf) {
   wolf.hiddenTag.style.zIndex = Number(wolf.element.style.zIndex || 0) + 3;
 }
 
+// While a turn step is replayed, the values shown are the ones carried by that step's event
+// (unitHealthReplayValues, set by showUnitHealthFromEvent); otherwise the live unit values.
 function updateUnitHealthBar(wolf) {
+  assertNotInCore("updateUnitHealthBar");
+
   if (!wolf.healthBar) {
     return;
   }
 
-  const healthRatio = Math.max(0, Math.min(1, wolf.health / wolf.maxHealth));
-  const shouldShow = !wolf.isDefeated && (wolf.health < wolf.maxHealth || wolf.isSelected);
+  const shown = unitHealthReplayValues.get(wolf);
+  const health = shown ? shown.health : wolf.health;
+  const isDefeated = shown ? shown.isDefeated : wolf.isDefeated;
+  const healthRatio = Math.max(0, Math.min(1, health / wolf.maxHealth));
+  const shouldShow = !isDefeated && (health < wolf.maxHealth || wolf.isSelected);
 
   wolf.healthBar.hidden = !shouldShow;
   wolf.healthBar.classList.toggle("is-health-high", healthRatio > 0.6);
@@ -3467,32 +3648,64 @@ function updateUnitHealthBar(wolf) {
     .style.setProperty("--unit-health-fill-width", `${healthRatio * 100}%`);
 }
 
-function damageUnit(wolf, damageAmount) {
+// PRESENTATION: refresh one unit's health bar showing given (event) values instead of live ones.
+function showUnitHealthFromEvent(unit, health, isDefeated) {
+  unitHealthReplayValues.set(unit, { health, isDefeated });
+
+  try {
+    updateUnitHealthBar(unit);
+  } finally {
+    unitHealthReplayValues.delete(unit);
+  }
+}
+
+// RULES half of damageUnit (core-safe): apply damage, return the outcome incl. hp after.
+function applyDamageToUnit(wolf, damageAmount) {
   if (wolf.isDefeated) {
-    return { damaged: false, defeated: false, damageTaken: 0 };
+    return { damaged: false, defeated: false, damageTaken: 0, healthAfter: wolf.health };
   }
 
   const nextHealth = Math.max(0, wolf.health - damageAmount);
   const damageTaken = wolf.health - nextHealth;
 
   if (nextHealth === wolf.health) {
-    return { damaged: false, defeated: false, damageTaken: 0 };
+    return { damaged: false, defeated: false, damageTaken: 0, healthAfter: wolf.health };
   }
 
   wolf.health = nextHealth;
 
   if (wolf.health === 0) {
     wolf.isDefeated = true;
-    updateUnitDepth(wolf);
-    updateUnitHealthBar(wolf);
-    return { damaged: true, defeated: true, damageTaken };
+    return { damaged: true, defeated: true, damageTaken, healthAfter: 0 };
   }
 
-  updateUnitHealthBar(wolf);
-  return { damaged: true, defeated: false, damageTaken };
+  return { damaged: true, defeated: false, damageTaken, healthAfter: wolf.health };
+}
+
+// PRESENTATION half of damageUnit: depth (corpse layer) + health bar for one damage outcome.
+function presentUnitDamage(wolf, { damaged, defeated, healthAfter }) {
+  if (!damaged) {
+    return;
+  }
+
+  if (defeated) {
+    updateUnitDepth(wolf);
+  }
+
+  showUnitHealthFromEvent(wolf, healthAfter, defeated);
+}
+
+// Legacy composed form (rules + presentation), kept for resolveAttack. The turn core uses the halves.
+function damageUnit(wolf, damageAmount) {
+  const result = applyDamageToUnit(wolf, damageAmount);
+
+  presentUnitDamage(wolf, result);
+  return { damaged: result.damaged, defeated: result.defeated, damageTaken: result.damageTaken };
 }
 
 function showUnitDamagePopup(wolf, damageAmount) {
+  assertNotInCore("showUnitDamagePopup");
+
   if (!wolf.element.parentElement || damageAmount <= 0) {
     return;
   }
@@ -3511,6 +3724,8 @@ function showUnitDamagePopup(wolf, damageAmount) {
 }
 
 function showUnitHealPopup(wolf, healAmount) {
+  assertNotInCore("showUnitHealPopup");
+
   if (!wolf.element.parentElement || healAmount <= 0) {
     return;
   }
@@ -3529,6 +3744,8 @@ function showUnitHealPopup(wolf, healAmount) {
 }
 
 function showUnitMissPopup(wolf) {
+  assertNotInCore("showUnitMissPopup");
+
   if (!wolf.element.parentElement) {
     return;
   }
@@ -3556,6 +3773,8 @@ function getTileAnchor(row, col) {
 }
 
 function setUnitPosition(unit, x, y) {
+  assertNotInCore("setUnitPosition");
+
   unit.x = x;
   unit.y = y;
   unit.element.style.left = `${x}px`;
@@ -3570,6 +3789,8 @@ function setUnitPosition(unit, x, y) {
 }
 
 function updateUnitDepth(unit) {
+  assertNotInCore("updateUnitDepth");
+
   const liveUnitDepth = GRID_SIZE * 2 + unit.row + unit.col + 20;
 
   unit.element.style.zIndex = unit.isDefeated ? liveUnitDepth - 2 : liveUnitDepth;
@@ -3631,6 +3852,8 @@ function setMovePreviewFrame(direction, fallbackUnit = getSelectedPlayerUnit() ?
 }
 
 function updatePlayerMovePreview(unit = getSelectedPlayerUnit()) {
+  assertNotInCore("updatePlayerMovePreview");
+
   if (!playerMovePreview) {
     return;
   }
@@ -3711,6 +3934,8 @@ function getDevPreviewUnit() {
 }
 
 function updateAnimationControls(unit = getDevPreviewUnit()) {
+  assertNotInCore("updateAnimationControls");
+
   animationButtons.forEach((button) => {
     const animationName = button.dataset.animation;
     const isSupported = isUnitAnimationSupported(unit, animationName);
@@ -3722,6 +3947,8 @@ function updateAnimationControls(unit = getDevPreviewUnit()) {
 }
 
 function updateActiveDirection(direction) {
+  assertNotInCore("updateActiveDirection");
+
   directionButtons.forEach((button) => {
     button.classList.toggle("is-active", button.dataset.direction === direction);
   });
@@ -3967,15 +4194,22 @@ function getTileInDirectionForPlan(row, col, direction, tileCount, planningUnit)
   return { row: targetRow, col: targetCol };
 }
 
-function getFacingDirectionForMove(startRow, startCol, targetRow, targetCol, fallbackDirection) {
-  const startAnchor = getTileAnchor(startRow, startCol);
-  const targetAnchor = getTileAnchor(targetRow, targetCol);
+// RULES facing helper: the screen-space (iso) direction from one grid cell to another. Identical to
+// comparing the two cells' getTileAnchor points (the board's xOffset and the half-tile y offset cancel,
+// and every term is an integer, so the deltas are exactly equal) but without the presentation layer.
+function getGridFacingDirection(fromRow, fromCol, toRow, toCol) {
+  const deltaRow = toRow - fromRow;
+  const deltaCol = toCol - fromCol;
 
+  return getDirectionFromDelta((deltaCol - deltaRow) * ISO_X_STEP, (deltaCol + deltaRow) * ISO_Y_STEP);
+}
+
+function getFacingDirectionForMove(startRow, startCol, targetRow, targetCol, fallbackDirection) {
   if (startRow === targetRow && startCol === targetCol) {
     return fallbackDirection;
   }
 
-  return getDirectionFromDelta(targetAnchor.x - startAnchor.x, targetAnchor.y - startAnchor.y);
+  return getGridFacingDirection(startRow, startCol, targetRow, targetCol);
 }
 
 function getGridDistance(rowA, colA, rowB, colB) {
@@ -4116,19 +4350,34 @@ function getEnemyPackActionsForUnit(unit) {
 }
 
 function renderEnemyPackIntentTags(enemyUnits = units.filter((unit) => unit.team === "enemy" && isUnitActive(unit))) {
+  assertNotInCore("renderEnemyPackIntentTags");
+
   enemyUnits.forEach((unit) => {
     renderUnitIntentTags(unit, getEnemyPackActionsForUnit(unit));
   });
 }
 
+// Trace-recorded rules entry point (name kept; c10 order marker). Outside the turn core it behaves as
+// before: plan, then render the pack's intent tags. Called by the turn core it runs only the rules half
+// (planEnemyPackTurnRules); the core's enemyPlan / replan step replays the render from its event.
 function planEnemyPackTurn(enemyUnits, playerUnits) {
+  const actionQueue = planEnemyPackTurnRules(enemyUnits, playerUnits);
+
+  if (!isTurnCoreRunning()) {
+    renderEnemyPackIntentTags(enemyUnits);
+  }
+
+  return actionQueue;
+}
+
+// RULES half of planEnemyPackTurn (core-safe, DOM-free).
+function planEnemyPackTurnRules(enemyUnits, playerUnits) {
   const aliveEnemies = enemyUnits.filter((unit) => isUnitAlive(unit) && unit.type === "wolf");
   const alivePlayers = playerUnits.filter(isUnitAlive);
 
   clearEnemyPackActionQueue();
 
   if (aliveEnemies.length === 0 || alivePlayers.length === 0) {
-    renderEnemyPackIntentTags(enemyUnits);
     return enemyPackActionQueue;
   }
 
@@ -4177,7 +4426,6 @@ function planEnemyPackTurn(enemyUnits, playerUnits) {
     }
   }
 
-  renderEnemyPackIntentTags(enemyUnits);
   return enemyPackActionQueue;
 }
 
@@ -4608,10 +4856,7 @@ function planEnemyTurn(enemyUnit, targetUnit) {
 }
 
 function getAttackDirection(attacker, target) {
-  const attackerAnchor = getTileAnchor(attacker.row, attacker.col);
-  const targetAnchor = getTileAnchor(target.row, target.col);
-
-  return getDirectionFromDelta(targetAnchor.x - attackerAnchor.x, targetAnchor.y - attackerAnchor.y);
+  return getGridFacingDirection(attacker.row, attacker.col, target.row, target.col);
 }
 
 function getAdjacentAttackTargets(attacker) {
@@ -4692,6 +4937,8 @@ function stopUnitAnimation(unit) {
 }
 
 function playUnitAnimation(unit, animationName, shouldUpdateButtons = false) {
+  assertNotInCore("playUnitAnimation");
+
   const animation = getUnitAnimation(unit, animationName);
 
   if (!animation) {
@@ -4729,7 +4976,14 @@ function playUnitAnimation(unit, animationName, shouldUpdateButtons = false) {
   unit.animationFrameRequest = requestAnimationFrame(animate);
 }
 
-async function playUnitAnimationCycles(
+// Async presentation functions are thin sync wrappers so the purity guard throws synchronously; the
+// returned promise is the same one the async body produced before.
+function playUnitAnimationCycles(unit, animationName, cycleCount, options) {
+  assertNotInCore("playUnitAnimationCycles");
+  return runUnitAnimationCycles(unit, animationName, cycleCount, options);
+}
+
+async function runUnitAnimationCycles(
   unit,
   animationName,
   cycleCount = 1,
@@ -4784,7 +5038,12 @@ async function playUnitAnimationCycles(
   });
 }
 
-async function playUnitHitReaction(unit) {
+function playUnitHitReaction(unit) {
+  assertNotInCore("playUnitHitReaction");
+  return runUnitHitReaction(unit);
+}
+
+async function runUnitHitReaction(unit) {
   if (unit.isDefeated) {
     return;
   }
@@ -4799,7 +5058,12 @@ async function playUnitHitReaction(unit) {
   unit.element.classList.remove("is-hit");
 }
 
-async function playUnitDeath(unit) {
+function playUnitDeath(unit) {
+  assertNotInCore("playUnitDeath");
+  return runUnitDeath(unit);
+}
+
+async function runUnitDeath(unit) {
   if (unit.deathAnimationPromise) {
     return unit.deathAnimationPromise;
   }
@@ -4834,6 +5098,8 @@ async function playUnitDeath(unit) {
 }
 
 function showGameResult(didWin) {
+  assertNotInCore("showGameResult");
+
   if (!gameResultOverlay) return;
   const message = gameResultOverlay.querySelector(".game-result-message");
   message.textContent = didWin ? "You Win!" : "You Lose";
@@ -4847,6 +5113,8 @@ function showGameResult(didWin) {
 // the world map to expand; a loss shows the result overlay, whose "Play Again"
 // re-fights the same arena (retry-on-loss).
 function concludeBattle(didWin) {
+  assertNotInCore("concludeBattle");
+
   if (activeScenario) {
     // No world map to expand in a fixed scenario: show the result; "Play Again"
     // restarts the same scenario + seed.
@@ -4885,7 +5153,11 @@ function resetGame() {
   updateReshuffleControl();
 }
 
-function applyTurnEndRecovery() {
+// RULES half of applyTurnEndRecovery (core-safe). Returns the heals in unit order as plain data:
+// [{ unit: "P2", amount, healthBefore, healthAfter }].
+function applyTurnEndRecoveryRules() {
+  const heals = [];
+
   [...getAliveUnitsByTeam("player"), ...getAliveUnitsByTeam("enemy")].forEach((unit) => {
     if (unit.tookDamageThisTurn) {
       unit.turnsSinceHit = 0;
@@ -4900,10 +5172,39 @@ function applyTurnEndRecovery() {
 
       unit.health = Math.min(unit.maxHealth, unit.health + UNIT_RECOVERY_HEAL_AMOUNT);
       unit.turnsSinceHit = 0;
-      updateUnitHealthBar(unit);
-      showUnitHealPopup(unit, unit.health - previousHealth);
+      heals.push({
+        unit: getBattleDebugUnitId(unit),
+        amount: unit.health - previousHealth,
+        healthBefore: previousHealth,
+        healthAfter: unit.health,
+      });
     }
   });
+
+  return heals;
+}
+
+// PRESENTATION half: health bar (showing the healed value) + heal popup per heal, in unit order.
+function presentRecovery(heals) {
+  heals.forEach((heal) => {
+    const unit = getUnitByBattleId(heal.unit);
+
+    showUnitHealthFromEvent(unit, heal.healthAfter, false); // only living units heal
+    showUnitHealPopup(unit, heal.amount);
+  });
+}
+
+// Trace-recorded rules entry point (name kept; c10 order marker). Outside the turn core: rules + the
+// heal presentation, exactly as before. Called by the turn core: rules only; the recovery step replays
+// the presentation from its event.
+function applyTurnEndRecovery() {
+  const heals = applyTurnEndRecoveryRules();
+
+  if (!isTurnCoreRunning()) {
+    presentRecovery(heals);
+  }
+
+  return heals;
 }
 
 function getBattleDebugUnitId(unit) {
@@ -4914,6 +5215,11 @@ function getBattleDebugUnitId(unit) {
   if (unit === enemySupport) return "E2";
   if (unit === enemyFlank) return "E3";
   return unit.team === "player" ? "P?" : "E?";
+}
+
+// Inverse of getBattleDebugUnitId over the six battle units (events carry these stable ids).
+function getUnitByBattleId(id) {
+  return units.find((unit) => getBattleDebugUnitId(unit) === id) ?? null;
 }
 
 function getBattleDebugUnitLabel(unit) {
@@ -5057,6 +5363,8 @@ function formatBattleDebugReport(log) {
 }
 
 function updateBattleDebugControls(message = "") {
+  assertNotInCore("updateBattleDebugControls");
+
   if (copyBattleDebugButton) {
     copyBattleDebugButton.disabled = !lastBattleDebugReport;
   }
@@ -5066,17 +5374,19 @@ function updateBattleDebugControls(message = "") {
   }
 }
 
-function finishBattleDebugLog() {
+// RULES half of the old finishBattleDebugLog: close the note (text format unchanged). Returns the status
+// message for the presentation half (updateBattleDebugControls): "" when no note was open.
+function finishBattleDebugLogRules() {
   if (!activeBattleDebugLog) {
-    updateBattleDebugControls();
-    return;
+    return "";
   }
 
   activeBattleDebugLog.after = getBattleDebugUnitSnapshots();
+  // The window mirror of the report is published by the "debugNote" replay, not here:
+  // the core touches no globals outside battle state.
   lastBattleDebugReport = formatBattleDebugReport(activeBattleDebugLog);
-  window.lastBattleDebugReport = lastBattleDebugReport;
   activeBattleDebugLog = null;
-  updateBattleDebugControls("Last turn ready to copy.");
+  return "Last turn ready to copy.";
 }
 
 function copyTextWithSelectionFallback(text) {
@@ -5121,72 +5431,281 @@ async function copyLastBattleDebugReport() {
   }
 }
 
-async function executePlayerActionQueue() {
-  if (isExecutingActionQueue || !hasQueuedPlayerActions() || hasMovingPlayerUnits()) {
-    updateActionQueueControls();
-    return;
-  }
+// ============================================================================
+// TURN LIFECYCLE (X2): one synchronous RULES core, replayed by PRESENTATION.
+// ============================================================================
+// A turn is run by synchronous generators (the "core") that hold every rule of the turn, in the order the
+// game always ran them. A core generator yields a STEP at every point where the old async code awaited or
+// interleaved presentation (and only there); each step carries the plain-data EVENTS produced since the
+// previous step. The playable game replays each step before it resumes the core:
+//     for (const step of core) { await replayTurnStep(step, combatants); }
+// so every rules phase runs at the same moment relative to the animations as before, and whatever the
+// presentation reads while a step plays (positions, health, queues, deaths) is the real intermediate state
+// of THAT step: later rules have not run yet. drainTurnCore (fixtures only) drains the very same
+// generators without replaying anything.
+//
+// PHASES (rules only: none of them renders, animates, schedules a timer, awaits, or touches the DOM or a
+// unit's .element):
+//   turnStartPhase    turnStart event; planEnemyPackTurn (wolves) / clear pack queue (stag)
+//                                                                     -> yield "enemyPlan"  (replay: intent tags)
+//                     beginBattleDebugLog; isExecutingActionQueue = true
+//                                                                     -> yield "selection"  (replay: deselect, controls)
+//   fixTurnFighters   the fighter set (alive players, then alive enemies) is fixed for the whole turn
+//   shouldRunAnotherTick   someone still has an order and both sides still have a living unit
+//   runTickCore       one tick (below); executeActionTick drives it, alone for runDevTestTick/Turn
+//   turnEndPhase      isExecutingActionQueue = false; applyTurnEndRecovery
+//                                                                     -> yield "recovery"   (replay: bars + heal popups)
+//                     finishBattleDebugLogRules (note text unchanged) -> yield "debugNote"  (replay: copy button status)
+//                     drawPlayerHandToSize (hand DATA)                -> yield "handDraw"   (replay: refillAvailableActions
+//                                                                                            renders the draws, queue view)
+//                     updateEnemyIntentPreview (replans the preview)  -> yield "turnEnd"    (replay: intent tags, controls,
+//                                                                                            idle animations)
+//                     outcome: the player side is checked first, so a double KO is a defeat
+//                                                                     -> yield "outcome"    (replay: concludeBattle)
+//   runTurnCore = turnStartPhase, then (fixTurnFighters; while shouldRunAnotherTick: runTickCore), finally
+//                 turnEndPhase. executePlayerActionQueue composes exactly these phases, splitting only at tick
+//                 boundaries so that executeActionTick stays the per-tick seam and the old try/finally error
+//                 path (turn end still runs after an exception) is kept as it was.
+//
+// TICK (runTickCore), mirroring the old executeActionTick:
+//   rules  start-of-tick snapshot; one action consumed per fighter (tickStart, consumed); move targets
+//          (getTickMoveTargets); each mover's grid write (applyUnitMove: the write the old moveUnitToTile made
+//          at the START of its animation); concealment recomputed if anyone moved
+//                                                                     -> yield "moves"   (replay: moveUnitToTile per
+//                                                                                         mover, awaited together)
+//   rules  per Attack/Defend: Attack target from the start-of-tick snapshot, facing update
+//                                                                     -> yield "swings"  (replay: Defend shake, swing
+//                                                                                         animations awaited together,
+//                                                                                         idle after an Attack)
+//   rules  per Attack, in swing-completion order (orderSwingsByCompletion): live target + defend check ->
+//          damage intent; resolveTickDamageRules: valid/miss, damage summed per target, health/defeat,
+//          tookDamageThisTurn, queues of the dead cleared            -> yield "damage"  (replay: miss popups, health
+//                                                                                         bars at the event's hp, damage
+//                                                                                         popups, death / hit animations
+//                                                                                         awaited)
+//   rules  recordBattleDebugTick; if an enemy died in wolves mode the pack is replanned (planEnemyPackTurn,
+//          which gives the survivors a fresh pool mid-turn: preserved behaviour)
+//                                                                     -> yield "replan"  (replay: intent tags)
+//   rules  -                                                          -> yield "tickEnd" (replay: each consumed
+//                                                                                         action's queue view)
+//   A tick in which nobody had an order yields nothing (the old code returned before any presentation).
+//
+// EVENTS (JSON-serialisable plain data; stable unit ids P1..P3 / E1..E3 from getBattleDebugUnitId; positions {row, col}):
+//   turnStart    { enemyMode, budget, enemyBudget, planned: { id: [queued actions] } }   (budget/planned reserved)
+//   enemyPlan    { reason: "turnStart" | "preview", skipped, planned, queue: [{ unit, action }], focus, renderUnits }
+//   fighters     { units: [ids] }
+//   tickStart    { tick }
+//   consumed     { tick, actions: [{ unit, action, executed: null }] }                   (executed reserved)
+//   move         { tick, unit, from, to, direction (requested), facing (after), moved, path, debug, shortened }
+//   attackSwing  { tick, unit, action, animation, cycles, direction, faced, target }
+//   defendSwing  { tick, unit, action, animation, cycles, direction, faced: false, target: null }
+//   miss         { tick, attacker }
+//   hit          { tick, attacker, target, damage, defended }
+//   damage       { tick, unit, amount, damageTaken, healthAfter, damaged, defeated }
+//   death        { tick, unit }
+//   queueCleared { tick, unit, cleared: [actions] }
+//   replan       { tick, queue, focus, renderUnits }
+//   tickEnd      { tick, render: [ids], queues: { id: [actions] } }
+//   recovery     { heals: [{ unit, amount, healthBefore, healthAfter }] }
+//   debugNote    { recorded }
+//   handDraw     { drawn: [actions], hand: [actions] }
+//   turnEnd      { ticks, alive: { player: [ids], enemy: [ids] } }
+//   outcome      { winner: "player" | "enemy" | "none", doubleKO }
+//
+// PURITY GUARD: guardTurnCore raises turnCoreDepth while a core body runs; every presentation entry point
+// calls assertNotInCore(), which throws there (one comparison everywhere else). The trace-recorded rules
+// names planEnemyPackTurn, applyTurnEndRecovery and updateEnemyIntentPreview are called BY the core, so they
+// keep their old place in the turn; inside the core they skip their own presentation, which the following
+// step replays from its event.
+//
+// ROLES of the names the c10 presentation trace wraps, after the split:
+//   presentation only, called by the replay at the old moments with the old arguments (now guarded):
+//     playUnitAnimation, playUnitAnimationCycles, playUnitHitReaction, playUnitDeath, showUnitDamagePopup,
+//     showUnitHealPopup, showUnitMissPopup, renderEnemyPackIntentTags, renderActionQueue, renderPlayerTimeline,
+//     updateUnitHealthBar (shows the replayed step's hp), shakeArenaSoon, showGameResult, concludeBattle;
+//   moveUnitToTile: animation of a move the core already applied (other callers: old combined behaviour);
+//   refillAvailableActions: hand VIEW refresh at turn end (the core already drew into playerHand);
+//   rules entry points called by the core (order markers): planEnemyPackTurn, applyTurnEndRecovery,
+//     updateEnemyIntentPreview.
 
-  if (enemyMode === "wolves") {
-    planEnemyPackTurn(
-      units.filter((unit) => unit.team === "enemy" && unit.type === "wolf"),
-      units.filter((unit) => unit.team === "player"),
-    );
-  } else {
-    clearEnemyPackActionQueue();
-    renderEnemyPackIntentTags();
-  }
-  beginBattleDebugLog();
-  isExecutingActionQueue = true;
-  setPlayerSelected(null);
-  updatePlayerActionControls();
+function isTurnCoreRunning() {
+  return turnCoreDepth > 0;
+}
 
-  try {
-    const combatants = [
-      ...getAliveUnitsByTeam("player").map((unit) => ({
-        renderQueue: () => renderActionQueue(unit),
-        shouldUpdateButtons: true,
-        unit,
-      })),
-      ...getAliveUnitsByTeam("enemy").map((unit) => ({
-        isEnemyPackCombatant: true,
-        renderQueue: () => renderEnemyPackIntentTags(),
-        unit,
-      })),
-    ];
-
-    while (
-      combatants.some((combatant) => hasCombatantQueuedActions(combatant)) &&
-      hasAliveUnitsByTeam("player") &&
-      hasAliveUnitsByTeam("enemy")
-    ) {
-      await executeActionTick(combatants);
-    }
-  } finally {
-    isExecutingActionQueue = false;
-    applyTurnEndRecovery();
-    finishBattleDebugLog();
-    refillAvailableActions();
-    renderActionQueue(getSelectedPlayerUnit());
-    updateEnemyIntentPreview();
-    updatePlayerActionControls();
-    syncEnemyModeControls();
-    getAliveUnitsByTeam("player").forEach((unit) => {
-      playUnitAnimation(unit, "idle", unit === player);
-    });
-    getAliveUnitsByTeam("enemy").forEach((unit) => {
-      playUnitAnimation(unit, "idle");
-    });
-
-    if (!hasAliveUnitsByTeam("player")) {
-      concludeBattle(false);
-    } else if (!hasAliveUnitsByTeam("enemy")) {
-      concludeBattle(true);
-    }
+function assertNotInCore(name) {
+  if (turnCoreDepth > 0) {
+    throw new Error(`Presentation call inside the turn core: ${name}`);
   }
 }
 
-async function executeActionTick(combatants) {
+// Wrap a core generator so that its body (between two yields) runs with the purity guard raised.
+function guardTurnCore(generator) {
+  const resume = (method, value) => {
+    turnCoreDepth += 1;
+
+    try {
+      return generator[method](value);
+    } finally {
+      turnCoreDepth -= 1;
+    }
+  };
+
+  return {
+    next: (value) => resume("next", value),
+    return: (value) => resume("return", value),
+    throw: (error) => resume("throw", error),
+    [Symbol.iterator]() {
+      return this;
+    },
+  };
+}
+
+// Run one synchronous core function (no yields) under the purity guard.
+function runInTurnCore(fn) {
+  turnCoreDepth += 1;
+
+  try {
+    return fn();
+  } finally {
+    turnCoreDepth -= 1;
+  }
+}
+
+function createTurnContext(kind) {
+  return { kind, events: [], cursor: 0, tick: 0 };
+}
+
+// A full turn's context; its event log becomes the one getTurnEventLog() reports.
+function startTurnContext() {
+  const context = createTurnContext("turn");
+
+  lastTurnEventLog = context.events;
+  return context;
+}
+
+function emitTurnEvent(context, type, data = {}) {
+  context.events.push({ type, ...data });
+}
+
+function takeTurnStep(context, kind) {
+  const events = context.events.slice(context.cursor);
+
+  context.cursor = context.events.length;
+  return { kind, events };
+}
+
+function getStepEvents(step, type) {
+  return step.events.filter((event) => event.type === type);
+}
+
+function getStepEvent(step, type) {
+  return step.events.find((event) => event.type === type) ?? null;
+}
+
+function getUnitIds(unitList) {
+  return unitList.map((unit) => getBattleDebugUnitId(unit));
+}
+
+function getPackQueueData() {
+  return enemyPackActionQueue.map((entry) => ({ unit: getBattleDebugUnitId(entry.unit), action: entry.action }));
+}
+
+function getPackFocusData() {
+  return enemyPackFocusTarget ? getBattleDebugUnitId(enemyPackFocusTarget) : null;
+}
+
+function getUnitQueuesData() {
+  return Object.fromEntries(units.filter(isUnitActive).map((unit) => [getBattleDebugUnitId(unit), getBattleDebugQueue(unit)]));
+}
+
+// Battle outcome after a turn: the player side is checked FIRST, so a double KO is a defeat ("enemy").
+function getBattleOutcome() {
+  if (!hasAliveUnitsByTeam("player")) {
+    return "enemy";
+  }
+
+  if (!hasAliveUnitsByTeam("enemy")) {
+    return "player";
+  }
+
+  return "none";
+}
+
+function* turnStartPhase(context) {
+  emitTurnEvent(context, "turnStart", {
+    enemyMode,
+    budget: activeRules.playerActionBudget,
+    enemyBudget: activeRules.enemyActionBudget,
+    planned: getUnitQueuesData(),
+  });
+
+  let renderUnits = null;
+
+  if (enemyMode === "wolves") {
+    const enemyUnits = units.filter((unit) => unit.team === "enemy" && unit.type === "wolf");
+
+    planEnemyPackTurn(enemyUnits, units.filter((unit) => unit.team === "player"));
+    renderUnits = getUnitIds(enemyUnits);
+  } else {
+    clearEnemyPackActionQueue();
+  }
+
+  emitTurnEvent(context, "enemyPlan", {
+    reason: "turnStart",
+    skipped: false,
+    planned: enemyMode === "wolves",
+    queue: getPackQueueData(),
+    focus: getPackFocusData(),
+    renderUnits,
+  });
+  yield takeTurnStep(context, "enemyPlan");
+
+  beginBattleDebugLog();
+  isExecutingActionQueue = true;
+  yield takeTurnStep(context, "selection");
+}
+
+// The fighter set is fixed once per turn: alive players, then alive enemies (plain data; the presentation
+// driver adds its renderQueue hooks).
+function fixTurnFighters(context) {
+  const fighters = [
+    ...getAliveUnitsByTeam("player").map((unit) => ({ shouldUpdateButtons: true, unit })),
+    ...getAliveUnitsByTeam("enemy").map((unit) => ({ isEnemyPackCombatant: true, unit })),
+  ];
+
+  emitTurnEvent(context, "fighters", { units: getUnitIds(fighters.map(({ unit }) => unit)) });
+  return fighters;
+}
+
+function shouldRunAnotherTick(combatants) {
+  return (
+    combatants.some((combatant) => hasCombatantQueuedActions(combatant)) &&
+    hasAliveUnitsByTeam("player") &&
+    hasAliveUnitsByTeam("enemy")
+  );
+}
+
+// Today's executeActionTick pushed each damage intent when that unit's swing ANIMATION finished, so intents
+// (and with them miss / hit / damage / popup order) followed swing-completion order: a swing whose unit has
+// no such animation (the stag has no "bite") resolves before any frame, the others after
+// frames * cycles * frameMs. Reproduced as a stable sort on that duration (ties keep tick order, as equal
+// animations finish in the same frame in start order). Only static animation data is read.
+function getSwingDurationMs(unit, animationName, cycles) {
+  const animation = getUnitAnimation(unit, animationName);
+
+  return animation ? getUnitAnimationFrameCount(animation) * cycles * animation.frameMs : 0;
+}
+
+function orderSwingsByCompletion(swings) {
+  return swings
+    .map((swing, index) => ({ swing, index, duration: getSwingDurationMs(swing.unit, swing.animationName, swing.cycles) }))
+    .sort((a, b) => a.duration - b.duration || a.index - b.index)
+    .map(({ swing }) => swing);
+}
+
+function* runTickCore(context, combatants) {
+  context.tick += 1;
+  const tick = context.tick;
   const startStates = new Map(
     units.map((unit) => [
       unit,
@@ -5197,48 +5716,67 @@ async function executeActionTick(combatants) {
       },
     ]),
   );
+
+  emitTurnEvent(context, "tickStart", { tick });
+
   const tickActions = combatants
-    .map(({ unit, renderQueue, shouldUpdateButtons = false, isEnemyPackCombatant = false }) => {
+    .map(({ unit, isEnemyPackCombatant = false }) => {
       if (!isUnitAlive(unit)) {
         return null;
       }
 
-      const action = shiftCombatantAction({
-        isEnemyPackCombatant,
-        renderQueue,
-        shouldUpdateButtons,
-        unit,
-      });
+      const action = shiftCombatantAction({ isEnemyPackCombatant, unit });
 
-      if (!action) {
-        return null;
-      }
-
-      return { unit, action, renderQueue, shouldUpdateButtons };
+      return action ? { unit, action } : null;
     })
     .filter(Boolean);
+
+  emitTurnEvent(context, "consumed", {
+    tick,
+    actions: tickActions.map(({ unit, action }) => ({ unit: getBattleDebugUnitId(unit), action, executed: null })),
+  });
 
   if (tickActions.length === 0) {
     return;
   }
 
+  // --- moves: targets resolved together, then each mover's grid write -----------------------------
   const moveTargets = getTickMoveTargets(tickActions, startStates);
-  const damageIntents = [];
   const moveActions = tickActions.filter(({ action }) => action === "Move");
   const nonMoveActions = tickActions.filter(({ action }) => action !== "Move");
+  let anyUnitMoved = false;
 
-  await Promise.all(moveActions.map(({ unit, shouldUpdateButtons }) => {
+  moveActions.forEach(({ unit }) => {
     const target = moveTargets.get(unit) ?? startStates.get(unit);
+    const direction = target.direction ?? startStates.get(unit).direction;
+    const from = { row: unit.row, col: unit.col };
+    const moved = applyUnitMove(unit, target.row, target.col, direction);
 
-    return moveUnitToTile(unit, target.row, target.col, {
-      direction: target.direction ?? startStates.get(unit).direction,
-      skipBlockingCheck: true,
-      shouldUpdateButtons,
+    anyUnitMoved = anyUnitMoved || moved;
+    emitTurnEvent(context, "move", {
+      tick,
+      unit: getBattleDebugUnitId(unit),
+      from,
+      to: { row: target.row, col: target.col },
+      direction,
+      facing: unit.direction,
+      moved,
+      path: target.path ?? null,
+      debug: target.debug ?? null,
+      shortened: target.debug ? target.debug.includes("movement shortened by engagement or collision") : null,
     });
-  }));
+  });
 
-  await Promise.all(nonMoveActions.map(async (tickAction) => {
-    const { unit, action, shouldUpdateButtons } = tickAction;
+  if (anyUnitMoved) {
+    refreshHiddenStates(); // the old moveUnitToTile recomputed concealment after every actual move
+  }
+
+  yield takeTurnStep(context, "moves");
+
+  // --- swings: Attack target from the start-of-tick snapshot, facing ------------------------------
+  const swings = [];
+
+  nonMoveActions.forEach(({ unit, action }) => {
     const actionAnimation = ACTION_ANIMATIONS[action];
 
     if (!actionAnimation) {
@@ -5247,6 +5785,7 @@ async function executeActionTick(combatants) {
 
     let actionDirection = startStates.get(unit).direction;
     let attackTarget = null;
+    let faced = false;
 
     if (action === "Attack") {
       attackTarget = getAttackIntentTarget(unit, startStates);
@@ -5256,47 +5795,358 @@ async function executeActionTick(combatants) {
 
       if (actionDirection) {
         unit.direction = actionDirection;
-
-        if (unit === getSelectedPlayerUnit()) {
-          updateActiveDirection(unit.direction);
-        }
+        faced = true;
       }
     }
 
-    if (action === "Defend") {
-      shakeArenaSoon();
-    }
-
-    await playUnitAnimationCycles(unit, actionAnimation.animationName, actionAnimation.cycles, {
-      shouldUpdateButtons,
+    swings.push({ unit, action, attackTarget, animationName: actionAnimation.animationName, cycles: actionAnimation.cycles });
+    emitTurnEvent(context, action === "Attack" ? "attackSwing" : "defendSwing", {
+      tick,
+      unit: getBattleDebugUnitId(unit),
+      action,
+      animation: actionAnimation.animationName,
+      cycles: actionAnimation.cycles,
       direction: actionDirection,
+      faced,
+      target: attackTarget ? getBattleDebugUnitId(attackTarget) : null,
     });
+  });
 
-    if (action === "Attack") {
-      playUnitAnimation(unit, "idle", shouldUpdateButtons);
+  yield takeTurnStep(context, "swings");
+
+  // --- damage: live target + defend check per Attack, then resolution ------------------------------
+  const damageIntents = orderSwingsByCompletion(swings)
+    .filter(({ action }) => action === "Attack")
+    .map(({ unit, attackTarget }) => {
       const liveTarget = getLiveAttackTarget(unit, attackTarget, startStates);
       const targetIsDefending = tickActions.some((t) => t.unit === liveTarget && t.action === "Defend");
-      damageIntents.push({
+
+      return {
         attacker: unit,
         target: liveTarget,
         damage: targetIsDefending ? UNIT_DEFENDED_DAMAGE : UNIT_ATTACK_DAMAGE,
-      });
-    }
-  }));
+        defended: targetIsDefending,
+      };
+    });
+  const damageResult = resolveTickDamageRules(context, tick, damageIntents);
 
-  const damageResult = await resolveTickDamage(damageIntents);
+  yield takeTurnStep(context, "damage");
+
   recordBattleDebugTick(tickActions, startStates, moveTargets, damageResult);
 
   if (enemyMode === "wolves" && damageResult.defeated.some((unit) => unit.team === "enemy")) {
-    planEnemyPackTurn(
-      units.filter((unit) => unit.team === "enemy" && unit.type === "wolf"),
-      units.filter((unit) => unit.team === "player"),
-    );
+    const enemyUnits = units.filter((unit) => unit.team === "enemy" && unit.type === "wolf");
+
+    planEnemyPackTurn(enemyUnits, units.filter((unit) => unit.team === "player"));
+    emitTurnEvent(context, "replan", {
+      tick,
+      queue: getPackQueueData(),
+      focus: getPackFocusData(),
+      renderUnits: getUnitIds(enemyUnits),
+    });
+    yield takeTurnStep(context, "replan");
   }
 
-  tickActions.forEach(({ renderQueue }) => {
-    renderQueue?.();
+  emitTurnEvent(context, "tickEnd", {
+    tick,
+    render: tickActions.map(({ unit }) => getBattleDebugUnitId(unit)),
+    queues: getUnitQueuesData(),
   });
+  yield takeTurnStep(context, "tickEnd");
+}
+
+function* turnEndPhase(context) {
+  isExecutingActionQueue = false;
+  emitTurnEvent(context, "recovery", { heals: applyTurnEndRecovery() });
+  yield takeTurnStep(context, "recovery");
+
+  emitTurnEvent(context, "debugNote", { recorded: finishBattleDebugLogRules() !== "" });
+  yield takeTurnStep(context, "debugNote");
+
+  const drawn = drawPlayerHandToSize();
+
+  emitTurnEvent(context, "handDraw", { drawn, hand: [...playerHand] });
+  yield takeTurnStep(context, "handDraw");
+
+  const preview = updateEnemyIntentPreview();
+
+  emitTurnEvent(context, "enemyPlan", {
+    reason: "preview",
+    skipped: preview === null,
+    planned: Boolean(preview?.viaPackPlanner),
+    queue: getPackQueueData(),
+    focus: getPackFocusData(),
+    renderUnits: preview && preview.renderUnits !== null ? getUnitIds(preview.renderUnits) : null,
+  });
+  emitTurnEvent(context, "turnEnd", {
+    ticks: context.tick,
+    alive: { player: getUnitIds(getAliveUnitsByTeam("player")), enemy: getUnitIds(getAliveUnitsByTeam("enemy")) },
+  });
+  yield takeTurnStep(context, "turnEnd");
+
+  emitTurnEvent(context, "outcome", {
+    winner: getBattleOutcome(),
+    doubleKO: !hasAliveUnitsByTeam("player") && !hasAliveUnitsByTeam("enemy"),
+  });
+  yield takeTurnStep(context, "outcome");
+}
+
+// The whole lifecycle as ONE generator (what drainTurnCore drains).
+function* runTurnCore(context) {
+  yield* turnStartPhase(context);
+
+  try {
+    const fighters = fixTurnFighters(context);
+
+    while (shouldRunAnotherTick(fighters)) {
+      yield* runTickCore(context, fighters);
+    }
+  } finally {
+    yield* turnEndPhase(context);
+  }
+}
+
+// ---- presentation: replay of the core's steps ---------------------------------------------------
+
+function getCombatantShouldUpdateButtons(combatants, unit) {
+  const value = combatants?.find((combatant) => combatant.unit === unit)?.shouldUpdateButtons;
+
+  return value === undefined ? false : value;
+}
+
+function presentEnemyPlanEvent(event) {
+  if (!event || event.skipped) {
+    return;
+  }
+
+  if (event.renderUnits === null) {
+    renderEnemyPackIntentTags();
+  } else {
+    renderEnemyPackIntentTags(event.renderUnits.map(getUnitByBattleId));
+  }
+}
+
+function replayTickMoves(step, combatants) {
+  return Promise.all(getStepEvents(step, "move").map((event) => {
+    const unit = getUnitByBattleId(event.unit);
+
+    pendingMoveReplays.set(unit, event);
+
+    try {
+      return moveUnitToTile(unit, event.to.row, event.to.col, {
+        direction: event.direction,
+        skipBlockingCheck: true,
+        shouldUpdateButtons: getCombatantShouldUpdateButtons(combatants, unit),
+      });
+    } finally {
+      pendingMoveReplays.delete(unit);
+    }
+  }));
+}
+
+function replayTickSwings(step, combatants) {
+  const swingEvents = step.events.filter((event) => event.type === "attackSwing" || event.type === "defendSwing");
+
+  return Promise.all(swingEvents.map(async (event) => {
+    const unit = getUnitByBattleId(event.unit);
+    const shouldUpdateButtons = getCombatantShouldUpdateButtons(combatants, unit);
+
+    if (event.faced && unit === getSelectedPlayerUnit()) {
+      updateActiveDirection(event.direction);
+    }
+
+    if (event.action === "Defend") {
+      shakeArenaSoon();
+    }
+
+    await playUnitAnimationCycles(unit, event.animation, event.cycles, {
+      shouldUpdateButtons,
+      direction: event.direction,
+    });
+
+    if (event.action === "Attack") {
+      playUnitAnimation(unit, "idle", shouldUpdateButtons);
+    }
+  }));
+}
+
+function replayTickDamage(step) {
+  getStepEvents(step, "miss").forEach((event) => showUnitMissPopup(getUnitByBattleId(event.attacker)));
+
+  const damages = getStepEvents(step, "damage").map((event) => ({ event, unit: getUnitByBattleId(event.unit) }));
+
+  damages.forEach(({ event, unit }) => presentUnitDamage(unit, event));
+  damages.forEach(({ event, unit }) => showUnitDamagePopup(unit, event.damageTaken));
+  getStepEvents(step, "queueCleared").forEach((event) => presentQueueCleared(getUnitByBattleId(event.unit)));
+
+  return Promise.all(damages.map(({ event, unit }) => {
+    if (event.defeated) {
+      return playUnitDeath(unit);
+    }
+
+    if (event.damaged) {
+      return playUnitHitReaction(unit);
+    }
+
+    return Promise.resolve();
+  }));
+}
+
+function replayTickEnd(step, combatants) {
+  getStepEvent(step, "tickEnd").render.forEach((unitId) => {
+    combatants.find((combatant) => getBattleDebugUnitId(combatant.unit) === unitId)?.renderQueue?.();
+  });
+}
+
+// Presentation of one core step. Returns a promise only where the old code awaited animations.
+function replayTurnStep(step, combatants = null) {
+  switch (step.kind) {
+    case "enemyPlan":
+      presentEnemyPlanEvent(getStepEvent(step, "enemyPlan"));
+      return undefined;
+    case "selection":
+      setPlayerSelected(null);
+      updatePlayerActionControls();
+      return undefined;
+    case "moves":
+      return replayTickMoves(step, combatants);
+    case "swings":
+      return replayTickSwings(step, combatants);
+    case "damage":
+      return replayTickDamage(step);
+    case "replan":
+      presentEnemyPlanEvent(getStepEvent(step, "replan"));
+      return undefined;
+    case "tickEnd":
+      replayTickEnd(step, combatants);
+      return undefined;
+    case "recovery":
+      presentRecovery(getStepEvent(step, "recovery").heals);
+      return undefined;
+    case "debugNote":
+      window.lastBattleDebugReport = lastBattleDebugReport;
+      updateBattleDebugControls(getStepEvent(step, "debugNote").recorded ? "Last turn ready to copy." : "");
+      return undefined;
+    case "handDraw":
+      refillAvailableActions(); // renders the core's draw into the view (no new draw: the data is full)
+      renderActionQueue(getSelectedPlayerUnit());
+      return undefined;
+    case "turnEnd": {
+      const { alive } = getStepEvent(step, "turnEnd");
+
+      presentEnemyPlanEvent(getStepEvent(step, "enemyPlan"));
+      updatePlayerActionControls();
+      syncEnemyModeControls();
+      alive.player.map(getUnitByBattleId).forEach((unit) => {
+        playUnitAnimation(unit, "idle", unit === player);
+      });
+      alive.enemy.map(getUnitByBattleId).forEach((unit) => {
+        playUnitAnimation(unit, "idle");
+      });
+      return undefined;
+    }
+    case "outcome": {
+      const { winner } = getStepEvent(step, "outcome");
+
+      if (winner === "enemy") {
+        concludeBattle(false);
+      } else if (winner === "player") {
+        concludeBattle(true);
+      }
+
+      return undefined;
+    }
+    default:
+      throw new Error(`Unknown turn step: ${step.kind}`);
+  }
+}
+
+// Drive a core generator, replaying every step synchronously (phases whose old code had no await).
+function driveTurnCoreSync(generator, replay) {
+  const core = guardTurnCore(generator);
+
+  for (let result = core.next(); !result.done; result = core.next()) {
+    const pending = replay(result.value);
+
+    if (pending && typeof pending.then === "function") {
+      throw new Error(`Turn step "${result.value.kind}" must replay synchronously`);
+    }
+  }
+}
+
+// Drive a core generator, awaiting each step's replay before the core resumes.
+async function driveTurnCore(generator, replay) {
+  const core = guardTurnCore(generator);
+
+  for (let result = core.next(); !result.done; result = core.next()) {
+    const pending = replay(result.value);
+
+    if (pending) {
+      await pending;
+    }
+  }
+}
+
+// PRESENTATION DRIVER for a full player turn (name kept; Play button). Same guard, same order and the
+// same try/finally as before: turnStartPhase, then the tick loop (one executeActionTick per tick), and
+// turnEndPhase in `finally`, so recovery / note / hand / preview / idle / outcome still run after an error.
+async function executePlayerActionQueue() {
+  if (isExecutingActionQueue || !hasQueuedPlayerActions() || hasMovingPlayerUnits()) {
+    updateActionQueueControls();
+    return;
+  }
+
+  preparePlayerHandForEdit(); // a direct DOM edit of the hand becomes data before the core draws from it
+  const context = startTurnContext();
+
+  driveTurnCoreSync(turnStartPhase(context), (step) => replayTurnStep(step));
+
+  try {
+    const combatants = runInTurnCore(() => fixTurnFighters(context)).map((fighter) => ({
+      ...fighter,
+      renderQueue: fighter.isEnemyPackCombatant
+        ? () => renderEnemyPackIntentTags()
+        : () => renderActionQueue(fighter.unit),
+    }));
+
+    while (runInTurnCore(() => shouldRunAnotherTick(combatants))) {
+      await executeActionTick(combatants, context);
+    }
+  } finally {
+    driveTurnCoreSync(turnEndPhase(context), (step) => replayTurnStep(step));
+  }
+}
+
+// PRESENTATION DRIVER for ONE tick (name and first parameter kept: c9 hooks it to snapshot after every
+// tick). combatants: fighters plus their presentation hooks (renderQueue, shouldUpdateButtons). context:
+// the running turn's core context (executePlayerActionQueue); runDevTestTick/Turn pass none / their own.
+async function executeActionTick(combatants, context = createTurnContext("tick")) {
+  await driveTurnCore(runTickCore(context, combatants), (step) => replayTurnStep(step, combatants));
+}
+
+// FIXTURE-ONLY headless driver (window.devTest.drainTurnCore): runs the full lifecycle on the LIVE battle
+// state by draining runTurnCore with no replay at all. Nothing is rendered, animated or scheduled, and
+// presentation-only state (selection, hand view, intent tags, result overlay) is left as it was; call
+// rebuildPlayerHandView() afterwards to show the hand. It proves the core is deterministic and DOM-free.
+// Not a simulator and not a dry run: it changes the battle exactly like a played turn.
+function drainTurnCore() {
+  if (isExecutingActionQueue || !hasQueuedPlayerActions()) {
+    return null;
+  }
+
+  adoptExternalPlayerHandEdits(); // reads the list only; a fixture's direct DOM edit becomes data
+  const context = startTurnContext();
+  const core = guardTurnCore(runTurnCore(context));
+
+  for (let result = core.next(); !result.done; result = core.next()) {
+    // no replay
+  }
+
+  return JSON.parse(JSON.stringify(context.events));
+}
+
+function getTurnEventLog() {
+  return JSON.parse(JSON.stringify(lastTurnEventLog));
 }
 
 function hasCombatantQueuedActions(combatant) {
@@ -5445,6 +6295,7 @@ function resolveMovePlans(movePlans, startStates) {
       } : {}),
     };
     plan.path = getResolvedMovePath(plan.path, resolvedPosition);
+    plan.target.path = plan.path.map(({ row, col }) => ({ row, col })); // data only (turn-core move event)
 
     return [plan.unit, plan.target];
   }));
@@ -6588,13 +7439,15 @@ function getAttackTargetFromSnapshot(attacker, startStates) {
 function getAttackDirectionFromSnapshot(attacker, target, startStates) {
   const attackerStart = startStates.get(attacker);
   const targetStart = startStates.get(target);
-  const attackerAnchor = getTileAnchor(attackerStart.row, attackerStart.col);
-  const targetAnchor = getTileAnchor(targetStart.row, targetStart.col);
 
-  return getDirectionFromDelta(targetAnchor.x - attackerAnchor.x, targetAnchor.y - attackerAnchor.y);
+  return getGridFacingDirection(attackerStart.row, attackerStart.col, targetStart.row, targetStart.col);
 }
 
-async function resolveTickDamage(damageIntents) {
+// RULES half of the old resolveTickDamage (core-safe). Same order as before: valid / missed intents, damage
+// summed per target in first-hit order, health and defeat, tookDamageThisTurn, queues of the dead cleared.
+// Emits miss / hit / damage / death / queueCleared events; replayTickDamage is the presentation half.
+// Returns { hits, misses, defeated } with unit objects, as recordBattleDebugTick expects.
+function resolveTickDamageRules(context, tick, damageIntents) {
   const validIntents = damageIntents.filter(({ attacker, target }) => {
     return isAttackDamageStillValid(attacker, target);
   });
@@ -6612,12 +7465,24 @@ async function resolveTickDamage(damageIntents) {
     damageByTarget.set(target, (damageByTarget.get(target) ?? 0) + damage);
   });
 
-  missedAttackers.forEach((attacker) => showUnitMissPopup(attacker));
+  missedAttackers.forEach((attacker) => {
+    emitTurnEvent(context, "miss", { tick, attacker: getBattleDebugUnitId(attacker) });
+  });
+  validIntents.forEach(({ attacker, target, damage, defended }) => {
+    emitTurnEvent(context, "hit", {
+      tick,
+      attacker: getBattleDebugUnitId(attacker),
+      target: getBattleDebugUnitId(target),
+      damage,
+      defended: Boolean(defended),
+    });
+  });
 
   const damageResults = Array.from(damageByTarget.entries()).map(([target, damage]) => {
     return {
       target,
-      ...damageUnit(target, damage),
+      damage,
+      ...applyDamageToUnit(target, damage),
     };
   });
 
@@ -6625,27 +7490,30 @@ async function resolveTickDamage(damageIntents) {
     if (damageTaken > 0) {
       target.tookDamageThisTurn = true;
     }
+  });
 
-    showUnitDamagePopup(target, damageTaken);
+  damageResults.forEach(({ target, damage, damageTaken, healthAfter, damaged, defeated }) => {
+    emitTurnEvent(context, "damage", {
+      tick,
+      unit: getBattleDebugUnitId(target),
+      amount: damage,
+      damageTaken,
+      healthAfter,
+      damaged,
+      defeated,
+    });
   });
 
   damageResults.forEach(({ target, defeated }) => {
     if (defeated) {
-      clearQueuedActionsForUnit(target);
+      emitTurnEvent(context, "death", { tick, unit: getBattleDebugUnitId(target) });
+      emitTurnEvent(context, "queueCleared", {
+        tick,
+        unit: getBattleDebugUnitId(target),
+        cleared: clearQueuedActionsForUnit(target),
+      });
     }
   });
-
-  await Promise.all(damageResults.map(({ target, damaged, defeated }) => {
-    if (defeated) {
-      return playUnitDeath(target);
-    }
-
-    if (damaged) {
-      return playUnitHitReaction(target);
-    }
-
-    return Promise.resolve();
-  }));
 
   return {
     hits: validIntents.map(({ attacker, target, damage }) => ({ attacker, target, damage })),
@@ -6668,27 +7536,57 @@ function clearUnitActionQueue(unit) {
   getUnitActionQueue(unit).length = 0;
 }
 
+// RULES half (core-safe): drop a defeated unit's own queue and its pack entries. Returns what was removed.
 function clearQueuedActionsForUnit(unit) {
-  clearUnitActionQueue(unit);
+  const cleared = [...getUnitActionQueue(unit), ...getEnemyPackActionsForUnit(unit)];
 
-  if (unit === getSelectedPlayerUnit()) {
-    setPlayerSelected(null);
-  }
+  clearUnitActionQueue(unit);
 
   for (let index = enemyPackActionQueue.length - 1; index >= 0; index -= 1) {
     if (enemyPackActionQueue[index].unit === unit) {
       enemyPackActionQueue.splice(index, 1);
     }
   }
+
+  return cleared;
+}
+
+// PRESENTATION half: the old in-between selection check. (getSelectedPlayerUnit() ignores dead units, so
+// for a defeated unit this never deselects; kept for fidelity.)
+function presentQueueCleared(unit) {
+  if (unit === getSelectedPlayerUnit()) {
+    setPlayerSelected(null);
+  }
 }
 
 function shakeArenaSoon() {
+  assertNotInCore("shakeArenaSoon");
+
   setTimeout(() => {
     arena.classList.add("shaking");
     arena.addEventListener("animationend", () => arena.classList.remove("shaking"), { once: true });
   }, 600);
 }
 
+// RULES half of moveUnitToTile (core-safe): the grid write the old function made at the START of the move
+// animation. A unit already on the target cell does not move and keeps its facing. (The turn core always
+// passes a direction; the fallback is the grid equivalent of the pixel delta of a unit at rest.)
+function applyUnitMove(unit, row, col, direction) {
+  if (unit.row === row && unit.col === col) {
+    return false;
+  }
+
+  unit.direction = direction ?? getGridFacingDirection(unit.row, unit.col, row, col);
+  unit.row = row;
+  unit.col = col;
+  return true;
+}
+
+// PRESENTATION: animate a unit to a tile. Called by the tick replay for a move the core already applied
+// (pendingMoveReplays holds its event): the grid write and the concealment recompute are skipped and the
+// "nothing to animate" early-out follows the core's decision (event.moved; the core's from == to test
+// ignores movementFrameRequest, which is always idle at a tick's move phase because every move is awaited).
+// Other callers (movePlayerToTile, dev tools) get the old combined behaviour unchanged.
 function moveUnitToTile(
   unit,
   row,
@@ -6699,13 +7597,21 @@ function moveUnitToTile(
     skipBlockingCheck = false,
   } = {},
 ) {
+  assertNotInCore("moveUnitToTile");
+
+  const pendingReplay = pendingMoveReplays.get(unit);
+  const replayedMove = pendingReplay && pendingReplay.to.row === row && pendingReplay.to.col === col
+    ? pendingReplay
+    : null;
   const blockingUnit = skipBlockingCheck ? null : getBlockingUnitAtPosition(row, col);
 
   if (blockingUnit && blockingUnit !== unit) {
     return Promise.resolve(false);
   }
 
-  if (unit.row === row && unit.col === col && unit.movementFrameRequest === null) {
+  if (replayedMove
+    ? !replayedMove.moved
+    : unit.row === row && unit.col === col && unit.movementFrameRequest === null) {
     return Promise.resolve(false);
   }
 
@@ -6729,12 +7635,16 @@ function moveUnitToTile(
     cancelAnimationFrame(unit.movementFrameRequest);
   }
 
-  unit.direction = direction ?? getDirectionFromDelta(deltaX, deltaY);
-  unit.row = row;
-  unit.col = col;
+  if (!replayedMove) {
+    unit.direction = direction ?? getDirectionFromDelta(deltaX, deltaY);
+    unit.row = row;
+    unit.col = col;
+  }
+
   updatePlayerTileLabels();
   updateUnitDepth(unit);
-  refreshConcealmentVisuals(); // a move can hide/reveal any unit, not just this one
+  // a move can hide/reveal any unit, not just this one (a replayed move: the core already recomputed it)
+  refreshConcealmentVisuals({ recomputeHidden: !replayedMove });
 
   if (unit === getSelectedPlayerUnit()) {
     updatePlayerMovePreview();
@@ -7167,6 +8077,11 @@ function queueDevTestPackActions(packActions = []) {
   return getDevTestState();
 }
 
+// Dev / fixture SUBSETS of the turn lifecycle, built on the same tick core (executeActionTick ->
+// runTickCore): tick loop only. No enemy planning at turn start, no debug note, no recovery, no hand
+// refill and no preview replan. runDevTestTick runs one tick; runDevTestTurn runs ticks while
+// shouldRunAnotherTick (re-reading the dev fighter set each tick, as before) and concludes the battle
+// from getBattleOutcome().
 async function runDevTestTick() {
   isExecutingActionQueue = true;
 
@@ -7184,14 +8099,11 @@ async function runDevTestTick() {
 
 async function runDevTestTurn() {
   isExecutingActionQueue = true;
+  const context = createTurnContext("devTurn");
 
   try {
-    while (
-      getDevTestCombatants().some(hasCombatantQueuedActions) &&
-      hasAliveUnitsByTeam("player") &&
-      hasAliveUnitsByTeam("enemy")
-    ) {
-      await executeActionTick(getDevTestCombatants());
+    while (runInTurnCore(() => shouldRunAnotherTick(getDevTestCombatants()))) {
+      await executeActionTick(getDevTestCombatants(), context);
     }
   } finally {
     isExecutingActionQueue = false;
@@ -7201,9 +8113,11 @@ async function runDevTestTurn() {
     updateActionQueueControls();
     syncEnemyModeControls();
 
-    if (!hasAliveUnitsByTeam("player")) {
+    const outcome = getBattleOutcome();
+
+    if (outcome === "enemy") {
       concludeBattle(false);
-    } else if (!hasAliveUnitsByTeam("enemy")) {
+    } else if (outcome === "player") {
       concludeBattle(true);
     }
   }
@@ -8437,6 +9351,8 @@ function setupArenaSizeControls() {
 }
 
 function syncEnemyModeControls() {
+  assertNotInCore("syncEnemyModeControls");
+
   updateRestartBattleControl();
   enemyModeButtons.forEach((button) => {
     const isActive = button.dataset.enemyMode === enemyMode;
@@ -8504,6 +9420,9 @@ window.devTest = {
   getBattleRecord,
   getRulesRecord,
   getActiveRules: () => activeRules,
+  // Fixture-only (see drainTurnCore): run one full turn's rules headlessly, and read the last turn's events.
+  drainTurnCore,
+  getTurnEventLog,
 };
 
 function getTileFromEvent(event) {
@@ -8786,7 +9705,7 @@ function loadScenario(id = "intro", seed) {
   lastBattleDebugReport = "";
   window.lastBattleDebugReport = "";
   updateBattleDebugControls();
-  actionsList.replaceChildren(); // fresh hand, not a carry-over
+  clearPlayerHand(); // fresh hand, not a carry-over
   GRID_SIZE = clampArenaSize(scenario.gridSize);
   updateArenaMetrics();
   setHoveredTile(null);
