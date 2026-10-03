@@ -1,0 +1,228 @@
+{
+  "header": "CHARACTERIZATION — records CURRENT behaviour, not desired behaviour.",
+  "constants": {
+    "ACTION_SLOT_COUNT": 5,
+    "MAX_SAME_ACTION": 3,
+    "RESHUFFLE_CHARGES_PER_BATTLE": 2,
+    "ACTIONS": [
+      "Move",
+      "Attack",
+      "Defend"
+    ]
+  },
+  "seededHands": [
+    {
+      "seed": 1,
+      "hand": [
+        "Attack",
+        "Move",
+        "Attack",
+        "Defend",
+        "Defend"
+      ]
+    },
+    {
+      "seed": 2,
+      "hand": [
+        "Defend",
+        "Move",
+        "Move",
+        "Attack",
+        "Defend"
+      ]
+    },
+    {
+      "seed": 3,
+      "hand": [
+        "Defend",
+        "Move",
+        "Attack",
+        "Move",
+        "Defend"
+      ]
+    },
+    {
+      "seed": 4,
+      "hand": [
+        "Defend",
+        "Move",
+        "Move",
+        "Move",
+        "Attack"
+      ]
+    },
+    {
+      "seed": 5,
+      "hand": [
+        "Defend",
+        "Defend",
+        "Move",
+        "Attack",
+        "Move"
+      ]
+    }
+  ],
+  "sweep": {
+    "seeds": "100..599",
+    "violations": 0,
+    "maxSameCountHistogram": {
+      "2": 183,
+      "3": 317
+    },
+    "actionTotals": {
+      "Move": 795,
+      "Attack": 867,
+      "Defend": 838
+    }
+  },
+  "carryOver": {
+    "seed": 7,
+    "before": [
+      "Move",
+      "Move",
+      "Defend",
+      "Defend",
+      "Attack"
+    ],
+    "consumeCalledWithNames": [
+      "Move",
+      "Defend"
+    ],
+    "namesWerePickedFromIndices": [
+      1,
+      3
+    ],
+    "consumeRemovesFirstMatchByName": true,
+    "indicesActuallyRemoved": [
+      0,
+      2
+    ],
+    "kept": [
+      "Move",
+      "Defend",
+      "Attack"
+    ],
+    "after": [
+      "Attack",
+      "Attack",
+      "Move",
+      "Defend",
+      "Attack"
+    ],
+    "keptIsSuffixOfAfter": true
+  },
+  "capCarry": {
+    "keptMoves": 3,
+    "seeds": "1000..1099",
+    "extraMovesDrawnTotal": 0,
+    "samples": [
+      {
+        "seed": 1000,
+        "hand": [
+          "Defend",
+          "Defend",
+          "Move",
+          "Move",
+          "Move"
+        ]
+      },
+      {
+        "seed": 1001,
+        "hand": [
+          "Attack",
+          "Attack",
+          "Move",
+          "Move",
+          "Move"
+        ]
+      },
+      {
+        "seed": 1002,
+        "hand": [
+          "Attack",
+          "Defend",
+          "Move",
+          "Move",
+          "Move"
+        ]
+      }
+    ]
+  },
+  "reshuffle": {
+    "start": {
+      "hand": [
+        "Attack",
+        "Attack",
+        "Attack",
+        "Defend",
+        "Defend"
+      ],
+      "charges": 2,
+      "queues": [
+        [
+          "Move",
+          "Attack"
+        ],
+        [
+          "Defend"
+        ]
+      ]
+    },
+    "afterFirst": {
+      "hand": [
+        "Move",
+        "Move",
+        "Attack",
+        "Defend",
+        "Move"
+      ],
+      "charges": 1,
+      "queues": [
+        [],
+        []
+      ]
+    },
+    "afterSecond": {
+      "hand": [
+        "Attack",
+        "Attack",
+        "Move",
+        "Move",
+        "Move"
+      ],
+      "charges": 0,
+      "queues": [
+        []
+      ]
+    },
+    "afterThirdNoCharges": {
+      "hand": [
+        "Attack",
+        "Attack",
+        "Move",
+        "Move",
+        "Move"
+      ],
+      "charges": 0,
+      "queues": [
+        [
+          "Attack"
+        ]
+      ],
+      "handUnchanged": true
+    }
+  },
+  "startupHand": [
+    "Move",
+    "Attack",
+    "Defend",
+    "Move",
+    "Attack"
+  ],
+  "usage": {
+    "contexts": 1,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

@@ -1,0 +1,328 @@
+{
+  "header": "CHARACTERIZATION — records CURRENT behaviour, not desired behaviour.",
+  "cases": {
+    "survivor-far": {
+      "queueBefore": [
+        {
+          "unit": "E1",
+          "action": "Defend"
+        },
+        {
+          "unit": "E2",
+          "action": "Defend"
+        },
+        {
+          "unit": "E3",
+          "action": "Defend"
+        }
+      ],
+      "queueBeforeLength": 3,
+      "queueAfter": [
+        {
+          "unit": "E3",
+          "action": "Move"
+        },
+        {
+          "unit": "E3",
+          "action": "Move"
+        },
+        {
+          "unit": "E3",
+          "action": "Defend"
+        }
+      ],
+      "queueAfterLength": 3,
+      "replan": {
+        "afterQueueHasNoE1E2Entries": true,
+        "afterQueueUnits": [
+          "E3"
+        ],
+        "afterQueueDiffersFromBefore": true
+      },
+      "focusAfter": {
+        "row": 5,
+        "col": 5,
+        "unit": "P1"
+      },
+      "defeated": {
+        "P1": false,
+        "P2": false,
+        "P3": false,
+        "E1": true,
+        "E2": true,
+        "E3": false
+      },
+      "healthBefore": {
+        "P1": 10,
+        "P2": 10,
+        "P3": 10,
+        "E1": 1,
+        "E2": 1,
+        "E3": 10
+      },
+      "healthAfter": {
+        "P1": 10,
+        "P2": 10,
+        "P3": 10,
+        "E1": 0,
+        "E2": 0,
+        "E3": 10
+      },
+      "positionsAfter": {
+        "P1": [
+          5,
+          5
+        ],
+        "P2": [
+          5,
+          1
+        ],
+        "P3": [
+          15,
+          10
+        ],
+        "E1": [
+          5,
+          6
+        ],
+        "E2": [
+          5,
+          2
+        ],
+        "E3": [
+          5,
+          14
+        ]
+      },
+      "packObjectivesAfter": {
+        "E3": {
+          "mode": "engage",
+          "slotDelta": {
+            "row": 0,
+            "col": 1
+          }
+        }
+      }
+    },
+    "survivor-mid": {
+      "queueBefore": [
+        {
+          "unit": "E1",
+          "action": "Defend"
+        },
+        {
+          "unit": "E2",
+          "action": "Defend"
+        },
+        {
+          "unit": "E3",
+          "action": "Defend"
+        }
+      ],
+      "queueBeforeLength": 3,
+      "queueAfter": [
+        {
+          "unit": "E3",
+          "action": "Move"
+        },
+        {
+          "unit": "E3",
+          "action": "Move"
+        },
+        {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Defend"
+        }
+      ],
+      "queueAfterLength": 5,
+      "replan": {
+        "afterQueueHasNoE1E2Entries": true,
+        "afterQueueUnits": [
+          "E3"
+        ],
+        "afterQueueDiffersFromBefore": true
+      },
+      "focusAfter": {
+        "row": 5,
+        "col": 5,
+        "unit": "P1"
+      },
+      "defeated": {
+        "P1": false,
+        "P2": false,
+        "P3": false,
+        "E1": true,
+        "E2": true,
+        "E3": false
+      },
+      "healthBefore": {
+        "P1": 10,
+        "P2": 10,
+        "P3": 10,
+        "E1": 1,
+        "E2": 1,
+        "E3": 10
+      },
+      "healthAfter": {
+        "P1": 10,
+        "P2": 10,
+        "P3": 10,
+        "E1": 0,
+        "E2": 0,
+        "E3": 10
+      },
+      "positionsAfter": {
+        "P1": [
+          5,
+          5
+        ],
+        "P2": [
+          5,
+          1
+        ],
+        "P3": [
+          15,
+          10
+        ],
+        "E1": [
+          5,
+          6
+        ],
+        "E2": [
+          5,
+          2
+        ],
+        "E3": [
+          5,
+          10
+        ]
+      },
+      "packObjectivesAfter": {
+        "E3": {
+          "mode": "engage",
+          "slotDelta": {
+            "row": 0,
+            "col": 1
+          }
+        }
+      }
+    },
+    "survivor-adjacent": {
+      "queueBefore": [
+        {
+          "unit": "E1",
+          "action": "Defend"
+        },
+        {
+          "unit": "E2",
+          "action": "Defend"
+        },
+        {
+          "unit": "E3",
+          "action": "Defend"
+        }
+      ],
+      "queueBeforeLength": 3,
+      "queueAfter": [
+        {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Defend"
+        }
+      ],
+      "queueAfterLength": 3,
+      "replan": {
+        "afterQueueHasNoE1E2Entries": true,
+        "afterQueueUnits": [
+          "E3"
+        ],
+        "afterQueueDiffersFromBefore": true
+      },
+      "focusAfter": {
+        "row": 5,
+        "col": 5,
+        "unit": "P1"
+      },
+      "defeated": {
+        "P1": false,
+        "P2": false,
+        "P3": false,
+        "E1": true,
+        "E2": true,
+        "E3": false
+      },
+      "healthBefore": {
+        "P1": 10,
+        "P2": 10,
+        "P3": 10,
+        "E1": 1,
+        "E2": 1,
+        "E3": 10
+      },
+      "healthAfter": {
+        "P1": 10,
+        "P2": 10,
+        "P3": 10,
+        "E1": 0,
+        "E2": 0,
+        "E3": 10
+      },
+      "positionsAfter": {
+        "P1": [
+          5,
+          5
+        ],
+        "P2": [
+          5,
+          1
+        ],
+        "P3": [
+          15,
+          10
+        ],
+        "E1": [
+          5,
+          6
+        ],
+        "E2": [
+          5,
+          2
+        ],
+        "E3": [
+          4,
+          4
+        ]
+      },
+      "packObjectivesAfter": {
+        "E3": {
+          "mode": "engage",
+          "slotDelta": {
+            "row": -1,
+            "col": -1
+          }
+        }
+      }
+    }
+  },
+  "usage": {
+    "contexts": 3,
+    "maxSteps": 62,
+    "totalSteps": 186,
+    "cap": 4000
+  }
+}

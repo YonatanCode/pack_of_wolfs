@@ -1,0 +1,65 @@
+{
+  "header": "CHARACTERIZATION — records CURRENT behaviour, not desired behaviour.",
+  "cases": {
+    "enemy-idle": {
+      "start": {
+        "P1": [
+          5,
+          3
+        ],
+        "E1": [
+          5,
+          8
+        ]
+      },
+      "predicted": {
+        "row": 5,
+        "col": 6,
+        "direction": "bottomRight"
+      },
+      "actual": {
+        "row": 5,
+        "col": 6,
+        "direction": "bottomRight"
+      },
+      "enemyActual": [
+        5,
+        8
+      ],
+      "matches": true
+    },
+    "enemy-moves-same-tick": {
+      "start": {
+        "P1": [
+          5,
+          3
+        ],
+        "E1": [
+          5,
+          8
+        ]
+      },
+      "predicted": {
+        "row": 5,
+        "col": 6,
+        "direction": "bottomRight"
+      },
+      "actual": {
+        "row": 5,
+        "col": 5,
+        "direction": "bottomRight"
+      },
+      "enemyActual": [
+        5,
+        6
+      ],
+      "matches": false
+    }
+  },
+  "usage": {
+    "contexts": 2,
+    "maxSteps": 23,
+    "totalSteps": 38,
+    "cap": 4000
+  }
+}

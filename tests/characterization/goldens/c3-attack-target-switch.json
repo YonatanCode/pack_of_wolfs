@@ -1,0 +1,90 @@
+{
+  "header": "CHARACTERIZATION — records CURRENT behaviour, not desired behaviour.",
+  "cases": {
+    "control-target-stays": {
+      "damageTaken": {
+        "P1": 3
+      },
+      "positionsAfter": {
+        "P1": [
+          5,
+          4
+        ],
+        "P2": [
+          4,
+          3
+        ],
+        "E1": [
+          4,
+          4
+        ]
+      },
+      "healthAfter": {
+        "P1": 7,
+        "P2": 10,
+        "P3": 10,
+        "E1": 10,
+        "E2": 10,
+        "E3": 10
+      }
+    },
+    "intended-moves-away-other-adjacent": {
+      "damageTaken": {
+        "P2": 3
+      },
+      "positionsAfter": {
+        "P1": [
+          8,
+          1
+        ],
+        "P2": [
+          4,
+          3
+        ],
+        "E1": [
+          4,
+          4
+        ]
+      },
+      "healthAfter": {
+        "P1": 10,
+        "P2": 7,
+        "P3": 10,
+        "E1": 10,
+        "E2": 10,
+        "E3": 10
+      }
+    },
+    "intended-moves-away-nobody-adjacent": {
+      "damageTaken": {},
+      "positionsAfter": {
+        "P1": [
+          8,
+          1
+        ],
+        "P2": [
+          15,
+          5
+        ],
+        "E1": [
+          4,
+          4
+        ]
+      },
+      "healthAfter": {
+        "P1": 10,
+        "P2": 10,
+        "P3": 10,
+        "E1": 10,
+        "E2": 10,
+        "E3": 10
+      }
+    }
+  },
+  "usage": {
+    "contexts": 3,
+    "maxSteps": 74,
+    "totalSteps": 175,
+    "cap": 4000
+  }
+}

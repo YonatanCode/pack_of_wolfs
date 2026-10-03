@@ -1,0 +1,275 @@
+{
+  "header": "CHARACTERIZATION — records CURRENT behaviour, not desired behaviour.",
+  "setups": {
+    "A-far-healthy": {
+      "placement": {
+        "P1": {
+          "row": 12,
+          "col": 6,
+          "health": 10,
+          "isActive": true
+        },
+        "P2": {
+          "row": 12,
+          "col": 8,
+          "health": 10,
+          "isActive": true
+        },
+        "P3": {
+          "row": 13,
+          "col": 7,
+          "health": 10,
+          "isActive": true
+        },
+        "E1": {
+          "row": 3,
+          "col": 6,
+          "health": 10,
+          "isActive": true
+        },
+        "E2": {
+          "row": 3,
+          "col": 8,
+          "health": 10,
+          "isActive": true
+        },
+        "E3": {
+          "row": 2,
+          "col": 10,
+          "health": 10,
+          "isActive": true
+        }
+      },
+      "queue": [
+        {
+          "unit": "E3",
+          "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Move"
+        },
+        {
+          "unit": "E2",
+          "action": "Defend"
+        }
+      ],
+      "queueLength": 3,
+      "focusTarget": {
+        "row": 12,
+        "col": 6,
+        "unit": "P1"
+      },
+      "packObjectives": {
+        "E1": {
+          "mode": "engage",
+          "slotDelta": {
+            "row": -1,
+            "col": 0
+          }
+        },
+        "E2": {
+          "mode": "engage",
+          "slotDelta": {
+            "row": -1,
+            "col": 1
+          }
+        },
+        "E3": {
+          "mode": "engage",
+          "slotDelta": {
+            "row": 0,
+            "col": 1
+          }
+        }
+      },
+      "isFleeing": {
+        "E1": false,
+        "E2": false,
+        "E3": false
+      }
+    },
+    "B-contact": {
+      "placement": {
+        "P1": {
+          "row": 6,
+          "col": 6,
+          "health": 10,
+          "isActive": true
+        },
+        "P2": {
+          "row": 6,
+          "col": 9,
+          "health": 10,
+          "isActive": true
+        },
+        "P3": {
+          "row": 8,
+          "col": 6,
+          "health": 10,
+          "isActive": true
+        },
+        "E1": {
+          "row": 5,
+          "col": 6,
+          "health": 10,
+          "isActive": true
+        },
+        "E2": {
+          "row": 6,
+          "col": 10,
+          "health": 10,
+          "isActive": true
+        },
+        "E3": {
+          "row": 4,
+          "col": 8,
+          "health": 10,
+          "isActive": true
+        }
+      },
+      "queue": [
+        {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E2",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Defend"
+        }
+      ],
+      "queueLength": 4,
+      "focusTarget": {
+        "row": 6,
+        "col": 6,
+        "unit": "P1"
+      },
+      "packObjectives": {
+        "E1": {
+          "mode": "engage",
+          "slotDelta": {
+            "row": -1,
+            "col": 0
+          }
+        },
+        "E2": {
+          "mode": "engage",
+          "slotDelta": {
+            "row": 0,
+            "col": 1
+          }
+        },
+        "E3": {
+          "mode": "engage",
+          "slotDelta": {
+            "row": -1,
+            "col": 1
+          }
+        }
+      },
+      "isFleeing": {
+        "E1": false,
+        "E2": false,
+        "E3": false
+      }
+    },
+    "C-wounded-flee": {
+      "placement": {
+        "P1": {
+          "row": 8,
+          "col": 6,
+          "health": 10,
+          "isActive": true
+        },
+        "P2": {
+          "row": 9,
+          "col": 9,
+          "health": 10,
+          "isActive": true
+        },
+        "P3": {
+          "row": 15,
+          "col": 10,
+          "health": 10,
+          "isActive": false
+        },
+        "E1": {
+          "row": 5,
+          "col": 7,
+          "health": 10,
+          "isActive": true
+        },
+        "E2": {
+          "row": 6,
+          "col": 6,
+          "health": 2,
+          "isActive": true
+        },
+        "E3": {
+          "row": 4,
+          "col": 5,
+          "health": 10,
+          "isActive": true
+        }
+      },
+      "queue": [
+        {
+          "unit": "E2",
+          "action": "Move"
+        },
+        {
+          "unit": "E2",
+          "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Defend"
+        }
+      ],
+      "queueLength": 3,
+      "focusTarget": {
+        "row": 8,
+        "col": 6,
+        "unit": "P1"
+      },
+      "packObjectives": {
+        "E1": {
+          "mode": "engage",
+          "slotDelta": {
+            "row": -1,
+            "col": 1
+          }
+        },
+        "E2": {
+          "mode": "flee"
+        },
+        "E3": {
+          "mode": "engage",
+          "slotDelta": {
+            "row": -1,
+            "col": -1
+          }
+        }
+      },
+      "isFleeing": {
+        "E1": false,
+        "E2": true,
+        "E3": false
+      }
+    }
+  },
+  "usage": {
+    "contexts": 3,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

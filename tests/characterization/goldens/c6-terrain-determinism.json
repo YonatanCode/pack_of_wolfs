@@ -1,0 +1,75 @@
+{
+  "header": "CHARACTERIZATION — records CURRENT behaviour, not desired behaviour.",
+  "gridSize": 16,
+  "seeds": [
+    {
+      "seed": 12345,
+      "x": 0,
+      "y": 0,
+      "counts": {
+        "pond": 48,
+        "hill": 15,
+        "tree": 1,
+        "flower": 6,
+        "hillLevels": 15
+      },
+      "hashes": {
+        "pond": "9ba4fe98d8e2d8f8f4f00f47d7e7681977b6af5d107fe8f591a9fb497e5ae54d",
+        "hill": "8ed0f61d622df821858401287677de6fefb342dc3692cb450dd539d8d95be777",
+        "tree": "86406f354520111c03e7252f8550d6605edb5fd8c0afc03e06834e5b90c70625",
+        "flower": "f9ebaf5229476193e6e0eaebce83fa347f72d200ca2ba8a91d23c59d2aab4935",
+        "hillLevels": "ba82f12b04f8848e735e9a29ee1b865b807058e16c11418b4d8c605228dc8564",
+        "terrainTiles": "4ac2e83caa1bc3478cdaad76653ed63bfb6e1459a66db5c2fbca96f204d3246b"
+      },
+      "repeatIdentical": true
+    },
+    {
+      "seed": 987654321,
+      "x": 2,
+      "y": -1,
+      "counts": {
+        "pond": 0,
+        "hill": 11,
+        "tree": 1,
+        "flower": 3,
+        "hillLevels": 11
+      },
+      "hashes": {
+        "pond": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "hill": "5a2083d16a4c83557158565a6978658a0a193f09908c40082f6a136c4b5a2085",
+        "tree": "0e2152d815bed85cf923f3ad36c2ccd718fed26135b659c141895e3653b469df",
+        "flower": "a8e6cf9bbb68119f5a8bdef011feb02739b8cd2e2f9fa4270b2cb60085a6933b",
+        "hillLevels": "57a1a75b3b5b94910662cc2aea4696fa6eca50e8ab7f657714e0b47381cf06e3",
+        "terrainTiles": "44659c5c5829d3fd72dacb56d0f59fd5698615541459d3b684eca0bc860ac604"
+      },
+      "repeatIdentical": true
+    },
+    {
+      "seed": 42,
+      "x": -3,
+      "y": 4,
+      "counts": {
+        "pond": 47,
+        "hill": 37,
+        "tree": 3,
+        "flower": 2,
+        "hillLevels": 37
+      },
+      "hashes": {
+        "pond": "6b687e55e83f6419871562c1c65227c229a720e7013edbac8ca44f7d8ef86081",
+        "hill": "655aed7059a06545b8c3ffc8fb7cea16123bcdb245aa4622420fda0980422e06",
+        "tree": "6523c670f1b848341c660051a4a0fc3830c412ae106ae3daefe937743e01fd29",
+        "flower": "5d000c7d0263229b6b30f22bd93d7e0b224ec4f238b4f42b6ad3f4c804ef3d2c",
+        "hillLevels": "10fc6f5c3b471e78470fc5eb14aaecc41cb3f0735616af589e292d66de8b8acb",
+        "terrainTiles": "e539ce67ff8e749c4c82ba112742cc1a56dc7d8e978fd8c2e791a828cdade517"
+      },
+      "repeatIdentical": true
+    }
+  ],
+  "usage": {
+    "contexts": 3,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

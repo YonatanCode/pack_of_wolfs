@@ -1,0 +1,176 @@
+{
+  "header": "CHARACTERIZATION — records CURRENT behaviour, not desired behaviour.",
+  "recoveryDriver": "runTurn + direct applyTurnEndRecovery() per turn",
+  "safeTurns": 2,
+  "start": {
+    "P1": {
+      "health": 10,
+      "turnsSinceHit": 0,
+      "tookDamageThisTurn": false
+    },
+    "P2": {
+      "health": 6,
+      "turnsSinceHit": 0,
+      "tookDamageThisTurn": false
+    },
+    "E1": {
+      "health": 10,
+      "turnsSinceHit": 0,
+      "tookDamageThisTurn": false
+    },
+    "E2": {
+      "health": 10,
+      "turnsSinceHit": 0,
+      "tookDamageThisTurn": false
+    }
+  },
+  "turns": [
+    {
+      "label": "T1: E1 hits P1; E2 defends",
+      "afterTurnBeforeRecovery": {
+        "P1": {
+          "health": 7,
+          "turnsSinceHit": 0,
+          "tookDamageThisTurn": true
+        },
+        "P2": {
+          "health": 6,
+          "turnsSinceHit": 0,
+          "tookDamageThisTurn": false
+        },
+        "E1": {
+          "health": 10,
+          "turnsSinceHit": 0,
+          "tookDamageThisTurn": false
+        },
+        "E2": {
+          "health": 10,
+          "turnsSinceHit": 0,
+          "tookDamageThisTurn": false
+        }
+      },
+      "afterRecovery": {
+        "P1": {
+          "health": 7,
+          "turnsSinceHit": 0,
+          "tookDamageThisTurn": false
+        },
+        "P2": {
+          "health": 6,
+          "turnsSinceHit": 1,
+          "tookDamageThisTurn": false
+        },
+        "E1": {
+          "health": 10,
+          "turnsSinceHit": 1,
+          "tookDamageThisTurn": false
+        },
+        "E2": {
+          "health": 10,
+          "turnsSinceHit": 1,
+          "tookDamageThisTurn": false
+        }
+      }
+    },
+    {
+      "label": "T2: E2 hits P2 (P2 was due to heal); E1 defends",
+      "afterTurnBeforeRecovery": {
+        "P1": {
+          "health": 7,
+          "turnsSinceHit": 0,
+          "tookDamageThisTurn": false
+        },
+        "P2": {
+          "health": 3,
+          "turnsSinceHit": 1,
+          "tookDamageThisTurn": true
+        },
+        "E1": {
+          "health": 10,
+          "turnsSinceHit": 1,
+          "tookDamageThisTurn": false
+        },
+        "E2": {
+          "health": 10,
+          "turnsSinceHit": 1,
+          "tookDamageThisTurn": false
+        }
+      },
+      "afterRecovery": {
+        "P1": {
+          "health": 7,
+          "turnsSinceHit": 1,
+          "tookDamageThisTurn": false
+        },
+        "P2": {
+          "health": 3,
+          "turnsSinceHit": 0,
+          "tookDamageThisTurn": false
+        },
+        "E1": {
+          "health": 10,
+          "turnsSinceHit": 2,
+          "tookDamageThisTurn": false
+        },
+        "E2": {
+          "health": 10,
+          "turnsSinceHit": 2,
+          "tookDamageThisTurn": false
+        }
+      }
+    },
+    {
+      "label": "T3: everyone defends",
+      "afterTurnBeforeRecovery": {
+        "P1": {
+          "health": 7,
+          "turnsSinceHit": 1,
+          "tookDamageThisTurn": false
+        },
+        "P2": {
+          "health": 3,
+          "turnsSinceHit": 0,
+          "tookDamageThisTurn": false
+        },
+        "E1": {
+          "health": 10,
+          "turnsSinceHit": 2,
+          "tookDamageThisTurn": false
+        },
+        "E2": {
+          "health": 10,
+          "turnsSinceHit": 2,
+          "tookDamageThisTurn": false
+        }
+      },
+      "afterRecovery": {
+        "P1": {
+          "health": 8,
+          "turnsSinceHit": 0,
+          "tookDamageThisTurn": false
+        },
+        "P2": {
+          "health": 3,
+          "turnsSinceHit": 1,
+          "tookDamageThisTurn": false
+        },
+        "E1": {
+          "health": 10,
+          "turnsSinceHit": 3,
+          "tookDamageThisTurn": false
+        },
+        "E2": {
+          "health": 10,
+          "turnsSinceHit": 3,
+          "tookDamageThisTurn": false
+        }
+      }
+    }
+  ],
+  "usage": {
+    "contexts": 1,
+    "maxSteps": 98,
+    "totalSteps": 98,
+    "cap": 4000
+  }
+}
