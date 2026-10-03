@@ -1,0 +1,3641 @@
+{
+  "characterization": "CHARACTERIZATION — records CURRENT behaviour, not desired behaviour",
+  "generatedBy": "tests/baseline/run-dev-scenarios.cjs",
+  "seed": "0xC0FFEE",
+  "total": 47,
+  "passedCount": 43,
+  "maxSteps": 74,
+  "stepCap": 4000,
+  "knownFailures": {
+    "pack-action-cap": {
+      "classification": "fails-measured",
+      "reason": "expects 5 queued entries; planner emits 3 (E3 Move, E1 Move, E2 Defend) because no wolf is adjacent on grid 16 so Attack is never planned."
+    },
+    "pack-attack-non-focus-adjacent": {
+      "classification": "fails-measured",
+      "reason": "hard-coded positions assume a small grid; on grid 16 the flank wolf is not adjacent to anyone so no Attack is planned (passes at grid 8 and 10)."
+    },
+    "pack-multi-tick": {
+      "classification": "fails-measured",
+      "reason": "expects enemy.row > 0 after the turn; E1 only gets Defend (stale 3-wolf default spacing), so it stays at row 0."
+    },
+    "pack-one-enemy": {
+      "classification": "fails-measured",
+      "reason": "expects every entry from the unit at (0,4); queue is M@0,4 M@0,4 D@0,7, so the unit at (0,7) appears (stale default spawn layout)."
+    }
+  },
+  "scenarios": [
+    {
+      "id": "double-attack",
+      "label": "Double attack",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 33,
+        "timerFires": 2,
+        "steps": 35,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "topRight",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "defend-blocks",
+      "label": "Defend blocks",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 33,
+        "timerFires": 2,
+        "steps": 35,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "topRight",
+          "health": 9,
+          "isDefeated": false,
+          "animationName": "howl",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "double-ko",
+      "label": "Double KO",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 59,
+        "timerFires": 0,
+        "steps": 59,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "topRight",
+          "health": 0,
+          "isDefeated": true,
+          "animationName": "death",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 0,
+          "isDefeated": true,
+          "animationName": "death",
+          "zIndex": 58,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 9
+          },
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 4
+          },
+          {
+            "action": "Defend",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 9
+          }
+        ],
+        "enemyPackFocusTarget": {
+          "row": 15,
+          "col": 5
+        },
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "move-away-dodge",
+      "label": "Move-away dodge",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 67,
+        "timerFires": 0,
+        "steps": 67,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 8,
+          "col": 1,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "move-into-range-hit",
+      "label": "Move-in hit",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 56,
+        "timerFires": 1,
+        "steps": 57,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "topRight",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "angled-move-path",
+      "label": "Angled move path",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 5,
+          "direction": "topLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 62,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 7,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": [],
+        "path": [
+          {
+            "row": 5,
+            "col": 5
+          },
+          {
+            "row": 4,
+            "col": 4
+          },
+          {
+            "row": 3,
+            "col": 3
+          },
+          {
+            "row": 2,
+            "col": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "crossing-paths",
+      "label": "Crossing paths",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 15,
+        "timerFires": 0,
+        "steps": 15,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 3,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "adjacent-swap",
+      "label": "Adjacent swap",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "friendly-follow-vacated",
+      "label": "Follow vacated tile",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 23,
+        "timerFires": 0,
+        "steps": 23,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 6,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 62,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 0,
+          "isDefeated": true,
+          "animationName": "death",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "friendly-stationary-blocker",
+      "label": "Stationary blocker",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 8,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 64,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 9,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 65,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 0,
+          "isDefeated": true,
+          "animationName": "death",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "same-tile-contest-partial",
+      "label": "Same-tile contest",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 23,
+        "timerFires": 0,
+        "steps": 23,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 0,
+          "isDefeated": true,
+          "animationName": "death",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "approach-contest-player-wins",
+      "label": "Approach contest",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 8,
+        "timerFires": 0,
+        "steps": 8,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 3,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 0,
+          "isDefeated": true,
+          "animationName": "death",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "approach-contest-attack",
+      "label": "Approach + attack",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 41,
+        "timerFires": 2,
+        "steps": 43,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "topRight",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 3,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 0,
+          "isDefeated": true,
+          "animationName": "death",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "hunt-flanks-friendly-blocker",
+      "label": "Hunt flanks blocker",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 63,
+        "timerFires": 1,
+        "steps": 64,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 3,
+          "direction": "bottomRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 3,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 0,
+          "isDefeated": true,
+          "animationName": "death",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "gap-engage",
+      "label": "Gap engage",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 41,
+        "timerFires": 2,
+        "steps": 43,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "topRight",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "cross-engage",
+      "label": "Cross engage",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 48,
+        "timerFires": 2,
+        "steps": 50,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "topRight",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 3,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "same-tile-engage",
+      "label": "Same-tile engage",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 41,
+        "timerFires": 2,
+        "steps": 43,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "topRight",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 3,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "post-move-contact",
+      "label": "Post-move contact",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 48,
+        "timerFires": 1,
+        "steps": 49,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 6,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 62,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "intent-target-fallback",
+      "label": "Intent fallback",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 73,
+        "timerFires": 1,
+        "steps": 74,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 8,
+          "col": 1,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 3,
+          "direction": "topRight",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "dead-target",
+      "label": "Dead target",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 27,
+        "timerFires": 0,
+        "steps": 27,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "topRight",
+          "health": 0,
+          "isDefeated": true,
+          "animationName": "death",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "corpse-layer",
+      "label": "Corpse layer",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 0,
+          "isDefeated": true,
+          "animationName": "death",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "enemy-extra-actions",
+      "label": "Enemy extras",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 38,
+        "timerFires": 0,
+        "steps": 38,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 6,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 62,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "support-only-attack",
+      "label": "Support attacks",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 33,
+        "timerFires": 1,
+        "steps": 34,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 7,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 74,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 7,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "player-shared-action-cap",
+      "label": "Players: 5-action cap",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 7,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 74,
+          "actionQueue": [
+            "Move",
+            "Attack",
+            "Defend"
+          ]
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": [
+            "Move",
+            "Attack"
+          ]
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 7,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 5,
+        "enemyPackQueue": [
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 4
+          },
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 9
+          },
+          {
+            "action": "Defend",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 7
+          }
+        ],
+        "enemyPackFocusTarget": {
+          "row": 15,
+          "col": 7
+        },
+        "enemyIntentTags": [
+          "Defend"
+        ],
+        "capResults": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          false
+        ]
+      }
+    },
+    {
+      "id": "both-players-attack",
+      "label": "Both players attack",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 33,
+        "timerFires": 1,
+        "steps": 34,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 3,
+          "direction": "bottomRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 4,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 60,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "pack-action-cap",
+      "label": "Pack: 5-action cap",
+      "passed": false,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 7,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 74,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 7,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 4
+          },
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 9
+          },
+          {
+            "action": "Defend",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 7
+          }
+        ],
+        "enemyPackFocusTarget": {
+          "row": 15,
+          "col": 7
+        },
+        "enemyIntentTags": [
+          "Defend"
+        ]
+      },
+      "classification": "fails-measured"
+    },
+    {
+      "id": "pack-focus-weaker",
+      "label": "Pack: focus weaker",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 7,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 74,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 3,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 7,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 9
+          },
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 4
+          },
+          {
+            "action": "Defend",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 7
+          }
+        ],
+        "enemyPackFocusTarget": {
+          "row": 15,
+          "col": 5
+        },
+        "enemyIntentTags": [
+          "Defend"
+        ]
+      }
+    },
+    {
+      "id": "pack-attack-non-focus-adjacent",
+      "label": "Pack: attack non-focus adjacent",
+      "passed": false,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 7,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 74,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 1,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 7,
+          "col": 2,
+          "direction": "bottomLeft",
+          "health": 3,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 8,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 3,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 64,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 8,
+          "col": 7,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 67,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 7,
+            "unitCol": 2
+          },
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 8,
+            "unitCol": 4
+          },
+          {
+            "action": "Defend",
+            "unitTeam": "enemy",
+            "unitRow": 8,
+            "unitCol": 7
+          }
+        ],
+        "enemyPackFocusTarget": {
+          "row": 15,
+          "col": 5
+        },
+        "enemyIntentTags": [
+          "Move"
+        ]
+      },
+      "classification": "fails-measured"
+    },
+    {
+      "id": "pack-both-attack",
+      "label": "Pack: both attack",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 33,
+        "timerFires": 1,
+        "steps": 34,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 4,
+          "direction": "topRight",
+          "health": 4,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 3,
+          "direction": "bottomRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 5,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": null,
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "pack-multi-tick",
+      "label": "Pack: multi-tick",
+      "passed": false,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 49,
+        "timerFires": 1,
+        "steps": 50,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 7,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 74,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 7,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "howl",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 2,
+          "col": 11,
+          "direction": "bottomRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 65,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 3,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [],
+        "enemyPackFocusTarget": {
+          "row": 15,
+          "col": 7
+        },
+        "enemyIntentTags": []
+      },
+      "classification": "fails-measured"
+    },
+    {
+      "id": "pack-one-enemy",
+      "label": "Pack: 1 enemy",
+      "passed": false,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 7,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 74,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 5,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 72,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 7,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 9,
+          "direction": "bottomLeft",
+          "health": 0,
+          "isDefeated": true,
+          "animationName": "death",
+          "zIndex": 59,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 0,
+          "col": 4,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 56,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 4
+          },
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 4
+          },
+          {
+            "action": "Defend",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 7
+          }
+        ],
+        "enemyPackFocusTarget": {
+          "row": 15,
+          "col": 7
+        },
+        "enemyIntentTags": [
+          "Defend"
+        ]
+      },
+      "classification": "fails-measured"
+    },
+    {
+      "id": "pack-engage-reaches-slot",
+      "label": "Pack: engage reaches slot",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 23,
+        "timerFires": 0,
+        "steps": 23,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 18,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 3,
+          "col": 8,
+          "direction": "topLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 67,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": false,
+          "row": 17,
+          "col": 6,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 79,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": false,
+          "row": 17,
+          "col": 11,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 84,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 4,
+          "col": 7,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 67,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": false,
+          "row": 0,
+          "col": 10,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 66,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": false,
+          "row": 0,
+          "col": 5,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [
+          {
+            "action": "Attack",
+            "unitTeam": "enemy",
+            "unitRow": 4,
+            "unitCol": 7
+          },
+          {
+            "action": "Attack",
+            "unitTeam": "enemy",
+            "unitRow": 4,
+            "unitCol": 7
+          },
+          {
+            "action": "Defend",
+            "unitTeam": "enemy",
+            "unitRow": 4,
+            "unitCol": 7
+          }
+        ],
+        "enemyPackFocusTarget": {
+          "row": 3,
+          "col": 8
+        },
+        "enemyIntentTags": [
+          "Attack",
+          "Attack",
+          "Defend"
+        ]
+      }
+    },
+    {
+      "id": "pack-replans-after-teammate-deaths",
+      "label": "Pack: replans after teammate deaths",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 59,
+        "timerFires": 3,
+        "steps": 62,
+        "cap": 4000
+      },
+      "state": {
+        "gridSize": 16,
+        "enemyMode": "wolves",
+        "player": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 5,
+          "direction": "bottomRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 62,
+          "actionQueue": []
+        },
+        "playerSupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 1,
+          "direction": "bottomRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 58,
+          "actionQueue": []
+        },
+        "playerFlank": {
+          "type": "wolf",
+          "isActive": false,
+          "row": 15,
+          "col": 10,
+          "direction": "topRight",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "idle",
+          "zIndex": 77,
+          "actionQueue": []
+        },
+        "enemy": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 6,
+          "direction": "bottomLeft",
+          "health": 0,
+          "isDefeated": true,
+          "animationName": "death",
+          "zIndex": 61,
+          "actionQueue": []
+        },
+        "enemySupport": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 2,
+          "direction": "bottomRight",
+          "health": 0,
+          "isDefeated": true,
+          "animationName": "death",
+          "zIndex": 57,
+          "actionQueue": []
+        },
+        "enemyFlank": {
+          "type": "wolf",
+          "isActive": true,
+          "row": 5,
+          "col": 14,
+          "direction": "bottomLeft",
+          "health": 10,
+          "isDefeated": false,
+          "animationName": "howl",
+          "zIndex": 71,
+          "actionQueue": []
+        },
+        "playerQueuedActionTotal": 0,
+        "enemyPackQueue": [
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 5,
+            "unitCol": 14
+          },
+          {
+            "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 5,
+            "unitCol": 14
+          },
+          {
+            "action": "Defend",
+            "unitTeam": "enemy",
+            "unitRow": 5,
+            "unitCol": 14
+          }
+        ],
+        "enemyPackFocusTarget": {
+          "row": 5,
+          "col": 5
+        },
+        "enemyIntentTags": []
+      }
+    },
+    {
+      "id": "world-corner-math",
+      "label": "World: corner math + opposites cancel",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "moves": [
+          {
+            "x": 0,
+            "y": 1
+          },
+          {
+            "x": 1,
+            "y": 0
+          },
+          {
+            "x": 0,
+            "y": -1
+          },
+          {
+            "x": -1,
+            "y": 0
+          }
+        ],
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "world-expand-battle",
+      "label": "World: fresh cell starts a battle",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "isBattle": true,
+        "cleared": false,
+        "nodeCount": 2
+      }
+    },
+    {
+      "id": "world-win-clears-cell",
+      "label": "World: winning clears the current cell",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "wasBattle": true,
+        "clearedAfter": true
+      }
+    },
+    {
+      "id": "world-revisit-safe",
+      "label": "World: re-entering a cleared cell is safe passage",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "isBattle": false,
+        "x": 1,
+        "y": 0
+      }
+    },
+    {
+      "id": "world-difficulty-scales",
+      "label": "World: difficulty scales with distance",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "home": 0,
+        "near": 1,
+        "far": 2
+      }
+    },
+    {
+      "id": "world-safe-passage-nav",
+      "label": "World: navigating onto cleared ground stays on the map",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 16,
+        "timerFires": 1,
+        "steps": 17,
+        "cap": 4000
+      },
+      "state": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": "world-terrain-seeded",
+      "label": "World: terrain is deterministic per seed",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "sameSeedMatches": true,
+        "diffSeedDiffers": true
+      }
+    },
+    {
+      "id": "world-bounds-cap",
+      "label": "World: cannot expand past the edge",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "edgeX": 5,
+        "blockedIsNull": true,
+        "afterX": 5
+      }
+    },
+    {
+      "id": "world-marker-facing",
+      "label": "World: marker faces the way the pack travelled",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "afterTopRight": "topRight",
+        "afterTopLeft": "topLeft"
+      }
+    },
+    {
+      "id": "world-eight-directions",
+      "label": "World: eight travel directions, diagonal facing mapped",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "count": 8,
+        "distinct": 8,
+        "topX": 1,
+        "topY": 1,
+        "topFacing": "topRight"
+      }
+    },
+    {
+      "id": "obstacles-block-movement",
+      "label": "Obstacles: water and hill are both impassable",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "water": true,
+        "hill": true,
+        "open": false
+      }
+    },
+    {
+      "id": "hill-blocks-line-of-sight",
+      "label": "Hill: blocks line of sight, clear elsewhere, symmetric",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "blocked": false,
+        "clear": true,
+        "symmetric": true
+      }
+    },
+    {
+      "id": "hidden-player-remains-pack-focus",
+      "label": "Stealth: pack pursues a player hidden behind a hill",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "nearHidden": true,
+        "farVisible": true,
+        "focusIsNear": true
+      }
+    },
+    {
+      "id": "water-field-tiles-seamlessly",
+      "label": "Water: global field tiles arenas with no overlap",
+      "passed": true,
+      "error": null,
+      "timedOut": false,
+      "frameCapped": false,
+      "usage": {
+        "frames": 0,
+        "timerFires": 0,
+        "steps": 0,
+        "cap": 4000
+      },
+      "state": {
+        "overlap": 0,
+        "deterministic": true
+      }
+    }
+  ]
+}
