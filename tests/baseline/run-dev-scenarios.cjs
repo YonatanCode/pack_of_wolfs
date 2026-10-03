@@ -31,7 +31,7 @@ async function run() {
   const scenarios = plain(listing.ev("window.devTest.scenarios"));
   const results = [];
   for (const { id, label } of scenarios) {
-    const game = loadGame();
+    const game = loadGame({ label: `baseline:${id}` });
     const rec = { id, label, passed: false, error: null, timedOut: false, frameCapped: false, usage: null, state: null };
     try {
       const r = await game.runLimited(() => game.ev(`window.devTest.runScenario(${JSON.stringify(id)})`));

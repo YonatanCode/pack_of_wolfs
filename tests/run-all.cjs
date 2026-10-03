@@ -4,15 +4,24 @@
  * prints a PASS/DIFF table, exits non-zero on any diff.
  *   node tests/run-all.cjs            compare
  *   node tests/run-all.cjs --update   rewrite goldens (baseline/dev-scenarios.json + characterization/goldens/*.json)
+ *   node tests/run-all.cjs --update --only <id>   rewrite just that one golden (never touches the others)
+ *   node tests/run-all.cjs --only <id>            run just that one fixture
+ * Any console.error/warn, uncaught exception or unhandled rejection from game code FAILS the run unless
+ * listed (exact message, with a reason) in harness/console-allowlist.cjs.
  * Output contains no timings, so repeated runs are byte-identical.
  */
 const fs = require("node:fs");
 const path = require("node:path");
 const { stableStringify } = require("./harness/util.cjs");
 const baseline = require("./baseline/run-dev-scenarios.cjs");
-const { drainUsage } = require("./harness/load-game.cjs");
+const { drainUsage, drainConsole, setFixtureLabel } = require("./harness/load-game.cjs");
+const { ALLOWLIST } = require("./harness/console-allowlist.cjs");
 
 const UPDATE = process.argv.includes("--update");
+const onlyIdx = process.argv.indexOf("--only");
+const ONLY = onlyIdx >= 0 ? process.argv[onlyIdx + 1] : null;
+if (onlyIdx >= 0 && (!ONLY || ONLY.startsWith("--"))) { console.error("--only needs a fixture id"); process.exit(2); }
+const usedAllow = new Set();
 const CHAR_DIR = path.join(__dirname, "characterization");
 const GOLDEN_DIR = path.join(CHAR_DIR, "goldens");
 
@@ -42,7 +51,7 @@ function baselineProblems(result) {
 
 async function main() {
   const jobs = [{ id: "baseline-dev-scenarios", file: baseline.OUT, run: baseline.run, check: baselineProblems }];
-  const fixtureFiles = fs.readdirSync(CHAR_DIR).filter((f) => /^c\d.*\.cjs$/.test(f)).sort();
+  const fixtureFiles = fs.readdirSync(CHAR_DIR).filter((f) => /^[cr]\d.*\.cjs$/.test(f)).sort();
   const fixtureIds = new Set();
   fixtureFiles.forEach((f) => {
     const m = require(path.join(CHAR_DIR, f));
@@ -59,14 +68,35 @@ async function main() {
     rows.push({ id: `goldens/${f}`, status: "DIFF", detail: "orphan golden: no fixture file declares this id (delete the golden or add the fixture)" });
   });
 
+  if (!ONLY) {
+    const st = await require("./harness/selftest-console.cjs").run();
+    rows.push({ id: "selftest-console", status: st.problems.length ? "DIFF" : "PASS", detail: st.problems.join("\n      ") });
+    if (st.problems.length) failed = true;
+    drainConsole();
+  }
+  if (ONLY && !jobs.some((j) => j.id === ONLY)) { console.error(`--only: unknown fixture id "${ONLY}"`); process.exit(2); }
   for (const job of jobs) {
+    if (ONLY && job.id !== ONLY) continue;
     let status; let detail = "";
+    let consoleProblems = [];
     try {
+      setFixtureLabel(job.id);
+      drainConsole();
       drainUsage();
       const result = await job.run();
       if (job.withUsage) result.usage = drainUsage();
       const problems = job.check ? job.check(result) : [];
       const text = stableStringify(result);
+      await new Promise((r) => setImmediate(r)); // let unhandled-rejection events fire
+      consoleProblems = drainConsole().filter((ev) => {
+        const i = ALLOWLIST.findIndex((a) => a.fixture === ev.fixture && a.kind === ev.kind && a.message === ev.message);
+        if (i >= 0) usedAllow.add(i);
+        return i < 0;
+      });
+      if (consoleProblems.length) {
+        const uniq = [...new Set(consoleProblems.map((c) => `[${c.fixture}] ${c.kind}: ${c.message}`))];
+        problems.push(`UNEXPECTED CONSOLE/ERROR OUTPUT (${consoleProblems.length}):\n      ${uniq.join("\n      ")}`);
+      }
       if (problems.length) {
         status = "DIFF"; detail = problems.join("\n      ");
       } else if (UPDATE) {
@@ -87,6 +117,11 @@ async function main() {
     }
     if (status === "DIFF") failed = true;
     rows.push({ id: job.id, status, detail, usage: job.usage });
+  }
+  if (!ONLY) {
+    ALLOWLIST.forEach((a, i) => {
+      if (!usedAllow.has(i)) { failed = true; rows.push({ id: "console-allowlist", status: "DIFF", detail: `unused allowlist entry (remove it): [${a.fixture}] ${a.kind}: ${a.message}` }); }
+    });
   }
   const w = Math.max(...rows.map((r) => r.id.length));
   console.log(`${"FIXTURE".padEnd(w)}  RESULT   MAX-STEPS/CAP`);

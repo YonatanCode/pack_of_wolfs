@@ -37,6 +37,7 @@
 const vm = require("node:vm");
 const fs = require("node:fs");
 const path = require("node:path");
+const util = require("node:util");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const SCRIPT_PATH = path.join(ROOT, "script.js");
@@ -269,10 +270,33 @@ function createDom(env) {
   return document;
 }
 
+// ---- console / error capture ------------------------------------------------------------------
+// Every context records console.error, console.warn, exceptions thrown out of game timer/rAF
+// callbacks, and unhandled promise rejections. run-all drains them after each fixture and FAILS on
+// any that is not in tests/harness/console-allowlist.cjs. console.log/info/debug stay silent.
+const consoleEvents = [];
+let currentLabel = "(no fixture)";
+function setFixtureLabel(label) { currentLabel = label; }
+function recordEvent(label, kind, text) {
+  consoleEvents.push({ fixture: label, kind, message: String(text).replace(/\s+/g, " ").slice(0, 200) });
+}
+/** Events recorded since the last call (clears the list). */
+function drainConsole() { return consoleEvents.splice(0, consoleEvents.length); }
+process.on("unhandledRejection", (reason) => {
+  recordEvent(currentLabel, "unhandledRejection", reason && reason.message ? reason.message : util.inspect(reason));
+});
+
 const SYNC_TIMEOUT_MS = 30000; // vm-level limit for any single synchronous evaluation (infinite-loop guard)
 const instances = [];
 
-function loadGame({ seed = DEFAULT_SEED, frameCap = 4000 } = {}) {
+/**
+ * options: seed, frameCap, label (id used in console-error reports; defaults to the fixture run-all
+ * is currently executing), query ("?scenario=intro&seed=1" -> window.location.search; default: no
+ * location at all, i.e. the original headless world boot), scenarios (true -> run scenarios/*.js
+ * before script.js so window.BATTLE_SCENARIOS exists, as index.html does).
+ */
+function loadGame({ seed = DEFAULT_SEED, frameCap = 4000, label, query, scenarios = false } = {}) {
+  const ctxLabel = label ?? currentLabel;
   // stepCap counts rAF frames AND virtual timer fires (frameCap is kept as the option name).
   const state = { frames: 0, timerFires: 0, frameCap, capped: false, now: 1000, rejectCap: null, active: 0 };
   instances.push(state);
@@ -299,7 +323,7 @@ function loadGame({ seed = DEFAULT_SEED, frameCap = 4000 } = {}) {
         state.rejectCap(new Error("frame-cap"));
         return;
       }
-      t.fn(...t.args);
+      try { t.fn(...t.args); } catch (e) { recordEvent(ctxLabel, "uncaughtException", e && e.message ? e.message : e); }
     }
   };
   const pump = () => {
@@ -321,7 +345,10 @@ function loadGame({ seed = DEFAULT_SEED, frameCap = 4000 } = {}) {
       if (state.capped) return;
       const batch = rafQueue;
       rafQueue = [];
-      batch.forEach((r) => { if (!r.cancelled) r.cb(state.now); });
+      batch.forEach((r) => {
+        if (r.cancelled) return;
+        try { r.cb(state.now); } catch (e) { recordEvent(ctxLabel, "uncaughtException", e && e.message ? e.message : e); }
+      });
     }
     schedule();
   };
@@ -333,9 +360,14 @@ function loadGame({ seed = DEFAULT_SEED, frameCap = 4000 } = {}) {
   };
 
   const sandbox = {
-    console: { log() {}, warn() {}, error() {}, info() {}, debug() {} },
+    console: {
+      log() {}, info() {}, debug() {},
+      warn: (...a) => recordEvent(ctxLabel, "console.warn", util.format(...a)),
+      error: (...a) => recordEvent(ctxLabel, "console.error", util.format(...a)),
+    },
     document,
     navigator: { clipboard: { writeText: () => Promise.resolve() }, userAgent: "node-headless" },
+    URLSearchParams, // browser global used by the scenario boot route
     innerWidth: 1280,
     innerHeight: 800,
     devicePixelRatio: 1,
@@ -374,12 +406,19 @@ function loadGame({ seed = DEFAULT_SEED, frameCap = 4000 } = {}) {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   sandbox.self = sandbox;
+  if (query !== undefined) sandbox.location = { search: String(query), href: "http://localhost/" + query, pathname: "/" };
 
   const ctx = vm.createContext(sandbox, { name: "game" });
   let rng = mulberry32(seed);
   // Replace the CONTEXT's Math.random before any game code runs.
   vm.runInContext("(function(r){ Math.random = r; })", ctx, { timeout: SYNC_TIMEOUT_MS })(() => rng());
 
+  if (scenarios) {
+    const dir = path.join(ROOT, "scenarios");
+    fs.readdirSync(dir).filter((f) => f.endsWith(".js")).sort().forEach((f) => {
+      vm.runInContext(fs.readFileSync(path.join(dir, f), "utf8"), ctx, { filename: "scenarios/" + f, timeout: SYNC_TIMEOUT_MS });
+    });
+  }
   const code = fs.readFileSync(SCRIPT_PATH, "utf8");
   vm.runInContext(code, ctx, { filename: "script.js", timeout: SYNC_TIMEOUT_MS });
 
@@ -424,4 +463,4 @@ function drainUsage() {
   };
 }
 
-module.exports = { drainUsage, SYNC_TIMEOUT_MS, loadGame, mulberry32, ROOT, DEFAULT_SEED };
+module.exports = { drainUsage, drainConsole, setFixtureLabel, SYNC_TIMEOUT_MS, loadGame, mulberry32, ROOT, DEFAULT_SEED };
