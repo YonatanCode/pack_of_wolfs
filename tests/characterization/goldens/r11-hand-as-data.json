@@ -1,0 +1,325 @@
+{
+  "header": "REQUIREMENT — P1d acceptance",
+  "c1": {
+    "seededHands": [
+      {
+        "seed": 1,
+        "hand": [
+          "Attack",
+          "Move",
+          "Attack",
+          "Defend",
+          "Defend"
+        ]
+      },
+      {
+        "seed": 2,
+        "hand": [
+          "Defend",
+          "Move",
+          "Move",
+          "Attack",
+          "Defend"
+        ]
+      },
+      {
+        "seed": 3,
+        "hand": [
+          "Defend",
+          "Move",
+          "Attack",
+          "Move",
+          "Defend"
+        ]
+      },
+      {
+        "seed": 4,
+        "hand": [
+          "Defend",
+          "Move",
+          "Move",
+          "Move",
+          "Attack"
+        ]
+      },
+      {
+        "seed": 5,
+        "hand": [
+          "Defend",
+          "Defend",
+          "Move",
+          "Attack",
+          "Move"
+        ]
+      }
+    ],
+    "carryOver": {
+      "before": [
+        "Move",
+        "Move",
+        "Defend",
+        "Defend",
+        "Attack"
+      ],
+      "consumed": [
+        "Move",
+        "Defend"
+      ],
+      "kept": [
+        "Move",
+        "Defend",
+        "Attack"
+      ],
+      "after": [
+        "Attack",
+        "Attack",
+        "Move",
+        "Defend",
+        "Attack"
+      ]
+    },
+    "capCarry": [
+      {
+        "seed": 1000,
+        "hand": [
+          "Defend",
+          "Defend",
+          "Move",
+          "Move",
+          "Move"
+        ]
+      },
+      {
+        "seed": 1001,
+        "hand": [
+          "Attack",
+          "Attack",
+          "Move",
+          "Move",
+          "Move"
+        ]
+      },
+      {
+        "seed": 1002,
+        "hand": [
+          "Attack",
+          "Defend",
+          "Move",
+          "Move",
+          "Move"
+        ]
+      }
+    ],
+    "reshuffle": [
+      [
+        "Attack",
+        "Attack",
+        "Attack",
+        "Defend",
+        "Defend"
+      ],
+      [
+        "Move",
+        "Move",
+        "Attack",
+        "Defend",
+        "Move"
+      ],
+      [
+        "Attack",
+        "Attack",
+        "Move",
+        "Move",
+        "Move"
+      ],
+      [
+        "Attack",
+        "Attack",
+        "Move",
+        "Move",
+        "Move"
+      ]
+    ]
+  },
+  "c8": [
+    {
+      "seed": 1,
+      "start": [
+        "Attack",
+        "Move",
+        "Attack",
+        "Defend",
+        "Defend"
+      ],
+      "afterPlayTwoAndRefill": [
+        "Move",
+        "Attack",
+        "Move",
+        "Attack",
+        "Defend"
+      ],
+      "afterReshuffle": [
+        "Defend",
+        "Attack",
+        "Defend",
+        "Attack",
+        "Attack"
+      ]
+    },
+    {
+      "seed": 2,
+      "start": [
+        "Defend",
+        "Move",
+        "Move",
+        "Attack",
+        "Defend"
+      ],
+      "afterPlayTwoAndRefill": [
+        "Attack",
+        "Attack",
+        "Move",
+        "Move",
+        "Attack"
+      ],
+      "afterReshuffle": [
+        "Attack",
+        "Defend",
+        "Move",
+        "Defend",
+        "Move"
+      ]
+    },
+    {
+      "seed": 3,
+      "start": [
+        "Defend",
+        "Move",
+        "Attack",
+        "Move",
+        "Defend"
+      ],
+      "afterPlayTwoAndRefill": [
+        "Attack",
+        "Attack",
+        "Move",
+        "Attack",
+        "Move"
+      ],
+      "afterReshuffle": [
+        "Move",
+        "Move",
+        "Attack",
+        "Move",
+        "Attack"
+      ]
+    },
+    {
+      "seed": 4,
+      "start": [
+        "Defend",
+        "Move",
+        "Move",
+        "Move",
+        "Attack"
+      ],
+      "afterPlayTwoAndRefill": [
+        "Defend",
+        "Attack",
+        "Move",
+        "Move",
+        "Move"
+      ],
+      "afterReshuffle": [
+        "Defend",
+        "Attack",
+        "Defend",
+        "Defend",
+        "Move"
+      ]
+    }
+  ],
+  "mutators": {
+    "queueThenReturn": {
+      "card": "Move",
+      "afterQueue": [
+        "Attack",
+        "Attack",
+        "Defend",
+        "Defend"
+      ],
+      "afterReturn": [
+        "Move",
+        "Attack",
+        "Attack",
+        "Defend",
+        "Defend"
+      ]
+    },
+    "tutorialSeed": [
+      "Move",
+      "Attack",
+      "Defend",
+      "Move",
+      "Attack"
+    ],
+    "fillAttack": [
+      "Attack",
+      "Attack",
+      "Attack",
+      "Attack",
+      "Attack"
+    ],
+    "restart": [
+      "Attack",
+      "Move",
+      "Attack",
+      "Defend",
+      "Defend"
+    ]
+  },
+  "turn": {
+    "played": {
+      "kept": [
+        "Defend",
+        "Defend"
+      ],
+      "drawn": [
+        "Move",
+        "Attack",
+        "Defend"
+      ],
+      "hand": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Defend",
+        "Defend"
+      ]
+    },
+    "drained": {
+      "kept": [
+        "Attack",
+        "Defend",
+        "Defend",
+        "Defend"
+      ],
+      "drawn": [
+        "Move"
+      ],
+      "hand": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Defend",
+        "Defend"
+      ]
+    }
+  },
+  "usage": {
+    "contexts": 6,
+    "maxSteps": 74,
+    "totalSteps": 74,
+    "cap": 4000
+  }
+}

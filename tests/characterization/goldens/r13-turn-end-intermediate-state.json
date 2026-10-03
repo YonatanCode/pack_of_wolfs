@@ -1,0 +1,154 @@
+{
+  "header": "REQUIREMENT — P1d acceptance",
+  "cases": {
+    "casualty": {
+      "description": "1-HP E1 (between P1 and P2) dies in tick 1, E2/E3 survive (replan); wounded P3 (8 HP, 1 safe turn, never hit) heals at turn end; non-terminal (no outcome).",
+      "stepOrder": "enemyPlan > selection > moves > swings > damage > replan > tickEnd > moves > swings > damage > tickEnd > moves > swings > damage > tickEnd > moves > swings > damage > tickEnd > recovery > debugNote > handDraw > turnEnd > outcome",
+      "handQueued": "Move+Defend",
+      "outcome": {
+        "type": "outcome",
+        "winner": "none",
+        "doubleKO": false
+      },
+      "probes": [
+        "00 damage/begin: hand=2/2 ovl=hidden play=off exec=1 tags=E1:Attack,E2:Defend bars=P1:10X,P2:100,P3:80,E1:10X,E2:100,E3:100",
+        "01 damage/call updateUnitHealthBar E1: hand=2/2 ovl=hidden play=off exec=1 tags=E1:Attack,E2:Defend bars=P1:10X,P2:100,P3:80,E1:10X,E2:100,E3:100",
+        "02 damage/call updateUnitHealthBar P1: hand=2/2 ovl=hidden play=off exec=1 tags=E1:Attack,E2:Defend bars=P1:10X,P2:100,P3:80,E1:0X,E2:100,E3:100",
+        "03 damage/end: hand=2/2 ovl=hidden play=off exec=1 tags=E1:Attack,E2:Defend bars=P1:0X,P2:100,P3:80,E1:0X,E2:100,E3:100",
+        "04 replan/begin: hand=2/2 ovl=hidden play=off exec=1 tags=E1:Attack,E2:Defend bars=P1:0X,P2:100,P3:80,E1:0X,E2:100,E3:100",
+        "05 replan/call renderEnemyPackIntentTags {...}: hand=2/2 ovl=hidden play=off exec=1 tags=E1:Attack,E2:Defend bars=P1:0X,P2:100,P3:80,E1:0X,E2:100,E3:100",
+        "06 replan/end: hand=2/2 ovl=hidden play=off exec=1 tags=E2:Move+Defend,E3:Move+Attack+Attack bars=P1:0X,P2:100,P3:80,E1:0X,E2:100,E3:100",
+        "07 tickEnd/begin: hand=2/2 ovl=hidden play=off exec=1 tags=E3:Attack bars=P1:0X,P2:40,P3:80,E1:0X,E2:100,E3:100",
+        "08 tickEnd/call renderEnemyPackIntentTags: hand=2/2 ovl=hidden play=off exec=1 tags=E3:Attack bars=P1:0X,P2:40,P3:80,E1:0X,E2:100,E3:100",
+        "09 tickEnd/end: hand=2/2 ovl=hidden play=off exec=1 tags=- bars=P1:0X,P2:40,P3:80,E1:0X,E2:100,E3:100",
+        "10 recovery/begin: hand=2/2 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:40,P3:80,E1:0X,E2:100,E3:100",
+        "11 recovery/call updateUnitHealthBar P3: hand=2/2 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:40,P3:80,E1:0X,E2:100,E3:100",
+        "12 recovery/call showUnitHealPopup P3,{...}: hand=2/2 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:40,P3:90,E1:0X,E2:100,E3:100",
+        "13 recovery/end: hand=2/2 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:40,P3:90,E1:0X,E2:100,E3:100",
+        "14 debugNote/begin: hand=2/2 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:40,P3:90,E1:0X,E2:100,E3:100",
+        "15 debugNote/end: hand=2/2 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:40,P3:90,E1:0X,E2:100,E3:100",
+        "16 handDraw/begin: hand=2/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:40,P3:90,E1:0X,E2:100,E3:100",
+        "17 handDraw/call refillAvailableActions: hand=2/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:40,P3:90,E1:0X,E2:100,E3:100",
+        "18 handDraw/end: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:40,P3:90,E1:0X,E2:100,E3:100",
+        "19 turnEnd/begin: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:40,P3:90,E1:0X,E2:100,E3:100",
+        "20 turnEnd/call renderEnemyPackIntentTags {...}: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:40,P3:90,E1:0X,E2:100,E3:100",
+        "21 turnEnd/end: hand=5/5 ovl=hidden play=off exec=0 tags=E2:Attack+Defend,E3:Attack bars=P1:0X,P2:40,P3:90,E1:0X,E2:100,E3:100",
+        "22 outcome/begin: hand=5/5 ovl=hidden play=off exec=0 tags=E2:Attack+Defend,E3:Attack bars=P1:0X,P2:40,P3:90,E1:0X,E2:100,E3:100",
+        "23 outcome/end: hand=5/5 ovl=hidden play=off exec=0 tags=E2:Attack+Defend,E3:Attack bars=P1:0X,P2:40,P3:90,E1:0X,E2:100,E3:100"
+      ]
+    },
+    "victory": {
+      "description": "P1 bites the 4-HP last enemy E1 in tick 1 (4 -> 1) and kills it in tick 2; wounded P2 (8 HP, 1 safe turn) heals at turn end; outcome player.",
+      "stepOrder": "enemyPlan > selection > moves > swings > damage > tickEnd > moves > swings > damage > replan > tickEnd > recovery > debugNote > handDraw > turnEnd > outcome",
+      "handQueued": "Defend+Move+Defend",
+      "outcome": {
+        "type": "outcome",
+        "winner": "player",
+        "doubleKO": false
+      },
+      "probes": [
+        "00 damage/begin: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:70,P2:80,P3:100,E1:10X,E2:100,E3:100",
+        "01 damage/call updateUnitHealthBar E1: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:70,P2:80,P3:100,E1:10X,E2:100,E3:100",
+        "02 damage/call updateUnitHealthBar P1: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:70,P2:80,P3:100,E1:0X,E2:100,E3:100",
+        "03 damage/end: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:40,P2:80,P3:100,E1:0X,E2:100,E3:100",
+        "04 replan/begin: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:40,P2:80,P3:100,E1:0X,E2:100,E3:100",
+        "05 replan/call renderEnemyPackIntentTags {...}: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:40,P2:80,P3:100,E1:0X,E2:100,E3:100",
+        "06 replan/end: hand=3/3 ovl=hidden play=off exec=1 tags=- bars=P1:40,P2:80,P3:100,E1:0X,E2:100,E3:100",
+        "07 tickEnd/begin: hand=3/3 ovl=hidden play=off exec=1 tags=- bars=P1:40,P2:80,P3:100,E1:0X,E2:100,E3:100",
+        "08 tickEnd/call renderEnemyPackIntentTags: hand=3/3 ovl=hidden play=off exec=1 tags=- bars=P1:40,P2:80,P3:100,E1:0X,E2:100,E3:100",
+        "09 tickEnd/end: hand=3/3 ovl=hidden play=off exec=1 tags=- bars=P1:40,P2:80,P3:100,E1:0X,E2:100,E3:100",
+        "10 recovery/begin: hand=3/3 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:80,P3:100,E1:0X,E2:100,E3:100",
+        "11 recovery/call updateUnitHealthBar P2: hand=3/3 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:80,P3:100,E1:0X,E2:100,E3:100",
+        "12 recovery/call showUnitHealPopup P2,{...}: hand=3/3 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100",
+        "13 recovery/end: hand=3/3 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100",
+        "14 debugNote/begin: hand=3/3 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100",
+        "15 debugNote/end: hand=3/3 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100",
+        "16 handDraw/begin: hand=3/5 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100",
+        "17 handDraw/call refillAvailableActions: hand=3/5 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100",
+        "18 handDraw/end: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100",
+        "19 turnEnd/begin: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100",
+        "20 turnEnd/call renderEnemyPackIntentTags {...}: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100",
+        "21 turnEnd/end: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100",
+        "22 outcome/begin: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100",
+        "23 outcome/call concludeBattle {...}: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100",
+        "24 outcome/call showGameResult {...}: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100",
+        "25 outcome/end: hand=5/5 ovl=You Win! play=off exec=0 tags=- bars=P1:40,P2:90,P3:100,E1:0X,E2:100,E3:100"
+      ]
+    },
+    "defeat": {
+      "description": "P1 (4 HP, last wolf) trades bites with E1 (10 HP): both survive tick 1, P1 dies in tick 2; E1 lives; outcome enemy.",
+      "stepOrder": "enemyPlan > selection > moves > swings > damage > tickEnd > moves > swings > damage > tickEnd > recovery > debugNote > handDraw > turnEnd > outcome",
+      "handQueued": "Defend+Move+Defend",
+      "outcome": {
+        "type": "outcome",
+        "winner": "enemy",
+        "doubleKO": false
+      },
+      "probes": [
+        "00 damage/begin: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:10X,P2:100,P3:100,E1:70,E2:100,E3:100",
+        "01 damage/call updateUnitHealthBar E1: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:10X,P2:100,P3:100,E1:70,E2:100,E3:100",
+        "02 damage/call updateUnitHealthBar P1: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:10X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "03 damage/end: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "04 tickEnd/begin: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "05 tickEnd/call renderEnemyPackIntentTags: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "06 tickEnd/end: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Defend bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "07 recovery/begin: hand=3/3 ovl=hidden play=off exec=0 tags=E1:Defend bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "08 recovery/end: hand=3/3 ovl=hidden play=off exec=0 tags=E1:Defend bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "09 debugNote/begin: hand=3/3 ovl=hidden play=off exec=0 tags=E1:Defend bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "10 debugNote/end: hand=3/3 ovl=hidden play=off exec=0 tags=E1:Defend bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "11 handDraw/begin: hand=3/5 ovl=hidden play=off exec=0 tags=E1:Defend bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "12 handDraw/call refillAvailableActions: hand=3/5 ovl=hidden play=off exec=0 tags=E1:Defend bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "13 handDraw/end: hand=5/5 ovl=hidden play=off exec=0 tags=E1:Defend bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "14 turnEnd/begin: hand=5/5 ovl=hidden play=off exec=0 tags=E1:Defend bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "15 turnEnd/call renderEnemyPackIntentTags {...}: hand=5/5 ovl=hidden play=off exec=0 tags=E1:Defend bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "16 turnEnd/end: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "17 outcome/begin: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "18 outcome/call concludeBattle {...}: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "19 outcome/call showGameResult {...}: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100",
+        "20 outcome/end: hand=5/5 ovl=You Lose play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:40,E2:100,E3:100"
+      ]
+    },
+    "double-ko": {
+      "description": "Last units P1 and E1 (4 HP each) both survive tick 1 and kill each other in tick 2: outcome enemy (defeat), doubleKO.",
+      "stepOrder": "enemyPlan > selection > moves > swings > damage > tickEnd > moves > swings > damage > replan > tickEnd > recovery > debugNote > handDraw > turnEnd > outcome",
+      "handQueued": "Defend+Move+Defend",
+      "outcome": {
+        "type": "outcome",
+        "winner": "enemy",
+        "doubleKO": true
+      },
+      "probes": [
+        "00 damage/begin: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:10X,P2:100,P3:100,E1:10X,E2:100,E3:100",
+        "01 damage/call updateUnitHealthBar E1: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:10X,P2:100,P3:100,E1:10X,E2:100,E3:100",
+        "02 damage/call updateUnitHealthBar P1: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:10X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "03 damage/end: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "04 replan/begin: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "05 replan/call renderEnemyPackIntentTags {...}: hand=3/3 ovl=hidden play=off exec=1 tags=E1:Attack+Defend bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "06 replan/end: hand=3/3 ovl=hidden play=off exec=1 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "07 tickEnd/begin: hand=3/3 ovl=hidden play=off exec=1 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "08 tickEnd/call renderEnemyPackIntentTags: hand=3/3 ovl=hidden play=off exec=1 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "09 tickEnd/end: hand=3/3 ovl=hidden play=off exec=1 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "10 recovery/begin: hand=3/3 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "11 recovery/end: hand=3/3 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "12 debugNote/begin: hand=3/3 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "13 debugNote/end: hand=3/3 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "14 handDraw/begin: hand=3/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "15 handDraw/call refillAvailableActions: hand=3/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "16 handDraw/end: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "17 turnEnd/begin: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "18 turnEnd/call renderEnemyPackIntentTags {...}: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "19 turnEnd/end: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "20 outcome/begin: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "21 outcome/call concludeBattle {...}: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "22 outcome/call showGameResult {...}: hand=5/5 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100",
+        "23 outcome/end: hand=5/5 ovl=You Lose play=off exec=0 tags=- bars=P1:0X,P2:100,P3:100,E1:0X,E2:100,E3:100"
+      ]
+    }
+  },
+  "usage": {
+    "contexts": 8,
+    "maxSteps": 166,
+    "totalSteps": 900,
+    "cap": 4000
+  }
+}

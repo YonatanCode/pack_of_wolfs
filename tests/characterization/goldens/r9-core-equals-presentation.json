@@ -1,0 +1,135 @@
+{
+  "header": "REQUIREMENT — P1d acceptance",
+  "cases": {
+    "recovery-turn": {
+      "description": "Untouched intro board, wounded P2 (8 HP, 1 safe turn) heals at turn end; cards 0/1/2 to P1/P2/P3.",
+      "orders": [
+        "Attack",
+        "Move",
+        "Attack"
+      ],
+      "outcome": {
+        "type": "outcome",
+        "winner": "none",
+        "doubleKO": false
+      },
+      "ticks": 1,
+      "eventCount": 20,
+      "eventHash": "3ebe0bf173b372055fb5c8fd32fa515c751c5cc21a78bd6e6e55c561c57391be",
+      "finalState": {
+        "units": {
+          "P1": "r11 c5 topRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
+          "P2": "r8 c3 topRight hp9 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
+          "P3": "r11 c8 topRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
+          "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Move]",
+          "E2": "r3 c7 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Move]",
+          "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Defend]"
+        },
+        "packQueue": "len=3 E2:Move E1:Move E3:Defend",
+        "focus": "P2",
+        "hand": "Move,Attack,Defend,Defend,Defend",
+        "handRng": "seed=1 draws=8 next3=0.425797,0.994823,0.455271"
+      },
+      "playedOverlay": "hidden",
+      "identical": "events, state (c9 snapshot minus overlay), hand data, battle note"
+    },
+    "casualty-replan": {
+      "description": "1-HP E1 between P1 (1 HP) and P2 dies in tick 1; E2/E3 survive and the pack is replanned mid-turn.",
+      "orders": [
+        "P1:Attack",
+        "P2:Attack,Defend"
+      ],
+      "outcome": {
+        "type": "outcome",
+        "winner": "none",
+        "doubleKO": false
+      },
+      "ticks": 4,
+      "eventCount": 46,
+      "eventHash": "1673f9f2a6d797c3f8133822d1ab7aee83cde046e0b9a2d5e996fb365d7cfafd",
+      "finalState": {
+        "units": {
+          "P1": "r5 c5 bottomRight hp0 DEFEATED mv=Hunt tsh=0 dmg=1 flee=0 obj=- q=[]",
+          "P2": "r5 c7 topLeft hp4 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
+          "P3": "r11 c7 topRight hp10 inactive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
+          "E1": "r5 c6 topLeft hp0 DEFEATED mv=Hunt tsh=0 dmg=1 flee=0 obj={mode:engage,slotDelta:{row:0,col:1}} q=[]",
+          "E2": "r4 c8 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Attack,Defend]",
+          "E3": "r4 c6 bottomRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Attack]"
+        },
+        "packQueue": "len=3 E2:Attack E3:Attack E2:Defend",
+        "focus": "P2",
+        "hand": "Attack,Move,Attack,Defend,Defend",
+        "handRng": "seed=1 draws=5 next3=0.281104,0.612839,0.720743"
+      },
+      "playedOverlay": "hidden",
+      "identical": "events, state (c9 snapshot minus overlay), hand data, battle note"
+    },
+    "victory-via-scripted-kill": {
+      "description": "1-HP E1 (only enemy) attacked by P1 (1 HP) and P2; it dies in tick 1 and the outcome is a win.",
+      "orders": [
+        "P1:Attack",
+        "P2:Attack"
+      ],
+      "outcome": {
+        "type": "outcome",
+        "winner": "player",
+        "doubleKO": false
+      },
+      "ticks": 1,
+      "eventCount": 25,
+      "eventHash": "6b08f6ed1fe84380c8fbc8f92be4e81420d7128cdea70e35969204326da7e87d",
+      "finalState": {
+        "units": {
+          "P1": "r5 c5 bottomRight hp0 DEFEATED mv=Hunt tsh=0 dmg=1 flee=0 obj=- q=[]",
+          "P2": "r5 c7 topLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
+          "P3": "r11 c7 topRight hp10 inactive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
+          "E1": "r5 c6 topLeft hp0 DEFEATED mv=Hunt tsh=0 dmg=1 flee=0 obj={mode:engage,slotDelta:{row:0,col:1}} q=[]",
+          "E2": "r0 c3 bottomLeft hp10 inactive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
+          "E3": "r0 c7 bottomLeft hp10 inactive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]"
+        },
+        "packQueue": "len=0",
+        "focus": null,
+        "hand": "Attack,Move,Attack,Defend,Defend",
+        "handRng": "seed=1 draws=5 next3=0.281104,0.612839,0.720743"
+      },
+      "playedOverlay": "shown msg=\"You Win!\" win=true lose=false",
+      "identical": "events, state (c9 snapshot minus overlay), hand data, battle note"
+    },
+    "double-ko": {
+      "description": "Last units P1 and E1 (1 HP each) kill each other in tick 1: outcome enemy (defeat), doubleKO true.",
+      "orders": [
+        "P1:Attack"
+      ],
+      "outcome": {
+        "type": "outcome",
+        "winner": "enemy",
+        "doubleKO": true
+      },
+      "ticks": 1,
+      "eventCount": 23,
+      "eventHash": "8c38c0bbc56ed14dfdaa0c3e4b9b12994ce23c3248d40a0dad33a0430876c3db",
+      "finalState": {
+        "units": {
+          "P1": "r5 c4 topRight hp0 DEFEATED mv=Hunt tsh=0 dmg=1 flee=0 obj=- q=[]",
+          "P2": "r11 c3 topRight hp10 inactive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
+          "P3": "r11 c7 topRight hp10 inactive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
+          "E1": "r4 c4 bottomLeft hp0 DEFEATED mv=Hunt tsh=0 dmg=1 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[]",
+          "E2": "r0 c3 bottomLeft hp10 inactive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
+          "E3": "r0 c7 bottomLeft hp10 inactive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]"
+        },
+        "packQueue": "len=0",
+        "focus": null,
+        "hand": "Attack,Move,Attack,Defend,Defend",
+        "handRng": "seed=1 draws=5 next3=0.281104,0.612839,0.720743"
+      },
+      "playedOverlay": "shown msg=\"You Lose\" win=false lose=true",
+      "identical": "events, state (c9 snapshot minus overlay), hand data, battle note"
+    }
+  },
+  "usage": {
+    "contexts": 8,
+    "maxSteps": 192,
+    "totalSteps": 361,
+    "cap": 4000
+  }
+}

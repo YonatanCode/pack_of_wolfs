@@ -1,0 +1,64 @@
+{
+  "header": "REQUIREMENT — P1d acceptance",
+  "spiedElements": "> 50 (document tree + six units' sprite, health bar, intent tags, hidden tag)",
+  "drainCounters": {
+    "created": 0,
+    "mutations": {},
+    "scheduled": {},
+    "elementReads": 0,
+    "fingerprintChanges": 0
+  },
+  "drainedEventTypes": {
+    "turnStart": 1,
+    "enemyPlan": 2,
+    "fighters": 1,
+    "tickStart": 3,
+    "consumed": 3,
+    "move": 5,
+    "attackSwing": 3,
+    "hit": 3,
+    "damage": 2,
+    "death": 2,
+    "queueCleared": 2,
+    "replan": 1,
+    "tickEnd": 3,
+    "defendSwing": 2,
+    "recovery": 1,
+    "debugNote": 1,
+    "handDraw": 1,
+    "turnEnd": 1,
+    "outcome": 1
+  },
+  "guardMessages": {
+    "updateUnitHealthBar(player)": "Presentation call inside the turn core: updateUnitHealthBar",
+    "playUnitAnimation(player, 'idle')": "Presentation call inside the turn core: playUnitAnimation",
+    "playUnitAnimationCycles(player, 'bite', 1, {})": "Presentation call inside the turn core: playUnitAnimationCycles",
+    "playUnitHitReaction(player)": "Presentation call inside the turn core: playUnitHitReaction",
+    "playUnitDeath(player)": "Presentation call inside the turn core: playUnitDeath",
+    "showUnitDamagePopup(player, 1)": "Presentation call inside the turn core: showUnitDamagePopup",
+    "showUnitHealPopup(player, 1)": "Presentation call inside the turn core: showUnitHealPopup",
+    "showUnitMissPopup(player)": "Presentation call inside the turn core: showUnitMissPopup",
+    "moveUnitToTile(player, 1, 1, {})": "Presentation call inside the turn core: moveUnitToTile",
+    "renderActionQueue()": "Presentation call inside the turn core: renderActionQueue",
+    "renderPlayerTimeline()": "Presentation call inside the turn core: renderPlayerTimeline",
+    "renderEnemyPackIntentTags()": "Presentation call inside the turn core: renderEnemyPackIntentTags",
+    "renderUnitIntentTags(enemy)": "Presentation call inside the turn core: renderUnitIntentTags",
+    "refillAvailableActions()": "Presentation call inside the turn core: adoptExternalPlayerHandEdits",
+    "shakeArenaSoon()": "Presentation call inside the turn core: shakeArenaSoon",
+    "setPlayerSelected(null)": "Presentation call inside the turn core: setPlayerSelected",
+    "updatePlayerActionControls()": "Presentation call inside the turn core: updatePlayerActionControls",
+    "showGameResult(true)": "Presentation call inside the turn core: showGameResult",
+    "concludeBattle(true)": "Presentation call inside the turn core: concludeBattle"
+  },
+  "impureCoreDetected": {
+    "recovery rules call showUnitHealPopup": "Presentation call inside the turn core: showUnitHealPopup",
+    "tick rules call renderActionQueue": "Presentation call inside the turn core: renderActionQueue",
+    "tick rules read unit.element (throwing getter installed for the drain)": "unit.element read inside the turn core"
+  },
+  "usage": {
+    "contexts": 5,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
