@@ -1,0 +1,43 @@
+{
+  "header": "REQUIREMENT — P1e acceptance",
+  "parser": {
+    "topLevelDeclarations": 226,
+    "immutable": 121,
+    "constantTables": 41,
+    "mutable": 64
+  },
+  "classificationTable": {
+    "a": "GRID_SIZE activeRules enemy enemyFlank enemyMode enemyPackActionQueue enemyPackFocusTarget enemySupport handRandom handSeed hillTileKeys hillTileLevels player playerFlank playerHand playerSupport pondTileKeys reshuffleChargesRemaining treeTileKeys unitActionQueues units",
+    "b": "animationButtons boardHeight boardWidth directionButtons dirtTileGridCache enemyModeButtons hillEditTerrainSnapshot hoveredHillBlock hoveredTile isDevToolsEnabled isGuidedTutorialActive isHillEditMode isWorldTraveling pendingMoveReplays playerActionMenu playerHandViewItems playerMovePreview playerMovePreviewTile scenarioLabelElement selectedPlayerUnit tileElements unitAnimationPreloads unitHealthReplayValues worldMapLayout xOffset",
+    "c": "activeBattleDebugLog battleStateSwap isExecutingActionQueue lastBattleDebugReport lastTurnEventLog turnCoreDepth turnDriverDepth",
+    "d": "activeScenario activeScenarioSeed bootRoute currentEntryCorner devTestObstaclesDisabled flowerTileKeys terrainRandom terrainTiles unitDefinitions worldState worldTerrainCache"
+  },
+  "unclassifiedMutableBindings": [],
+  "allowlist": {},
+  "boards": {
+    "plain": {
+      "dryRuns": 3,
+      "changedValue": [],
+      "changedIdentity": [],
+      "differsFromControl": []
+    },
+    "lethal": {
+      "dryRuns": 3,
+      "changedValue": [],
+      "changedIdentity": [],
+      "differsFromControl": []
+    },
+    "doubleKO": {
+      "dryRuns": 3,
+      "changedValue": [],
+      "changedIdentity": [],
+      "differsFromControl": []
+    }
+  },
+  "usage": {
+    "contexts": 7,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

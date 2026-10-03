@@ -1,0 +1,174 @@
+{
+  "header": "REQUIREMENT — P1e acceptance",
+  "cases": {
+    "plain": {
+      "description": "Untouched seed-1 intro board; the first hand card (by index, re-read after each pick) to P1, P2, P3.",
+      "orders": [
+        "Attack",
+        "Move",
+        "Attack"
+      ],
+      "previews": 3,
+      "eventHashes": [
+        "08c7799eabd4c3",
+        "08c7799eabd4c3",
+        "08c7799eabd4c3"
+      ],
+      "outcome": {
+        "winner": "none",
+        "doubleKO": false
+      },
+      "events": {
+        "count": 20,
+        "types": {
+          "turnStart": 1,
+          "enemyPlan": 2,
+          "fighters": 1,
+          "tickStart": 1,
+          "consumed": 1,
+          "move": 3,
+          "attackSwing": 2,
+          "defendSwing": 1,
+          "miss": 2,
+          "tickEnd": 1,
+          "recovery": 1,
+          "debugNote": 1,
+          "handDraw": 1,
+          "turnEnd": 1,
+          "outcome": 1
+        },
+        "key": [
+          "recovery heals=[]",
+          "handDraw drawn=[Move,Attack,Defend] hand=[Move,Attack,Defend,Defend,Defend]",
+          "outcome winner=none doubleKO=false"
+        ]
+      },
+      "predictedRngAdvance": "handState 567894474 -> 1767624617 (live stays 567894474)",
+      "liveFingerprintUnchanged": true,
+      "countersDuringPreviews": {
+        "created": 0,
+        "mutations": {},
+        "scheduled": {}
+      },
+      "equalsNeverPreviewedControl": true
+    },
+    "lethal": {
+      "description": "r10 board, orders as hand cards: 1-HP E1 between P1 (1 HP) and P2 dies in tick 1 (casualty replan); wounded safe P3 heals at turn end; the 4 spent cards are redrawn.",
+      "orders": [
+        "P1:Attack",
+        "P2:Attack,Defend",
+        "P3:Move"
+      ],
+      "previews": 3,
+      "eventHashes": [
+        "1733161013ed8e",
+        "1733161013ed8e",
+        "1733161013ed8e"
+      ],
+      "outcome": {
+        "winner": "none",
+        "doubleKO": false
+      },
+      "events": {
+        "count": 38,
+        "types": {
+          "turnStart": 1,
+          "enemyPlan": 2,
+          "fighters": 1,
+          "tickStart": 3,
+          "consumed": 3,
+          "move": 5,
+          "attackSwing": 3,
+          "hit": 3,
+          "damage": 2,
+          "death": 2,
+          "queueCleared": 2,
+          "replan": 1,
+          "tickEnd": 3,
+          "defendSwing": 2,
+          "recovery": 1,
+          "debugNote": 1,
+          "handDraw": 1,
+          "turnEnd": 1,
+          "outcome": 1
+        },
+        "key": [
+          "death tick=1 unit=E1",
+          "death tick=1 unit=P1",
+          "replan tick=1 queue=[{unit:E2,action:Move},{unit:E3,action:Move},{unit:E2,action:Defend}] focus=P3 renderUnits=[E1,E2,E3]",
+          "recovery heals=[{unit:P3,amount:1,healthBefore:7,healthAfter:8}]",
+          "handDraw drawn=[Move,Attack,Defend,Attack] hand=[Move,Attack,Defend,Attack,Defend]",
+          "outcome winner=none doubleKO=false"
+        ]
+      },
+      "predictedRngAdvance": "handState 567894474 -> 3599190430 (live stays 567894474)",
+      "liveFingerprintUnchanged": true,
+      "countersDuringPreviews": {
+        "created": 0,
+        "mutations": {},
+        "scheduled": {}
+      },
+      "equalsNeverPreviewedControl": true
+    },
+    "doubleKO": {
+      "description": "r9 board, order as a hand card: last units P1 and E1 (1 HP each) kill each other in tick 1: outcome enemy, doubleKO.",
+      "orders": [
+        "P1:Attack"
+      ],
+      "previews": 3,
+      "eventHashes": [
+        "16778fdc4dfcf2",
+        "16778fdc4dfcf2",
+        "16778fdc4dfcf2"
+      ],
+      "outcome": {
+        "winner": "enemy",
+        "doubleKO": true
+      },
+      "events": {
+        "count": 23,
+        "types": {
+          "turnStart": 1,
+          "enemyPlan": 2,
+          "fighters": 1,
+          "tickStart": 1,
+          "consumed": 1,
+          "attackSwing": 2,
+          "hit": 2,
+          "damage": 2,
+          "death": 2,
+          "queueCleared": 2,
+          "replan": 1,
+          "tickEnd": 1,
+          "recovery": 1,
+          "debugNote": 1,
+          "handDraw": 1,
+          "turnEnd": 1,
+          "outcome": 1
+        },
+        "key": [
+          "death tick=1 unit=E1",
+          "death tick=1 unit=P1",
+          "replan tick=1 queue=[] focus=null renderUnits=[E1,E2,E3]",
+          "recovery heals=[]",
+          "handDraw drawn=[Move] hand=[Move,Move,Attack,Defend,Defend]",
+          "outcome winner=enemy doubleKO=true"
+        ]
+      },
+      "predictedRngAdvance": "handState 567894474 -> 2399460287 (live stays 567894474)",
+      "liveFingerprintUnchanged": true,
+      "countersDuringPreviews": {
+        "created": 0,
+        "mutations": {},
+        "scheduled": {}
+      },
+      "equalsNeverPreviewedControl": true
+    }
+  },
+  "usage": {
+    "contexts": 6,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

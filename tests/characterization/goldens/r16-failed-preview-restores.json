@@ -1,0 +1,75 @@
+{
+  "header": "REQUIREMENT — P1e acceptance",
+  "board": "r10 board, orders as hand cards: 1-HP E1 between P1 (1 HP) and P2 dies in tick 1 (casualty replan); wounded safe P3 heals at turn end; the 4 spent cards are redrawn.",
+  "faults": {
+    "turn-start-planning": {
+      "patched": "planEnemyPackTurnRules",
+      "thrown": "Error: injected fault: enemy planning",
+      "bindingsRestored": true,
+      "liveFingerprintUnchanged": true,
+      "laterRealTurnEqualsControl": true
+    },
+    "mid-tick-damage": {
+      "patched": "applyDamageToUnit",
+      "thrown": "Error: injected fault: damage resolution",
+      "bindingsRestored": true,
+      "liveFingerprintUnchanged": true,
+      "laterRealTurnEqualsControl": true
+    },
+    "turn-end-hand-refill": {
+      "patched": "drawPlayerHandToSize",
+      "thrown": "Error: injected fault: hand refill",
+      "bindingsRestored": true,
+      "liveFingerprintUnchanged": true,
+      "laterRealTurnEqualsControl": true
+    },
+    "presentation-inside-core": {
+      "patched": "recordBattleDebugTick",
+      "thrown": "Error: Presentation call inside the turn core: renderActionQueue",
+      "bindingsRestored": true,
+      "liveFingerprintUnchanged": true,
+      "laterRealTurnEqualsControl": true
+    }
+  },
+  "controlTurn": {
+    "events": {
+      "count": 38,
+      "types": {
+        "turnStart": 1,
+        "enemyPlan": 2,
+        "fighters": 1,
+        "tickStart": 3,
+        "consumed": 3,
+        "move": 5,
+        "attackSwing": 3,
+        "hit": 3,
+        "damage": 2,
+        "death": 2,
+        "queueCleared": 2,
+        "replan": 1,
+        "tickEnd": 3,
+        "defendSwing": 2,
+        "recovery": 1,
+        "debugNote": 1,
+        "handDraw": 1,
+        "turnEnd": 1,
+        "outcome": 1
+      },
+      "key": [
+        "death tick=1 unit=E1",
+        "death tick=1 unit=P1",
+        "replan tick=1 queue=[{unit:E2,action:Move},{unit:E3,action:Move},{unit:E2,action:Defend}] focus=P3 renderUnits=[E1,E2,E3]",
+        "recovery heals=[{unit:P3,amount:1,healthBefore:7,healthAfter:8}]",
+        "handDraw drawn=[Move,Attack,Defend,Attack] hand=[Move,Attack,Defend,Attack,Defend]",
+        "outcome winner=none doubleKO=false"
+      ]
+    },
+    "handAfter": "Move,Attack,Defend,Attack,Defend"
+  },
+  "usage": {
+    "contexts": 5,
+    "maxSteps": 150,
+    "totalSteps": 750,
+    "cap": 4000
+  }
+}

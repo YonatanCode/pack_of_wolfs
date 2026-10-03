@@ -1,0 +1,213 @@
+{
+  "header": "REQUIREMENT — P1e acceptance",
+  "cases": {
+    "plain-two-turns": {
+      "description": "Seed-1 intro board, untouched; each turn the first hand card (by index) to P1, P2, P3.",
+      "turns": [
+        {
+          "orders": [
+            "Attack",
+            "Move",
+            "Attack"
+          ],
+          "eventHash": "08c7799eabd4c3",
+          "predictedHashes": [
+            "08c7799eabd4c3",
+            "08c7799eabd4c3"
+          ],
+          "outcome": {
+            "winner": "none",
+            "doubleKO": false
+          },
+          "events": {
+            "count": 20,
+            "types": {
+              "turnStart": 1,
+              "enemyPlan": 2,
+              "fighters": 1,
+              "tickStart": 1,
+              "consumed": 1,
+              "move": 3,
+              "attackSwing": 2,
+              "defendSwing": 1,
+              "miss": 2,
+              "tickEnd": 1,
+              "recovery": 1,
+              "debugNote": 1,
+              "handDraw": 1,
+              "turnEnd": 1,
+              "outcome": 1
+            },
+            "key": [
+              "recovery heals=[]",
+              "handDraw drawn=[Move,Attack,Defend] hand=[Move,Attack,Defend,Defend,Defend]",
+              "outcome winner=none doubleKO=false"
+            ]
+          },
+          "handAfter": "Move,Attack,Defend,Defend,Defend",
+          "rngAfter": "seed=1 state=1767624617",
+          "noteLines": 26
+        },
+        {
+          "orders": [
+            "Move",
+            "Attack",
+            "Defend"
+          ],
+          "eventHash": "15f3fbad6973b6",
+          "predictedHashes": [
+            "15f3fbad6973b6",
+            "15f3fbad6973b6"
+          ],
+          "outcome": {
+            "winner": "none",
+            "doubleKO": false
+          },
+          "events": {
+            "count": 32,
+            "types": {
+              "turnStart": 1,
+              "enemyPlan": 2,
+              "fighters": 1,
+              "tickStart": 4,
+              "consumed": 4,
+              "move": 3,
+              "attackSwing": 3,
+              "defendSwing": 2,
+              "miss": 3,
+              "tickEnd": 4,
+              "recovery": 1,
+              "debugNote": 1,
+              "handDraw": 1,
+              "turnEnd": 1,
+              "outcome": 1
+            },
+            "key": [
+              "recovery heals=[]",
+              "handDraw drawn=[Attack,Defend,Move] hand=[Attack,Defend,Move,Defend,Defend]",
+              "outcome winner=none doubleKO=false"
+            ]
+          },
+          "handAfter": "Attack,Defend,Move,Defend,Defend",
+          "rngAfter": "seed=1 state=2967354760",
+          "noteLines": 29
+        }
+      ],
+      "presentationTraceEntries": 401,
+      "previewsAddedPresentationCalls": 0,
+      "previewThenPlayEqualsPlay": true,
+      "previewPredictedPlay": true
+    },
+    "lethal-then-second-turn": {
+      "description": "Lethal board (E1 and P1 die in tick 1, pack replanned, P3 heals, 4 cards redrawn), then a second turn: first hand card to P2 and P3.",
+      "turns": [
+        {
+          "orders": [
+            "P1:Attack",
+            "P2:Attack,Defend",
+            "P3:Move"
+          ],
+          "eventHash": "1733161013ed8e",
+          "predictedHashes": [
+            "1733161013ed8e",
+            "1733161013ed8e"
+          ],
+          "outcome": {
+            "winner": "none",
+            "doubleKO": false
+          },
+          "events": {
+            "count": 38,
+            "types": {
+              "turnStart": 1,
+              "enemyPlan": 2,
+              "fighters": 1,
+              "tickStart": 3,
+              "consumed": 3,
+              "move": 5,
+              "attackSwing": 3,
+              "hit": 3,
+              "damage": 2,
+              "death": 2,
+              "queueCleared": 2,
+              "replan": 1,
+              "tickEnd": 3,
+              "defendSwing": 2,
+              "recovery": 1,
+              "debugNote": 1,
+              "handDraw": 1,
+              "turnEnd": 1,
+              "outcome": 1
+            },
+            "key": [
+              "death tick=1 unit=E1",
+              "death tick=1 unit=P1",
+              "replan tick=1 queue=[{unit:E2,action:Move},{unit:E3,action:Move},{unit:E2,action:Defend}] focus=P3 renderUnits=[E1,E2,E3]",
+              "recovery heals=[{unit:P3,amount:1,healthBefore:7,healthAfter:8}]",
+              "handDraw drawn=[Move,Attack,Defend,Attack] hand=[Move,Attack,Defend,Attack,Defend]",
+              "outcome winner=none doubleKO=false"
+            ]
+          },
+          "handAfter": "Move,Attack,Defend,Attack,Defend",
+          "rngAfter": "seed=1 state=3599190430",
+          "noteLines": 28
+        },
+        {
+          "orders": [
+            "Move",
+            "Attack"
+          ],
+          "eventHash": "1b7b545f78a987",
+          "predictedHashes": [
+            "1b7b545f78a987",
+            "1b7b545f78a987"
+          ],
+          "outcome": {
+            "winner": "none",
+            "doubleKO": false
+          },
+          "events": {
+            "count": 24,
+            "types": {
+              "turnStart": 1,
+              "enemyPlan": 2,
+              "fighters": 1,
+              "tickStart": 2,
+              "consumed": 2,
+              "move": 1,
+              "attackSwing": 3,
+              "miss": 1,
+              "hit": 2,
+              "damage": 1,
+              "tickEnd": 2,
+              "defendSwing": 1,
+              "recovery": 1,
+              "debugNote": 1,
+              "handDraw": 1,
+              "turnEnd": 1,
+              "outcome": 1
+            },
+            "key": [
+              "recovery heals=[]",
+              "handDraw drawn=[Defend,Move] hand=[Defend,Move,Defend,Attack,Defend]",
+              "outcome winner=none doubleKO=false"
+            ]
+          },
+          "handAfter": "Defend,Move,Defend,Attack,Defend",
+          "rngAfter": "seed=1 state=2967354760",
+          "noteLines": 27
+        }
+      ],
+      "presentationTraceEntries": 441,
+      "previewsAddedPresentationCalls": 0,
+      "previewThenPlayEqualsPlay": true,
+      "previewPredictedPlay": true
+    }
+  },
+  "usage": {
+    "contexts": 4,
+    "maxSteps": 219,
+    "totalSteps": 806,
+    "cap": 4000
+  }
+}

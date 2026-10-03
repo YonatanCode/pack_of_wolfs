@@ -1,0 +1,56 @@
+{
+  "header": "REQUIREMENT — P1e acceptance",
+  "board": {
+    "description": "seed-1 intro, one real turn played (first card to P1/P2/P3), then cards 0 -> P1 and 1 -> P3 queued",
+    "ordersQueued": [
+      "Move",
+      "Defend"
+    ]
+  },
+  "sharesNothing": {
+    "sharedPaths": [],
+    "rulesIsLiveFrozenObject": false
+  },
+  "snapshotMutation": {
+    "mutationsApplied": "> 100 (every leaf, array and object)",
+    "liveUnchanged": true
+  },
+  "liveMutation": {
+    "newSnapshotDiffers": true,
+    "earlierSnapshotUnchanged": true
+  },
+  "jsonRoundTrip": {
+    "problems": []
+  },
+  "freshContextLoad": {
+    "loadedState": {
+      "units": [
+        "P1 r11 c5 hp10 q=[Move]",
+        "P2 r8 c3 hp10 q=[]",
+        "P3 r11 c8 hp10 q=[Defend]",
+        "E1 r0 c5 hp10 q=[]",
+        "E2 r2 c9 hp10 q=[]",
+        "E3 r3 c2 hp10 q=[]"
+      ],
+      "hand": "Attack,Defend,Defend",
+      "rng": {
+        "handSeed": 1,
+        "handState": 1767624617
+      }
+    },
+    "snapshotIdentical": true,
+    "next3Draws": [
+      0.425797,
+      0.994823,
+      0.455271
+    ],
+    "dryRunEventHash": "1fbc178d56ac24",
+    "mismatchedGridSize": "BattleStateError: loadBattleState: grid size and enemy mode must match the live battle"
+  },
+  "usage": {
+    "contexts": 4,
+    "maxSteps": 51,
+    "totalSteps": 102,
+    "cap": 4000
+  }
+}

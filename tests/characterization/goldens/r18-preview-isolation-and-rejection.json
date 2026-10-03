@@ -1,0 +1,74 @@
+{
+  "header": "REQUIREMENT — P1e acceptance",
+  "shimIsolation": {
+    "orders": [
+      "Attack",
+      "Move",
+      "Attack"
+    ],
+    "domEditShows": [
+      "Attack",
+      "Attack",
+      "Attack",
+      "Defend",
+      "Defend"
+    ],
+    "preview": {
+      "dataHandUsed": [
+        "Defend",
+        "Defend"
+      ],
+      "drawn": [
+        "Move",
+        "Attack",
+        "Defend"
+      ],
+      "handAfterDraw": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Defend",
+        "Defend"
+      ],
+      "domReads": 0
+    },
+    "shimDuringSwap": [
+      "adoptExternalPlayerHandEdits() -> Presentation call during a battle-state swap: adoptExternalPlayerHandEdits",
+      "preparePlayerHandForEdit() -> Presentation call during a battle-state swap: adoptExternalPlayerHandEdits",
+      "getAvailableActionCount('Move') -> Presentation call during a battle-state swap: adoptExternalPlayerHandEdits",
+      "getAvailableActionTotal() -> Presentation call during a battle-state swap: adoptExternalPlayerHandEdits",
+      "refillAvailableActions() -> Presentation call during a battle-state swap: adoptExternalPlayerHandEdits"
+    ],
+    "adoptedTotalAfterPreview": 5,
+    "adoptedTotalControl": 5,
+    "playedTurnEqualsControl": true
+  },
+  "rejection": {
+    "inFlightPlayTurn": {
+      "executeActionTick": "between ticks of a Play turn: DryRunRejected reason=turn-executing (executing=true driverDepth=0 pendingMoves=0)",
+      "moveUnitToTile": "mid-replay of a core move: DryRunRejected reason=turn-driver-running (executing=true driverDepth=1 pendingMoves=1)",
+      "playUnitAnimationCycles": "mid-tick swing replay: DryRunRejected reason=turn-driver-running (executing=true driverDepth=1 pendingMoves=0)",
+      "refillAvailableActions": "turn-end hand replay (isExecutingActionQueue already false): DryRunRejected reason=turn-driver-running (executing=false driverDepth=1 pendingMoves=0)",
+      "applyTurnEndRecoveryRules": "inside the turn core: DryRunRejected reason=turn-core-running (executing=false driverDepth=1 pendingMoves=0)"
+    },
+    "midMove": "DryRunRejected reason=units-moving; move completed identically to the control",
+    "synthetic": {
+      "inside withBattleState: dryRunTurn()": "DryRunRejected reason=swap-active",
+      "inside withBattleState: loadBattleState(...)": "DryRunRejected reason=swap-active",
+      "inside withBattleState: withBattleState(...)": "DryRunRejected reason=swap-active",
+      "turnCoreDepth raised": "DryRunRejected reason=turn-core-running",
+      "turnDriverDepth raised": "DryRunRejected reason=turn-driver-running",
+      "isExecutingActionQueue set": "DryRunRejected reason=turn-executing",
+      "pendingMoveReplays entry": "DryRunRejected reason=move-replay-pending",
+      "loadBattleState while executing": "DryRunRejected reason=turn-executing",
+      "no queued player orders": "DryRunRejected reason=no-player-orders",
+      "options.queues on the copy only": "consumed tick 1: P1:Move P3:Defend E1:Defend E2:Move E3:Move; live queues untouched"
+    }
+  },
+  "usage": {
+    "contexts": 8,
+    "maxSteps": 150,
+    "totalSteps": 432,
+    "cap": 4000
+  }
+}
