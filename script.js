@@ -330,6 +330,8 @@ let isExecutingActionQueue = false;
 // Turn-lifecycle core state (see "TURN LIFECYCLE" below). Declared up here so the purity guard is
 // initialised before any startup code can reach a presentation function.
 let turnCoreDepth = 0; // > 0 while a turn-core generator body runs (between two yields)
+let turnDriverDepth = 0; // > 0 while driveTurnCore / driveTurnCoreSync drive a core (incl. its replay)
+let battleStateSwap = null; // non-null while withBattleState runs a copy (see "BATTLE STATE (X3)")
 let lastTurnEventLog = []; // events of the most recent full turn (drained or played)
 const unitHealthReplayValues = new Map(); // unit -> { health, isDefeated } shown by the step being replayed
 const pendingMoveReplays = new Map(); // unit -> move event the core already applied (read by moveUnitToTile)
@@ -344,12 +346,14 @@ let lastBattleDebugReport = "";
 let boardWidth = 0;
 let boardHeight = 0;
 let xOffset = 0;
-const player = createWolf({ row: GRID_SIZE - 1, col: 4, direction: "topRight", team: "player" });
-const playerSupport = createWolf({ row: GRID_SIZE - 1, col: 2, direction: "topRight", team: "player" });
-const playerFlank = createWolf({ row: GRID_SIZE - 1, col: 7, direction: "topRight", team: "player" });
-const enemy = createWolf({ row: 0, col: 4, direction: "bottomLeft", team: "enemy" });
-const enemySupport = createWolf({ row: 0, col: 6, direction: "bottomLeft", team: "enemy" });
-const enemyFlank = createWolf({ row: 0, col: 1, direction: "bottomLeft", team: "enemy" });
+// `let` only so that withBattleState can point these six names at a copy's units for the duration of a
+// dry run (X3 swap seam; nothing else ever reassigns them). Rules code identifies units by these bindings.
+let player = createWolf({ row: GRID_SIZE - 1, col: 4, direction: "topRight", team: "player" });
+let playerSupport = createWolf({ row: GRID_SIZE - 1, col: 2, direction: "topRight", team: "player" });
+let playerFlank = createWolf({ row: GRID_SIZE - 1, col: 7, direction: "topRight", team: "player" });
+let enemy = createWolf({ row: 0, col: 4, direction: "bottomLeft", team: "enemy" });
+let enemySupport = createWolf({ row: 0, col: 6, direction: "bottomLeft", team: "enemy" });
+let enemyFlank = createWolf({ row: 0, col: 1, direction: "bottomLeft", team: "enemy" });
 const units = [player, playerSupport, playerFlank, enemy, enemySupport, enemyFlank];
 const enemyPackActionQueue = [];
 let enemyPackFocusTarget = null;
@@ -831,16 +835,23 @@ function oppositeTerrain(type) {
 // a grid of terrain TYPES (grass/dirt), not yet resolved to tile sprites.
 // Seeded PRNG (mulberry32) so an arena's terrain is reproducible from its world
 // node — the darkened map preview shows the exact terrain you'll fight on.
+// getState() (X3) reads the stream's 32-bit position without drawing. mulberry32's whole state IS that
+// number and the seed is simply its starting value, so createSeededRandom(stream.getState()) continues the
+// sequence exactly where `stream` stands: that is how a battle-state copy saves and restores the hand
+// stream. The produced sequence of every stream (hand, terrain) is unchanged.
 function createSeededRandom(seed) {
   let state = seed >>> 0;
 
-  return function next() {
+  function next() {
     state = (state + 0x6d2b79f5) >>> 0;
     let t = state;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
+  }
+
+  next.getState = () => state;
+  return next;
 }
 
 // Terrain generation pulls all its randomness from here. generateTerrain swaps
@@ -5513,7 +5524,8 @@ async function copyLastBattleDebugReport() {
 //   outcome      { winner: "player" | "enemy" | "none", doubleKO }
 //
 // PURITY GUARD: guardTurnCore raises turnCoreDepth while a core body runs; every presentation entry point
-// calls assertNotInCore(), which throws there (one comparison everywhere else). The trace-recorded rules
+// calls assertNotInCore(), which throws there (and, since X3, while a battle-state swap is active; two
+// comparisons everywhere else). The trace-recorded rules
 // names planEnemyPackTurn, applyTurnEndRecovery and updateEnemyIntentPreview are called BY the core, so they
 // keep their old place in the turn; inside the core they skip their own presentation, which the following
 // step replays from its event.
@@ -5535,6 +5547,11 @@ function isTurnCoreRunning() {
 function assertNotInCore(name) {
   if (turnCoreDepth > 0) {
     throw new Error(`Presentation call inside the turn core: ${name}`);
+  }
+
+  // X3: while withBattleState runs a copy (a dry run), presentation is unreachable even between core steps.
+  if (battleStateSwap !== null) {
+    throw new Error(`Presentation call during a battle-state swap: ${name}`);
   }
 }
 
@@ -6062,15 +6079,23 @@ function replayTurnStep(step, combatants = null) {
 }
 
 // Drive a core generator, replaying every step synchronously (phases whose old code had no await).
+// turnDriverDepth marks a driven core (and its replay) as in flight, so a dry run can refuse to start
+// from inside a replay (X3); it changes nothing else.
 function driveTurnCoreSync(generator, replay) {
   const core = guardTurnCore(generator);
 
-  for (let result = core.next(); !result.done; result = core.next()) {
-    const pending = replay(result.value);
+  turnDriverDepth += 1;
 
-    if (pending && typeof pending.then === "function") {
-      throw new Error(`Turn step "${result.value.kind}" must replay synchronously`);
+  try {
+    for (let result = core.next(); !result.done; result = core.next()) {
+      const pending = replay(result.value);
+
+      if (pending && typeof pending.then === "function") {
+        throw new Error(`Turn step "${result.value.kind}" must replay synchronously`);
+      }
     }
+  } finally {
+    turnDriverDepth -= 1;
   }
 }
 
@@ -6078,12 +6103,18 @@ function driveTurnCoreSync(generator, replay) {
 async function driveTurnCore(generator, replay) {
   const core = guardTurnCore(generator);
 
-  for (let result = core.next(); !result.done; result = core.next()) {
-    const pending = replay(result.value);
+  turnDriverDepth += 1;
 
-    if (pending) {
-      await pending;
+  try {
+    for (let result = core.next(); !result.done; result = core.next()) {
+      const pending = replay(result.value);
+
+      if (pending) {
+        await pending;
+      }
     }
+  } finally {
+    turnDriverDepth -= 1;
   }
 }
 
@@ -6147,6 +6178,449 @@ function drainTurnCore() {
 
 function getTurnEventLog() {
   return JSON.parse(JSON.stringify(lastTurnEventLog));
+}
+
+// ============================================================================
+// BATTLE STATE (X3): plain-data copies of the battle, and dry runs of a turn on a copy.
+// ============================================================================
+// snapshotBattleState()         -> BattleState: a deep, JSON-serialisable copy of every piece of gameplay state
+//                                  the turn core reads or writes. Shares nothing mutable with the live battle.
+//                                  Read-only (never draws from a stream, never creates queue entries). Called
+//                                  while a swap is active it copies the swapped-in state.
+// loadBattleState(state)        -> applies a BattleState's LOGICAL state to the live battle (fixtures/round
+//                                  trips). It renders NOTHING: unit sprites (position, facing, hidden/defeated
+//                                  look, idle/death animation), health bars, intent tags, the hand view
+//                                  (#actions-list; the next hand operation rebuilds it from the data), queue
+//                                  rows / timeline, controls, the result overlay, the arena tiles and the
+//                                  selection all keep showing the old state until something re-renders them.
+//                                  Refuses (BattleStateError, before changing anything) a state whose grid size,
+//                                  enemy mode or unit ids/teams/types differ from the live battle (those would
+//                                  need the arena or the sprites rebuilt). Rejected while busy (DryRunRejected).
+// withBattleState(state, fn)    -> runs fn() with the rules code reading a fresh copy built from `state`, then
+//                                  restores the ORIGINAL objects/arrays/bindings in a finally (also on throw).
+// dryRunTurn({ queues }?)       -> { events, outcome, finalState, eventHash }: the SAME full lifecycle as the
+//                                  Play button (runTurnCore: turn-start plan, ticks, casualty replans, recovery,
+//                                  debug note, hand draw, next-turn preview plan, outcome), drained with NO replay
+//                                  on a copy of the live battle as of the call; the copy is then discarded.
+//                                  options.queues = { P1: [actions], P2: [...], P3: [...] } replaces those units'
+//                                  queues IN THE COPY ONLY (unlisted units keep their queues; no validation, no
+//                                  hand cards are consumed: order validation is P2). The live hand DATA is used,
+//                                  never the DOM hand (see the hand-view shim note below).
+// Exposed as window.devTest.snapshotBattleState / loadBattleState / dryRunTurn: dev/fixture hooks, no UI.
+//
+// SWAP MECHANISM (temporary seam: replace it if the engine moves into its own files). The rules code reads
+// module-level bindings, so withBattleState points those bindings at the copy and back:
+//   - `let` bindings are reassigned: player, playerSupport, playerFlank, enemy, enemySupport, enemyFlank (the six
+//     names were `const`; they became `let` for this seam only), enemyPackFocusTarget, activeRules, GRID_SIZE,
+//     enemyMode, pondTileKeys, hillTileKeys, treeTileKeys, hillTileLevels, handRandom, handSeed,
+//     reshuffleChargesRemaining, and the isolated flags/diagnostics listed in (c) below;
+//   - `const` arrays keep their identity and get their CONTENTS spliced: units, enemyPackActionQueue, playerHand;
+//   - the copy's player queues live in unitActionQueues under the clone units (WeakMap, deleted afterwards).
+// Clone units carry only the logical fields; reading a sprite-side field (element, healthBar, intentTags,
+// hiddenTag) on a clone throws. Everything runs synchronously, so no timer, rAF or event can observe the swap.
+// While battleStateSwap is set, assertNotInCore throws for every presentation entry point (even between core
+// steps), and with it the hand-view compatibility shim (adoptExternalPlayerHandEdits, hence
+// preparePlayerHandForEdit / getAvailableActionCount / getAvailableActionTotal / refillAvailableActions): a dry
+// run can neither read the DOM hand nor adopt a DOM edit into data.
+//
+// REJECTIONS (DryRunRejected, thrown BEFORE anything is touched; error.reason):
+//   swap-active          another withBattleState / dry run is running (no nesting)
+//   turn-core-running    turnCoreDepth > 0 (called from inside a core body)
+//   turn-driver-running  a core is being driven / replayed (turnDriverDepth > 0), e.g. from a turn-end replay
+//   turn-executing       isExecutingActionQueue (a Play or dev-test turn is between ticks / mid-tick)
+//   units-moving         hasMovingPlayerUnits() (a move animation is running)
+//   move-replay-pending  pendingMoveReplays is not empty (a core move is being animated)
+//   no-player-orders     (dryRunTurn only) no queued player action in the copy: Play would not start a turn
+//
+// BattleState (schema "battle-state/1"):
+//   config   { gridSize, enemyMode }
+//   rules    { version, hash, values }            activeRules by value (perBattle fields)
+//   terrain  { pond, hill, tree: [tile keys], hillLevels: [[key, level]] }   (flowers / tile sprites: never
+//            read by the core, not copied)
+//   units    [ { id, team, type, isActive, row, col, direction, health, maxHealth, isDefeated, movementMode,
+//              turnsSinceHit, tookDamageThisTurn, isFleeing, isHidden, packObjective, queue } ] in P1,P2,P3,E1,E2,E3
+//            order; queue = the unit's player action queue (unitActionQueues), [] if it has none
+//   enemyPack { queue: [{ unit, action }], focus: unit id | null }
+//   hand     { cards: [ordered playerHand], reshuffleChargesRemaining }
+//   rng      { handSeed, handState }             the hand stream's CURRENT 32-bit position (not just its seed)
+// EXCLUDED on purpose: DOM, selection / hover / move preview / action menu / tutorial, sprite and animation
+// fields (element, healthBar, intentTags, hiddenTag, x, y, animationName, animation requests and promises,
+// hasPlayedDeathAnimation, idleStartFrame: cosmetic Math.random), the result overlay, world / scenario /
+// editor state, and the playback flag isExecutingActionQueue (a copy is always taken "between turns").
+//
+// MODULE-LEVEL MUTABLE STATE: classification (read by tests/characterization/r19-global-state-audit.cjs; every
+// top-level `let`, and every top-level `const` holding a mutable object whose name is not UPPER_CASE, must be
+// listed in exactly one "(x) name, name: note" row; UPPER_CASE consts are constant tables and are only
+// fingerprinted; "(x) = ..." lines are group headings).
+//   (a) = BattleState: copied by snapshotBattleState, swapped by withBattleState
+//   (a) activeRules, GRID_SIZE, enemyMode: rules + config
+//   (a) player, playerSupport, playerFlank, enemy, enemySupport, enemyFlank, units: units (logical fields)
+//   (a) unitActionQueues: player action queues (WeakMap keyed by unit)
+//   (a) enemyPackActionQueue, enemyPackFocusTarget: enemy pack plan
+//   (a) playerHand, reshuffleChargesRemaining: player economy
+//   (a) handRandom, handSeed: hand stream (position via getState)
+//   (a) pondTileKeys, hillTileKeys, treeTileKeys, hillTileLevels: terrain the core reads
+//   (b) = presentation-side: unreachable during a dry run (assertNotInCore + swap guard); never touched
+//   (b) playerHandViewItems, tileElements, unitHealthReplayValues, pendingMoveReplays, unitAnimationPreloads: views and replay maps
+//   (b) hoveredTile, hoveredHillBlock, selectedPlayerUnit, playerActionMenu, playerMovePreview, playerMovePreviewTile: input
+//   (b) isDevToolsEnabled, isGuidedTutorialActive, isHillEditMode, hillEditTerrainSnapshot, scenarioLabelElement: UI modes
+//   (b) boardWidth, boardHeight, xOffset, worldMapLayout, isWorldTraveling, dirtTileGridCache: layout and caches
+//   (b) animationButtons, directionButtons, enemyModeButtons: DOM lists
+//   (c) = diagnostic / machinery: written by the core or the guards; saved and restored by withBattleState
+//   (c) activeBattleDebugLog, lastBattleDebugReport, lastTurnEventLog: battle note and last turn's events
+//   (c) isExecutingActionQueue, turnCoreDepth, turnDriverDepth, battleStateSwap: playback flag and guards
+//   (d) = outside the battle: never read by the turn core, not part of BattleState
+//   (d) activeScenario, activeScenarioSeed, bootRoute, devTestObstaclesDisabled: scenario / boot config
+//   (d) terrainTiles, flowerTileKeys, terrainRandom, currentEntryCorner: terrain generation and sprites
+//   (d) worldState, worldTerrainCache, unitDefinitions: world map and static unit data
+
+const BATTLE_STATE_SCHEMA = "battle-state/1";
+const BATTLE_STATE_UNIT_IDS = Object.freeze(["P1", "P2", "P3", "E1", "E2", "E3"]);
+const BATTLE_STATE_SPRITE_FIELDS = Object.freeze(["element", "healthBar", "intentTags", "hiddenTag"]);
+
+class DryRunRejected extends Error {
+  constructor(reason, operation) {
+    super(`${operation} rejected: ${reason}`);
+    this.name = "DryRunRejected";
+    this.reason = reason;
+  }
+}
+
+class BattleStateError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "BattleStateError";
+  }
+}
+
+function isBattleStateSwapActive() {
+  return battleStateSwap !== null;
+}
+
+// Why the live battle cannot be swapped / dry-run right now (null = free). Reads flags only.
+function getBattleStateBusyReason() {
+  if (battleStateSwap !== null) {
+    return "swap-active";
+  }
+
+  if (turnCoreDepth > 0) {
+    return "turn-core-running";
+  }
+
+  if (turnDriverDepth > 0) {
+    return "turn-driver-running";
+  }
+
+  if (isExecutingActionQueue) {
+    return "turn-executing";
+  }
+
+  if (hasMovingPlayerUnits()) {
+    return "units-moving";
+  }
+
+  if (pendingMoveReplays.size > 0) {
+    return "move-replay-pending";
+  }
+
+  return null;
+}
+
+function rejectIfBattleStateBusy(operation) {
+  const reason = getBattleStateBusyReason();
+
+  if (reason !== null) {
+    throw new DryRunRejected(reason, operation);
+  }
+}
+
+function getHandRandomState() {
+  if (typeof handRandom.getState !== "function") {
+    throw new BattleStateError("The hand stream position is not readable (handRandom is not a createSeededRandom stream)");
+  }
+
+  return handRandom.getState();
+}
+
+function snapshotBattleUnit(id) {
+  const unit = getUnitByBattleId(id);
+
+  return {
+    id,
+    team: unit.team,
+    type: unit.type,
+    isActive: unit.isActive !== false,
+    row: unit.row,
+    col: unit.col,
+    direction: unit.direction,
+    health: unit.health,
+    maxHealth: unit.maxHealth,
+    isDefeated: Boolean(unit.isDefeated),
+    movementMode: unit.movementMode ?? null,
+    turnsSinceHit: unit.turnsSinceHit,
+    tookDamageThisTurn: Boolean(unit.tookDamageThisTurn),
+    isFleeing: Boolean(unit.isFleeing),
+    isHidden: Boolean(unit.isHidden),
+    packObjective: unit.packObjective ? cloneRulesData(unit.packObjective) : null,
+    queue: [...(unitActionQueues.get(unit) ?? [])],
+  };
+}
+
+function snapshotBattleState() {
+  const { version, hash, ...values } = activeRules;
+
+  return {
+    schema: BATTLE_STATE_SCHEMA,
+    config: { gridSize: GRID_SIZE, enemyMode },
+    rules: { version, hash, values: cloneRulesData(values) },
+    terrain: {
+      pond: [...pondTileKeys],
+      hill: [...hillTileKeys],
+      tree: [...treeTileKeys],
+      hillLevels: [...hillTileLevels.entries()].map(([key, level]) => [key, level]),
+    },
+    units: BATTLE_STATE_UNIT_IDS.map(snapshotBattleUnit),
+    enemyPack: {
+      queue: enemyPackActionQueue.map((entry) => ({ unit: getBattleDebugUnitId(entry.unit), action: entry.action })),
+      focus: enemyPackFocusTarget ? getBattleDebugUnitId(enemyPackFocusTarget) : null,
+    },
+    hand: { cards: [...playerHand], reshuffleChargesRemaining },
+    rng: { handSeed, handState: getHandRandomState() },
+  };
+}
+
+// Structural check of a BattleState (throws BattleStateError; touches nothing).
+function validateBattleState(state) {
+  const fail = (what) => {
+    throw new BattleStateError(`Invalid battle state: ${what}`);
+  };
+  const isStringList = (list) => Array.isArray(list) && list.every((item) => typeof item === "string");
+
+  if (!state || typeof state !== "object" || state.schema !== BATTLE_STATE_SCHEMA) fail("schema");
+  if (!state.config || !Number.isInteger(state.config.gridSize) || typeof state.config.enemyMode !== "string") fail("config");
+  if (!state.rules || typeof state.rules.values !== "object" || state.rules.values === null) fail("rules");
+  if (!state.terrain || !["pond", "hill", "tree"].every((key) => isStringList(state.terrain[key]))) fail("terrain");
+  if (!Array.isArray(state.terrain.hillLevels)) fail("terrain.hillLevels");
+  if (!Array.isArray(state.units) || state.units.map((unit) => unit && unit.id).join() !== BATTLE_STATE_UNIT_IDS.join()) fail("units");
+  if (!state.units.every((unit) => isStringList(unit.queue) && Number.isFinite(unit.row) && Number.isFinite(unit.col))) fail("unit fields");
+  if (!state.enemyPack || !Array.isArray(state.enemyPack.queue)) fail("enemyPack");
+  if (![...state.enemyPack.queue.map((entry) => entry && entry.unit), state.enemyPack.focus].every((id) => id === null || BATTLE_STATE_UNIT_IDS.includes(id))) fail("enemyPack unit ids");
+  if (!state.hand || !isStringList(state.hand.cards) || !Number.isFinite(state.hand.reshuffleChargesRemaining)) fail("hand");
+  if (!state.rng || !Number.isInteger(state.rng.handState)) fail("rng");
+}
+
+function createFrozenRulesFromState(rules) {
+  return deepFreeze({ version: rules.version, hash: rules.hash, ...cloneRulesData(rules.values) });
+}
+
+function writeBattleUnitFields(unit, record) {
+  unit.team = record.team;
+  unit.type = record.type;
+  unit.isActive = record.isActive;
+  unit.row = record.row;
+  unit.col = record.col;
+  unit.direction = record.direction;
+  unit.health = record.health;
+  unit.maxHealth = record.maxHealth;
+  unit.isDefeated = record.isDefeated;
+  unit.movementMode = record.movementMode;
+  unit.turnsSinceHit = record.turnsSinceHit;
+  unit.tookDamageThisTurn = record.tookDamageThisTurn;
+  unit.isFleeing = record.isFleeing;
+  unit.isHidden = record.isHidden;
+  unit.packObjective = record.packObjective ? cloneRulesData(record.packObjective) : null;
+}
+
+// A rules-only stand-in for one unit of a copy: logical fields only; sprite-side fields throw when read.
+function createBattleStateUnitClone(record) {
+  const clone = {};
+
+  writeBattleUnitFields(clone, record);
+  BATTLE_STATE_SPRITE_FIELDS.forEach((field) => {
+    Object.defineProperty(clone, field, {
+      get() {
+        throw new Error(`unit.${field} read during a battle-state swap`);
+      },
+    });
+  });
+  return clone;
+}
+
+function withBattleState(state, fn) {
+  rejectIfBattleStateBusy("withBattleState");
+  validateBattleState(state);
+
+  const saved = {
+    units: [...units],
+    named: [player, playerSupport, playerFlank, enemy, enemySupport, enemyFlank],
+    packQueue: [...enemyPackActionQueue],
+    focus: enemyPackFocusTarget,
+    hand: [...playerHand],
+    reshuffleChargesRemaining,
+    handRandom,
+    handSeed,
+    activeRules,
+    gridSize: GRID_SIZE,
+    enemyMode,
+    pondTileKeys,
+    hillTileKeys,
+    treeTileKeys,
+    hillTileLevels,
+    isExecutingActionQueue,
+    activeBattleDebugLog,
+    lastBattleDebugReport,
+    lastTurnEventLog,
+    turnCoreDepth,
+    turnDriverDepth,
+  };
+  const clones = state.units.map(createBattleStateUnitClone);
+  const cloneById = new Map(state.units.map((record, index) => [record.id, clones[index]]));
+
+  battleStateSwap = { clones };
+
+  try {
+    [player, playerSupport, playerFlank, enemy, enemySupport, enemyFlank] = clones;
+    units.splice(0, units.length, ...clones);
+    state.units.forEach((record, index) => unitActionQueues.set(clones[index], [...record.queue]));
+    enemyPackActionQueue.splice(
+      0,
+      enemyPackActionQueue.length,
+      ...state.enemyPack.queue.map((entry) => ({ unit: cloneById.get(entry.unit), action: entry.action })),
+    );
+    enemyPackFocusTarget = state.enemyPack.focus === null ? null : cloneById.get(state.enemyPack.focus);
+    playerHand.splice(0, playerHand.length, ...state.hand.cards);
+    reshuffleChargesRemaining = state.hand.reshuffleChargesRemaining;
+    handRandom = createSeededRandom(state.rng.handState);
+    handSeed = state.rng.handSeed;
+    activeRules = createFrozenRulesFromState(state.rules);
+    GRID_SIZE = state.config.gridSize;
+    enemyMode = state.config.enemyMode;
+    pondTileKeys = new Set(state.terrain.pond);
+    hillTileKeys = new Set(state.terrain.hill);
+    treeTileKeys = new Set(state.terrain.tree);
+    hillTileLevels = new Map(state.terrain.hillLevels.map(([key, level]) => [key, level]));
+    isExecutingActionQueue = false;
+    activeBattleDebugLog = null;
+    return fn();
+  } finally {
+    [player, playerSupport, playerFlank, enemy, enemySupport, enemyFlank] = saved.named;
+    units.splice(0, units.length, ...saved.units);
+    clones.forEach((clone) => unitActionQueues.delete(clone));
+    enemyPackActionQueue.splice(0, enemyPackActionQueue.length, ...saved.packQueue);
+    enemyPackFocusTarget = saved.focus;
+    playerHand.splice(0, playerHand.length, ...saved.hand);
+    reshuffleChargesRemaining = saved.reshuffleChargesRemaining;
+    handRandom = saved.handRandom;
+    handSeed = saved.handSeed;
+    activeRules = saved.activeRules;
+    GRID_SIZE = saved.gridSize;
+    enemyMode = saved.enemyMode;
+    pondTileKeys = saved.pondTileKeys;
+    hillTileKeys = saved.hillTileKeys;
+    treeTileKeys = saved.treeTileKeys;
+    hillTileLevels = saved.hillTileLevels;
+    isExecutingActionQueue = saved.isExecutingActionQueue;
+    activeBattleDebugLog = saved.activeBattleDebugLog;
+    lastBattleDebugReport = saved.lastBattleDebugReport;
+    lastTurnEventLog = saved.lastTurnEventLog;
+    turnCoreDepth = saved.turnCoreDepth;
+    turnDriverDepth = saved.turnDriverDepth;
+    battleStateSwap = null;
+  }
+}
+
+function applyDryRunQueueOverrides(state, queues) {
+  if (queues === undefined || queues === null) {
+    return;
+  }
+
+  if (typeof queues !== "object") {
+    throw new BattleStateError("dryRunTurn: options.queues must be an object of action lists");
+  }
+
+  Object.entries(queues).forEach(([id, actions]) => {
+    const record = state.units.find((unit) => unit.id === id);
+
+    if (!record || record.team !== "player" || !Array.isArray(actions)) {
+      throw new BattleStateError(`dryRunTurn: options.queues.${id} must be a player unit's action list`);
+    }
+
+    record.queue = actions.map(String);
+  });
+}
+
+// The same full lifecycle as the Play button, drained on a copy with no replay (see the block comment).
+function dryRunTurn(options = {}) {
+  rejectIfBattleStateBusy("dryRunTurn");
+
+  const state = snapshotBattleState();
+
+  applyDryRunQueueOverrides(state, options.queues);
+
+  // Mirrors Play's early return (hasQueuedPlayerActions: all player queues, alive or not).
+  // Checked on the copy so the rejection happens BEFORE any swap starts.
+  if (!state.units.some((unit) => unit.team === "player" && unit.queue.length > 0)) {
+    throw new DryRunRejected("no-player-orders", "dryRunTurn");
+  }
+
+  return withBattleState(state, () => {
+    const context = createTurnContext("dryRun");
+    const core = guardTurnCore(runTurnCore(context));
+
+    for (let result = core.next(); !result.done; result = core.next()) {
+      // no replay: a dry run only collects the events
+    }
+
+    const events = JSON.parse(JSON.stringify(context.events));
+    const outcomeEvent = events.find((event) => event.type === "outcome");
+
+    return {
+      events,
+      outcome: { winner: outcomeEvent.winner, doubleKO: outcomeEvent.doubleKO },
+      finalState: snapshotBattleState(),
+      eventHash: hashString53(JSON.stringify(events)),
+    };
+  });
+}
+
+// Fixture/round-trip use: apply a BattleState's logical state to the live battle (renders nothing; see above).
+function loadBattleState(state) {
+  rejectIfBattleStateBusy("loadBattleState");
+  validateBattleState(state);
+
+  if (state.config.gridSize !== GRID_SIZE || state.config.enemyMode !== enemyMode) {
+    throw new BattleStateError("loadBattleState: grid size and enemy mode must match the live battle");
+  }
+
+  state.units.forEach((record) => {
+    const unit = getUnitByBattleId(record.id);
+
+    if (!unit || unit.team !== record.team || unit.type !== record.type) {
+      throw new BattleStateError(`loadBattleState: unit ${record.id} does not match the live battle`);
+    }
+  });
+
+  state.units.forEach((record) => {
+    const unit = getUnitByBattleId(record.id);
+
+    writeBattleUnitFields(unit, record);
+    getUnitActionQueue(unit).splice(0, getUnitActionQueue(unit).length, ...record.queue);
+  });
+  enemyPackActionQueue.splice(
+    0,
+    enemyPackActionQueue.length,
+    ...state.enemyPack.queue.map((entry) => ({ unit: getUnitByBattleId(entry.unit), action: entry.action })),
+  );
+  enemyPackFocusTarget = state.enemyPack.focus === null ? null : getUnitByBattleId(state.enemyPack.focus);
+  playerHand.splice(0, playerHand.length, ...state.hand.cards);
+  reshuffleChargesRemaining = state.hand.reshuffleChargesRemaining;
+  handSeed = state.rng.handSeed;
+  handRandom = createSeededRandom(state.rng.handState);
+  activeRules = createFrozenRulesFromState(state.rules);
+  pondTileKeys = new Set(state.terrain.pond);
+  hillTileKeys = new Set(state.terrain.hill);
+  treeTileKeys = new Set(state.terrain.tree);
+  hillTileLevels = new Map(state.terrain.hillLevels.map(([key, level]) => [key, level]));
 }
 
 function hasCombatantQueuedActions(combatant) {
@@ -9423,6 +9897,10 @@ window.devTest = {
   // Fixture-only (see drainTurnCore): run one full turn's rules headlessly, and read the last turn's events.
   drainTurnCore,
   getTurnEventLog,
+  // Dev/fixture hooks (no UI), see "BATTLE STATE (X3)": plain-data battle copies and dry runs of a turn.
+  snapshotBattleState,
+  loadBattleState,
+  dryRunTurn,
 };
 
 function getTileFromEvent(event) {
