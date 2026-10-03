@@ -51,7 +51,7 @@ The screen is split into 3 zones:
 
 - Player hits the Play button to execute the queue
 - Tick loop runs — units animate and resolve actions in order
-- **Interrupt:** player can click a unit during execution to flag it; execution pauses before that unit's next action
+- **Interrupt:** *[not implemented]* — earlier design: click a unit during execution to pause before its next action. No interrupt code exists in script.js today.
 - After execution, planning phase resumes automatically
 
 ---
