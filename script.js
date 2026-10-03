@@ -190,6 +190,24 @@ const tutorialSkipButton = document.querySelector("#tutorial-skip");
 const tileElements = [];
 const unitActionQueues = new WeakMap();
 let reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
+
+// Battle-scenario mode. activeScenario is the fixed battlefield definition from
+// window.BATTLE_SCENARIOS (null in ?mode=world / sandbox). While set, buildArena
+// draws the scenario terrain instead of generateTerrain and reconcileSpawnPositions
+// is bypassed. Anything that would let the board drift from the scenario (arena
+// size control, enemy-mode switch, dev-test scenario runner, world map) calls
+// clearActiveScenario() first, so the label never claims a scenario that is gone.
+let activeScenario = null;
+let activeScenarioSeed = null;
+
+// Gameplay RNG stream: used ONLY for hand draws (randomAction -> refill /
+// reshuffle / tutorial hand). Cosmetic randomness (idle start frames) keeps
+// Math.random so it can never advance this stream. Stream seed = the scenario
+// seed itself (terrain is authored, not generated, so there is no other seeded
+// consumer to collide with); re-seeded on every scenario load / restart. In
+// world mode it is seeded once per arena start from a fresh Math.random value.
+let handRandom = Math.random;
+let handSeed = null;
 let hoveredTile = null;
 let hoveredHillBlock = null; // top cube highlighted under the cursor in hill-edit mode
 let selectedPlayerUnit = null;
@@ -1359,7 +1377,7 @@ function randomAction(counts = {}) {
   const eligible = ACTIONS.filter((action) => (counts[action] ?? 0) < MAX_SAME_ACTION);
   const pool = eligible.length > 0 ? eligible : ACTIONS;
 
-  return pool[Math.floor(Math.random() * pool.length)];
+  return pool[Math.floor(handRandom() * pool.length)];
 }
 
 function createIcon(src, className) {
@@ -1778,6 +1796,8 @@ function positionPlayerActionMenu() {
 }
 
 function updatePlayerActionControls() {
+  updateRestartBattleControl();
+
   if (!playerActionMenu) {
     return;
   }
@@ -2175,6 +2195,11 @@ function startArena(node, entryCorner = currentEntryCorner) {
   if (gameResultOverlay) {
     gameResultOverlay.hidden = true;
   }
+
+  // World battles are procedural: leave any fixed scenario, and give the hand a
+  // fresh stream (non-repeating, unlike scenario battles).
+  clearActiveScenario();
+  seedHandRandom(createFreshSeed());
 
   // Set before buildArena so water-clearing and spawn placement both use it.
   currentEntryCorner = entryCorner;
@@ -2733,8 +2758,12 @@ function buildArena() {
   tileLayer.className = "tile-layer";
   unitLayer.className = "unit-layer";
 
-  const initialNode = getCurrentWorldNode(worldState);
-  generateTerrain(GRID_SIZE, initialNode?.seed ?? null, initialNode?.x ?? 0, initialNode?.y ?? 0, true);
+  if (activeScenario) {
+    applyScenarioTerrain(activeScenario);
+  } else {
+    const initialNode = getCurrentWorldNode(worldState);
+    generateTerrain(GRID_SIZE, initialNode?.seed ?? null, initialNode?.x ?? 0, initialNode?.y ?? 0, true);
+  }
 
   for (let row = 0; row < GRID_SIZE; row += 1) {
     for (let col = 0; col < GRID_SIZE; col += 1) {
@@ -4702,7 +4731,11 @@ function showGameResult(didWin) {
 // the world map to expand; a loss shows the result overlay, whose "Play Again"
 // re-fights the same arena (retry-on-loss).
 function concludeBattle(didWin) {
-  if (didWin) {
+  if (activeScenario) {
+    // No world map to expand in a fixed scenario: show the result; "Play Again"
+    // restarts the same scenario + seed.
+    showGameResult(didWin);
+  } else if (didWin) {
     clearCurrentWorldCell(worldState);
     openWorldMap();
   } else {
@@ -4720,6 +4753,13 @@ function devEndFight(didWin) {
 }
 
 function resetGame() {
+  // A scenario battle replays identically (same terrain, spawns, seeded hand).
+  if (activeScenario) {
+    // Refused mid-turn: never fall through to the legacy reset with a stale scenario.
+    restartBattle();
+    return;
+  }
+
   if (gameResultOverlay) gameResultOverlay.hidden = true;
   reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
   resetDevTest();
@@ -6869,7 +6909,7 @@ function findSafeSpawnCell(row, col, occupied, mainRegion) {
 // ground that can actually reach the fight. No-op when obstacles are absent or
 // disabled (dev-test scenarios manage their own layout).
 function reconcileSpawnPositions() {
-  if (devTestObstaclesDisabled) {
+  if (devTestObstaclesDisabled || activeScenario) { // scenario spawns are authored and exact
     return;
   }
 
@@ -8037,6 +8077,7 @@ async function runDevTestScenario(scenarioId) {
   // Mechanics scenarios assume a clear board; suppress the seeded hill/water for
   // the whole scenario (including any arena resize that re-stamps terrain) so a
   // stray obstacle can't derail a movement/pack test.
+  clearActiveScenario();
   devTestObstaclesDisabled = true;
   clearArenaObstacles();
 
@@ -8243,6 +8284,7 @@ function setArenaTileCount(tileCount) {
     return true;
   }
 
+  clearActiveScenario(); // a resized board no longer matches the scenario
   GRID_SIZE = nextGridSize;
   updateArenaMetrics();
   setHoveredTile(null);
@@ -8278,6 +8320,7 @@ function setupArenaSizeControls() {
 }
 
 function syncEnemyModeControls() {
+  updateRestartBattleControl();
   enemyModeButtons.forEach((button) => {
     const isActive = button.dataset.enemyMode === enemyMode;
 
@@ -8293,6 +8336,13 @@ function setEnemyMode(nextMode) {
     return false;
   }
 
+  if (activeScenario && nextMode === enemyMode) {
+    // Re-clicking the already-active mode must not silently end a scenario battle.
+    syncEnemyModeControls();
+    return true;
+  }
+
+  clearActiveScenario(); // default spawns / other enemy type would desync the scenario
   enemyMode = nextMode;
   setPlayerSelected(null);
   resetDevTest();
@@ -8331,6 +8381,9 @@ window.devTest = {
   chooseCorner,
   exportHillLayout: buildHillLayoutExport,
   loadHillLayout,
+  loadScenario,
+  restartBattle,
+  getBattleSeeds,
 };
 
 function getTileFromEvent(event) {
@@ -8466,9 +8519,241 @@ if (devRotateButton) {
   devRotateButton.addEventListener("click", () => rotateDevPreviewUnitClockwise());
 }
 
-buildArena();
-resetDevTest(); // place units at their spawns and clear obstacle/boxed-in cells (as startArena does)
-refillAvailableActions();
+// ---------------------------------------------------------------------------
+// Battle scenarios: fixed, repeatable battlefields (scenarios/*.js register on
+// window.BATTLE_SCENARIOS). No rule changes here — this only decides which
+// terrain / spawns / hand seed a battle starts from.
+// ---------------------------------------------------------------------------
+const restartBattleButton = document.getElementById("restart-battle");
+let scenarioLabelElement = null;
+
+function createFreshSeed() {
+  return Math.floor(Math.random() * 4294967296) >>> 0;
+}
+
+function seedHandRandom(seed) {
+  handSeed = seed >>> 0;
+  handRandom = createSeededRandom(handSeed);
+}
+
+function getBattleSeeds() {
+  return {
+    scenarioId: activeScenario?.id ?? null,
+    scenarioVersion: activeScenario?.scenarioVersion ?? null,
+    seed: activeScenarioSeed,
+    handSeed,
+  };
+}
+
+function updateScenarioLabel(text = null) {
+  if (!scenarioLabelElement) {
+    scenarioLabelElement = document.getElementById("scenario-label");
+
+    if (!scenarioLabelElement) {
+      scenarioLabelElement = document.createElement("div");
+      scenarioLabelElement.id = "scenario-label";
+      scenarioLabelElement.style.cssText =
+        "position:fixed;left:8px;bottom:6px;font:11px/1 monospace;opacity:0.55;pointer-events:none;z-index:5;";
+      document.body.append(scenarioLabelElement);
+    }
+  }
+
+  scenarioLabelElement.textContent =
+    text ?? (activeScenario ? `${activeScenario.id} · seed ${activeScenarioSeed}` : "");
+}
+
+function clearActiveScenario() {
+  if (!activeScenario) {
+    return;
+  }
+
+  activeScenario = null;
+  activeScenarioSeed = null;
+  updateScenarioLabel("custom board (scenario exited)");
+  updateRestartBattleControl();
+}
+
+function updateRestartBattleControl() {
+  if (restartBattleButton) {
+    restartBattleButton.disabled = isExecutingActionQueue || !activeScenario;
+    restartBattleButton.hidden = !activeScenario; // world mode has nothing to restart
+  }
+}
+
+// Replace terrain with the scenario's authored layout: one uniform base tile,
+// rocks as hill-blocked cells (same representation as generated hills, so they
+// render via renderArenaHill and block movement/sight identically). No ponds,
+// flowers or trees, and nothing here touches Math.random.
+function applyScenarioTerrain(scenario) {
+  const size = GRID_SIZE;
+
+  terrainTiles = Array.from({ length: size }, () => Array(size).fill(scenario.terrain.baseTile));
+  pondTileKeys = new Set();
+  hillTileKeys = new Set();
+  hillTileLevels = new Map();
+  flowerTileKeys = new Set();
+  treeTileKeys = new Set();
+
+  (scenario.terrain.rocks ?? []).forEach(([row, col]) => {
+    if (row >= 0 && row < size && col >= 0 && col < size) {
+      hillTileKeys.add(getGridPositionKey(row, col));
+    } else {
+      console.warn(`[scenario] rock out of bounds ignored: ${row},${col}`);
+    }
+  });
+}
+
+function resolveScenario(id) {
+  const registry = window.BATTLE_SCENARIOS ?? {};
+  const scenario = registry[id];
+
+  if (scenario) {
+    return scenario;
+  }
+
+  console.warn(`[scenario] unknown scenario "${id}", falling back to "intro"`);
+  return registry.intro ?? null;
+}
+
+function parseSeed(value, fallback) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const text = String(value);
+
+  if (!/^-?\d+$/.test(text.trim())) {
+    console.warn(`[scenario] ignoring non-integer seed "${text}"`);
+    return fallback;
+  }
+
+  return Number.parseInt(text, 10) >>> 0;
+}
+
+// Load (or reload) a scenario battle from scratch. Everything a battle owns is
+// reset here, so calling it again with the same id + seed reproduces the same
+// battle: terrain, all six units, queues, hand, reshuffle charges, result
+// overlay, and the hand RNG stream.
+function loadScenario(id = "intro", seed) {
+  if (isExecutingActionQueue) {
+    return false;
+  }
+
+  const scenario = resolveScenario(id);
+
+  if (!scenario) {
+    console.warn("[scenario] no scenarios registered");
+    return false;
+  }
+
+  activeScenario = scenario;
+  activeScenarioSeed = parseSeed(seed, scenario.seed >>> 0);
+  seedHandRandom(activeScenarioSeed);
+
+  if (gameResultOverlay) {
+    gameResultOverlay.hidden = true;
+  }
+
+  reshuffleChargesRemaining = RESHUFFLE_CHARGES_PER_BATTLE;
+  enemyMode = "wolves";
+  activeBattleDebugLog = null; // the previous battle's debug note is not this battle's
+  lastBattleDebugReport = "";
+  window.lastBattleDebugReport = "";
+  updateBattleDebugControls();
+  actionsList.replaceChildren(); // fresh hand, not a carry-over
+  GRID_SIZE = clampArenaSize(scenario.gridSize);
+  updateArenaMetrics();
+  setHoveredTile(null);
+  setPlayerSelected(null);
+
+  const { player: p, enemy: e } = scenario.spawns;
+
+  // Mirror startArena's proven sequence, with scenario spawns.
+  buildArena();
+  resetDevTest(p.primary, e.primary, p.support, e.support, p.flank, e.flank);
+  refillAvailableActions();
+  updateEnemyIntentPreview();
+  updateReshuffleControl();
+  resizeArena();
+  syncEnemyModeControls();
+  syncArenaSizeControl(`${GRID_SIZE} x ${GRID_SIZE} tiles`);
+  updateScenarioLabel();
+  return true;
+}
+
+// Re-run the active scenario with the SAME seed. Ignored mid-turn.
+function restartBattle() {
+  if (!activeScenario || isExecutingActionQueue) {
+    return false;
+  }
+
+  return loadScenario(activeScenario.id, activeScenarioSeed);
+}
+
+if (restartBattleButton) {
+  restartBattleButton.addEventListener("click", restartBattle);
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "r" && event.key !== "R") {
+    return;
+  }
+
+  if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) {
+    return;
+  }
+
+  const target = event.target;
+  const tag = target?.tagName;
+
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable) {
+    return;
+  }
+
+  // Not while the tutorial overlay / coach tour is up.
+  if (tutorialOverlay?.hidden === false || tutorialCoachCard?.hidden === false) {
+    return;
+  }
+
+  if (restartBattle()) {
+    event.preventDefault();
+  }
+});
+
+// ?mode=world keeps the original world-map / procedural-arena boot. Otherwise
+// boot into a scenario (?scenario=<id>&seed=<int>, default "intro"). With no
+// URL (headless harness) or no registry, fall back to the original boot.
+function resolveBootRoute() {
+  const search = window.location?.search;
+
+  if (typeof search !== "string") {
+    return { scenario: null };
+  }
+
+  const params = new URLSearchParams(search);
+
+  if (params.get("mode") === "world") {
+    return { scenario: null };
+  }
+
+  if (!window.BATTLE_SCENARIOS?.intro) {
+    console.warn("[scenario] BATTLE_SCENARIOS.intro missing; booting world mode");
+    return { scenario: null };
+  }
+
+  return { scenario: params.get("scenario") ?? "intro", seed: params.get("seed") ?? undefined };
+}
+
+const bootRoute = resolveBootRoute();
+
+if (bootRoute.scenario) {
+  loadScenario(bootRoute.scenario, bootRoute.seed);
+} else {
+  seedHandRandom(createFreshSeed());
+  buildArena();
+  resetDevTest(); // place units at their spawns and clear obstacle/boxed-in cells (as startArena does)
+  refillAvailableActions();
+}
 updateReshuffleControl();
 renderActionQueue(getSelectedPlayerUnit());
 resizeArena();

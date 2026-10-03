@@ -1108,6 +1108,26 @@ body {
   font-size: 14px;
 }
 
+.restart-battle-button {
+  position: fixed;
+  top: 16px;
+  left: 132px;
+  z-index: 80;
+  min-width: 0;
+  min-height: 40px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.restart-battle-button[hidden] {
+  display: none;
+}
+
+.restart-battle-button:disabled {
+  opacity: 0.42;
+  pointer-events: none;
+}
+
 .debug-controls {
   position: fixed;
   left: 16px;
