@@ -1,0 +1,70 @@
+{
+  "header": "REQUIREMENT — P1b acceptance",
+  "seed": 1,
+  "freshHand": [
+    "Attack",
+    "Move",
+    "Attack",
+    "Defend",
+    "Defend"
+  ],
+  "dirtyEvidence": {
+    "cardsQueued": {
+      "t1": [
+        "Attack",
+        "Move"
+      ],
+      "t2": [
+        "Defend"
+      ]
+    },
+    "healthAfterDirty": {
+      "P1": 0,
+      "P2": 10,
+      "P3": 10,
+      "E1": 7,
+      "E2": 10,
+      "E3": 10
+    },
+    "turnsSinceHit": {
+      "P1": 0,
+      "P2": 1,
+      "P3": 1,
+      "E1": 0,
+      "E2": 1,
+      "E3": 1
+    },
+    "reshuffleCharges": 1,
+    "handAfterDirty": [
+      "Attack",
+      "Defend",
+      "Attack",
+      "Attack"
+    ]
+  },
+  "compared": "terrain, hills/ponds/flowers/trees, 6 units (position, direction, health, movementMode, turnsSinceHit, tookDamageThisTurn, isFleeing, packObjective, queue), pack queue+focus, hand, reshuffle charges, overlay, selection, seeds, hand RNG tail(8)",
+  "killCase": {
+    "e1Sprite": {
+      "anim": "death",
+      "hidden": false
+    },
+    "restoredEqualsFresh": true
+  },
+  "freshStreamTail": [
+    0.281104,
+    0.612839,
+    0.720743,
+    0.425797,
+    0.994823,
+    0.455271,
+    0.488788,
+    0.138934
+  ],
+  "refusedMidTurn": true,
+  "usage": {
+    "contexts": 2,
+    "maxSteps": 811,
+    "totalSteps": 811,
+    "cap": 4000
+  }
+}

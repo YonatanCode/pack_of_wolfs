@@ -1,0 +1,92 @@
+{
+  "header": "REQUIREMENT — P1b acceptance",
+  "independence": {
+    "hands": 8,
+    "checkedAgainst": [
+      "Math.random + getRandomIdleStartFrame noise",
+      "other harness Math.random seed",
+      "3 restarts with noise"
+    ],
+    "firstSequence": [
+      [
+        "Defend",
+        "Defend",
+        "Move",
+        "Attack",
+        "Move"
+      ],
+      [
+        "Attack",
+        "Defend",
+        "Defend",
+        "Move",
+        "Move"
+      ],
+      [
+        "Attack",
+        "Defend",
+        "Defend",
+        "Defend",
+        "Move"
+      ],
+      [
+        "Move",
+        "Defend",
+        "Defend",
+        "Defend",
+        "Move"
+      ],
+      [
+        "Defend",
+        "Attack",
+        "Move",
+        "Attack",
+        "Move"
+      ],
+      [
+        "Defend",
+        "Move",
+        "Move",
+        "Attack",
+        "Move"
+      ],
+      [
+        "Defend",
+        "Defend",
+        "Move",
+        "Move",
+        "Move"
+      ],
+      [
+        "Move",
+        "Attack",
+        "Defend",
+        "Move",
+        "Move"
+      ]
+    ]
+  },
+  "rules": {
+    "handsDrawn": 460,
+    "seeds": "1..120 (loadScenario) + 1000..1099 cap-carry",
+    "maxSameCountHistogram": {
+      "2": 136,
+      "3": 224
+    },
+    "actionTotals": {
+      "Attack": 608,
+      "Move": 606,
+      "Defend": 586
+    },
+    "carryOverChecks": 120,
+    "reshuffleChecks": 20,
+    "extraMovesWithThreeKept": 0,
+    "note": "counts only; uniform expectation would be equal action totals (not asserted)"
+  },
+  "usage": {
+    "contexts": 6,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

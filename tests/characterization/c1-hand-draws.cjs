@@ -1,23 +1,28 @@
 "use strict";
 // CHARACTERIZATION — records CURRENT behaviour, not desired behaviour.
 // C1: action-hand draws (refillAvailableActions), carry-over, MAX_SAME_ACTION cap, reshuffleActions.
-// Math.random is the harness's seeded mulberry32 (live game is unseeded). Hand order = actionsList
-// child order (new draws are prepended, so the newest draw is first).
+// Hand draws come from the gameplay stream handRandom (P1b); this fixture seeds it with the game's own
+// seedHandRandom(seed) (the same call loadScenario makes with the scenario seed), instead of reseeding
+// Math.random as it did before P1b. Hand order = actionsList child order (new draws are prepended,
+// so the newest draw is first).
 const { HEADER, evJson, loadGame } = require("./_lib.cjs");
 
 const ID = "c1-hand-draws";
+const reseedHand = (g, seed) => g.ev(`seedHandRandom(${seed})`);
 const hand = (g) => evJson(g, "Array.from(actionsList.children).map((i) => i.dataset.action)");
 const counts = (h) => h.reduce((m, a) => ({ ...m, [a]: (m[a] ?? 0) + 1 }), {});
 
 async function run() {
-  const out = { header: HEADER, constants: null, seededHands: [], sweep: null, carryOver: null, capCarry: null, reshuffle: null };
+  const out = {
+    declaredChange: "P1b: hand draws now come from a seeded gameplay stream (handRandom, seedHandRandom -> createSeededRandom, the same mulberry32 algorithm the harness used for Math.random) instead of Math.random; the fixture seeds it via seedHandRandom(seed) rather than reseeding Math.random. Measured old->new: every seeded hand, the 500-seed sweep, carry-over, cap-carry and reshuffle sections are IDENTICAL; the only difference is startupHand (pre-P1b: boot draw straight from the harness Math.random stream; now: boot seeds handRandom from one Math.random value first, so the boot hand changed from [Move,Attack,Defend,Move,Attack] to [Attack,Defend,Move,Attack,Move]). Draw RULES unchanged.",
+    header: HEADER, constants: null, seededHands: [], sweep: null, carryOver: null, capCarry: null, reshuffle: null };
   const g = loadGame();
   out.constants = evJson(g, "({ ACTION_SLOT_COUNT, MAX_SAME_ACTION, RESHUFFLE_CHARGES_PER_BATTLE, ACTIONS })");
   out.startupHand = hand(g); // drawn by script.js's own startup refill from the seeded stream
 
   const draw = (seed) => {
     g.ev("actionsList.replaceChildren()");
-    g.reseed(seed);
+    reseedHand(g, seed);
     g.ev("refillAvailableActions()");
     return hand(g);
   };
@@ -67,7 +72,7 @@ async function run() {
   const samples = [];
   for (let s = 1000; s < 1100; s += 1) {
     g.ev("actionsList.replaceChildren(...['Move','Move','Move'].map(createAvailableActionItem))");
-    g.reseed(s);
+    reseedHand(g, s);
     g.ev("refillAvailableActions()");
     const h = hand(g);
     moveDrawn += h.filter((a) => a === "Move").length - 3;
@@ -80,15 +85,15 @@ async function run() {
   draw(11);
   g.ev(`getUnitActionQueue(player).push("Move","Attack"); getUnitActionQueue(playerSupport).push("Defend");`);
   r.start = { hand: hand(g), charges: g.ev("reshuffleChargesRemaining"), queues: evJson(g, `[getUnitActionQueue(player), getUnitActionQueue(playerSupport)]`) };
-  g.reseed(12);
+  reseedHand(g, 12);
   g.ev("reshuffleActions()");
   r.afterFirst = { hand: hand(g), charges: g.ev("reshuffleChargesRemaining"), queues: evJson(g, `[getUnitActionQueue(player), getUnitActionQueue(playerSupport)]`) };
   g.ev(`getUnitActionQueue(player).push("Move")`);
-  g.reseed(13);
+  reseedHand(g, 13);
   g.ev("reshuffleActions()");
   r.afterSecond = { hand: hand(g), charges: g.ev("reshuffleChargesRemaining"), queues: evJson(g, `[getUnitActionQueue(player)]`) };
   g.ev(`getUnitActionQueue(player).push("Attack")`);
-  g.reseed(14);
+  reseedHand(g, 14);
   g.ev("reshuffleActions()");
   r.afterThirdNoCharges = { hand: hand(g), charges: g.ev("reshuffleChargesRemaining"), queues: evJson(g, `[getUnitActionQueue(player)]`), handUnchanged: JSON.stringify(hand(g)) === JSON.stringify(r.afterSecond.hand) };
   out.reshuffle = r;

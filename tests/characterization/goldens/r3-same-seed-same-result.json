@@ -1,0 +1,132 @@
+{
+  "header": "REQUIREMENT — P1b acceptance",
+  "seed": 7,
+  "startHand": [
+    "Move",
+    "Move",
+    "Defend",
+    "Defend",
+    "Attack"
+  ],
+  "finalHand": [
+    "Attack",
+    "Defend",
+    "Move",
+    "Move",
+    "Move"
+  ],
+  "cardsPerTurn": [
+    [
+      [
+        "Move",
+        "Defend"
+      ],
+      [
+        "Defend"
+      ]
+    ],
+    [
+      [
+        "Attack"
+      ],
+      [
+        "Attack",
+        "Attack"
+      ]
+    ]
+  ],
+  "healthPerTurn": [
+    {
+      "P1": 6,
+      "P2": 10,
+      "P3": 10,
+      "E1": 10,
+      "E2": 10,
+      "E3": 10
+    },
+    {
+      "P1": 0,
+      "P2": 10,
+      "P3": 10,
+      "E1": 7,
+      "E2": 10,
+      "E3": 10
+    }
+  ],
+  "seed8StartHand": [
+    "Move",
+    "Attack",
+    "Move",
+    "Defend",
+    "Attack"
+  ],
+  "handsBySeed": [
+    {
+      "seed": 1,
+      "hand": [
+        "Attack",
+        "Move",
+        "Attack",
+        "Defend",
+        "Defend"
+      ]
+    },
+    {
+      "seed": 2,
+      "hand": [
+        "Defend",
+        "Move",
+        "Move",
+        "Attack",
+        "Defend"
+      ]
+    },
+    {
+      "seed": 3,
+      "hand": [
+        "Defend",
+        "Move",
+        "Attack",
+        "Move",
+        "Defend"
+      ]
+    },
+    {
+      "seed": 4,
+      "hand": [
+        "Defend",
+        "Move",
+        "Move",
+        "Move",
+        "Attack"
+      ]
+    },
+    {
+      "seed": 5,
+      "hand": [
+        "Defend",
+        "Defend",
+        "Move",
+        "Attack",
+        "Move"
+      ]
+    },
+    {
+      "seed": 6,
+      "hand": [
+        "Attack",
+        "Move",
+        "Attack",
+        "Move",
+        "Attack"
+      ]
+    }
+  ],
+  "distinctHandsInSeeds1to6": 6,
+  "usage": {
+    "contexts": 10,
+    "maxSteps": 204,
+    "totalSteps": 815,
+    "cap": 4000
+  }
+}

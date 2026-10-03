@@ -1,0 +1,41 @@
+{
+  "header": "REQUIREMENT — P1b acceptance",
+  "declaredChange": "P1b follow-up: setEnemyMode(sameMode) on an active scenario is now a no-op returning true and KEEPS the scenario (first measurement: it exited the scenario). A different mode (stag), setArenaSize to another size and runScenario still exit it.",
+  "results": {
+    "setArenaSize(10)": {
+      "returned": true,
+      "scenarioIdAfter": null,
+      "restartBattle": false
+    },
+    "setEnemyMode('stag')": {
+      "returned": true,
+      "scenarioIdAfter": null,
+      "restartBattle": false
+    },
+    "runScenario('double-attack')": {
+      "returned": true,
+      "scenarioIdAfter": null,
+      "restartBattle": false
+    },
+    "setArenaSize(8) then resetGame()": {
+      "returned": true,
+      "scenarioIdAfter": null,
+      "restartBattle": false
+    },
+    "setEnemyMode('wolves') on wolves scenario (same mode)": {
+      "returned": true,
+      "scenarioIdAfter": "intro",
+      "restartBattle": true
+    },
+    "setArenaSize(12) (no-op, same size)": {
+      "returned": true,
+      "scenarioIdAfter": "intro"
+    }
+  },
+  "usage": {
+    "contexts": 6,
+    "maxSteps": 35,
+    "totalSteps": 35,
+    "cap": 4000
+  }
+}

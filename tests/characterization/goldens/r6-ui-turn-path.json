@@ -1,0 +1,157 @@
+{
+  "header": "REQUIREMENT — P1b acceptance",
+  "seed": 1,
+  "startHand": [
+    "Attack",
+    "Move",
+    "Attack",
+    "Defend",
+    "Defend"
+  ],
+  "cardsPerTurn": [
+    [
+      [
+        "Attack",
+        "Move"
+      ],
+      [
+        "Defend"
+      ],
+      [
+        "Attack"
+      ]
+    ],
+    [
+      [
+        "Attack"
+      ],
+      [
+        "Move",
+        "Defend"
+      ],
+      [
+        null
+      ]
+    ]
+  ],
+  "afterTurn": [
+    {
+      "units": {
+        "P1": [
+          8,
+          5,
+          10
+        ],
+        "P2": [
+          11,
+          3,
+          10
+        ],
+        "P3": [
+          11,
+          8,
+          10
+        ],
+        "E1": [
+          0,
+          5,
+          10
+        ],
+        "E2": [
+          2,
+          9,
+          10
+        ],
+        "E3": [
+          3,
+          2,
+          10
+        ]
+      },
+      "packQueue": [
+        {
+          "unit": "E2",
+          "action": "Move"
+        },
+        {
+          "unit": "E3",
+          "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Defend"
+        }
+      ],
+      "hand": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Attack",
+        "Defend"
+      ]
+    },
+    {
+      "units": {
+        "P1": [
+          8,
+          5,
+          10
+        ],
+        "P2": [
+          8,
+          3,
+          10
+        ],
+        "P3": [
+          11,
+          8,
+          10
+        ],
+        "E1": [
+          0,
+          5,
+          10
+        ],
+        "E2": [
+          5,
+          6,
+          10
+        ],
+        "E3": [
+          5,
+          4,
+          10
+        ]
+      },
+      "packQueue": [
+        {
+          "unit": "E1",
+          "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Move"
+        },
+        {
+          "unit": "E2",
+          "action": "Defend"
+        }
+      ],
+      "hand": [
+        "Defend",
+        "Attack",
+        "Attack",
+        "Attack",
+        "Defend"
+      ]
+    }
+  ],
+  "resultText": "overlay shown",
+  "playAgainEqualsFresh": true,
+  "usage": {
+    "contexts": 2,
+    "maxSteps": 170,
+    "totalSteps": 340,
+    "cap": 4000
+  }
+}

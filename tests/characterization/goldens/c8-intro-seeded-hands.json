@@ -1,0 +1,251 @@
+{
+  "header": "CHARACTERIZATION — records CURRENT behaviour, not desired behaviour.",
+  "bySeed": [
+    {
+      "seed": 1,
+      "seeds": {
+        "scenarioId": "intro",
+        "scenarioVersion": 1,
+        "seed": 1,
+        "handSeed": 1
+      },
+      "start": [
+        "Attack",
+        "Move",
+        "Attack",
+        "Defend",
+        "Defend"
+      ],
+      "afterPlayTwoAndRefill": [
+        "Move",
+        "Attack",
+        "Move",
+        "Attack",
+        "Defend"
+      ],
+      "afterReshuffle": [
+        "Defend",
+        "Attack",
+        "Defend",
+        "Attack",
+        "Attack"
+      ]
+    },
+    {
+      "seed": 2,
+      "seeds": {
+        "scenarioId": "intro",
+        "scenarioVersion": 1,
+        "seed": 2,
+        "handSeed": 2
+      },
+      "start": [
+        "Defend",
+        "Move",
+        "Move",
+        "Attack",
+        "Defend"
+      ],
+      "afterPlayTwoAndRefill": [
+        "Attack",
+        "Attack",
+        "Move",
+        "Move",
+        "Attack"
+      ],
+      "afterReshuffle": [
+        "Attack",
+        "Defend",
+        "Move",
+        "Defend",
+        "Move"
+      ]
+    },
+    {
+      "seed": 3,
+      "seeds": {
+        "scenarioId": "intro",
+        "scenarioVersion": 1,
+        "seed": 3,
+        "handSeed": 3
+      },
+      "start": [
+        "Defend",
+        "Move",
+        "Attack",
+        "Move",
+        "Defend"
+      ],
+      "afterPlayTwoAndRefill": [
+        "Attack",
+        "Attack",
+        "Move",
+        "Attack",
+        "Move"
+      ],
+      "afterReshuffle": [
+        "Move",
+        "Move",
+        "Attack",
+        "Move",
+        "Attack"
+      ]
+    },
+    {
+      "seed": 4,
+      "seeds": {
+        "scenarioId": "intro",
+        "scenarioVersion": 1,
+        "seed": 4,
+        "handSeed": 4
+      },
+      "start": [
+        "Defend",
+        "Move",
+        "Move",
+        "Move",
+        "Attack"
+      ],
+      "afterPlayTwoAndRefill": [
+        "Defend",
+        "Attack",
+        "Move",
+        "Move",
+        "Move"
+      ],
+      "afterReshuffle": [
+        "Defend",
+        "Attack",
+        "Defend",
+        "Defend",
+        "Move"
+      ]
+    },
+    {
+      "seed": 5,
+      "seeds": {
+        "scenarioId": "intro",
+        "scenarioVersion": 1,
+        "seed": 5,
+        "handSeed": 5
+      },
+      "start": [
+        "Defend",
+        "Defend",
+        "Move",
+        "Attack",
+        "Move"
+      ],
+      "afterPlayTwoAndRefill": [
+        "Attack",
+        "Defend",
+        "Defend",
+        "Attack",
+        "Move"
+      ],
+      "afterReshuffle": [
+        "Attack",
+        "Defend",
+        "Move",
+        "Defend",
+        "Defend"
+      ]
+    },
+    {
+      "seed": 6,
+      "seeds": {
+        "scenarioId": "intro",
+        "scenarioVersion": 1,
+        "seed": 6,
+        "handSeed": 6
+      },
+      "start": [
+        "Attack",
+        "Move",
+        "Attack",
+        "Move",
+        "Attack"
+      ],
+      "afterPlayTwoAndRefill": [
+        "Move",
+        "Attack",
+        "Move",
+        "Move",
+        "Attack"
+      ],
+      "afterReshuffle": [
+        "Defend",
+        "Defend",
+        "Move",
+        "Defend",
+        "Move"
+      ]
+    },
+    {
+      "seed": 7,
+      "seeds": {
+        "scenarioId": "intro",
+        "scenarioVersion": 1,
+        "seed": 7,
+        "handSeed": 7
+      },
+      "start": [
+        "Move",
+        "Move",
+        "Defend",
+        "Defend",
+        "Attack"
+      ],
+      "afterPlayTwoAndRefill": [
+        "Attack",
+        "Attack",
+        "Move",
+        "Defend",
+        "Defend"
+      ],
+      "afterReshuffle": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Move",
+        "Move"
+      ]
+    },
+    {
+      "seed": 8,
+      "seeds": {
+        "scenarioId": "intro",
+        "scenarioVersion": 1,
+        "seed": 8,
+        "handSeed": 8
+      },
+      "start": [
+        "Move",
+        "Attack",
+        "Move",
+        "Defend",
+        "Attack"
+      ],
+      "afterPlayTwoAndRefill": [
+        "Attack",
+        "Defend",
+        "Move",
+        "Defend",
+        "Attack"
+      ],
+      "afterReshuffle": [
+        "Move",
+        "Attack",
+        "Move",
+        "Attack",
+        "Move"
+      ]
+    }
+  ],
+  "usage": {
+    "contexts": 8,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

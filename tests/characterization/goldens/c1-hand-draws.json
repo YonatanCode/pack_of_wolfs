@@ -1,4 +1,5 @@
 {
+  "declaredChange": "P1b: hand draws now come from a seeded gameplay stream (handRandom, seedHandRandom -> createSeededRandom, the same mulberry32 algorithm the harness used for Math.random) instead of Math.random; the fixture seeds it via seedHandRandom(seed) rather than reseeding Math.random. Measured old->new: every seeded hand, the 500-seed sweep, carry-over, cap-carry and reshuffle sections are IDENTICAL; the only difference is startupHand (pre-P1b: boot draw straight from the harness Math.random stream; now: boot seeds handRandom from one Math.random value first, so the boot hand changed from [Move,Attack,Defend,Move,Attack] to [Attack,Defend,Move,Attack,Move]). Draw RULES unchanged.",
   "header": "CHARACTERIZATION — records CURRENT behaviour, not desired behaviour.",
   "constants": {
     "ACTION_SLOT_COUNT": 5,
@@ -213,11 +214,11 @@
     }
   },
   "startupHand": [
-    "Move",
     "Attack",
     "Defend",
     "Move",
-    "Attack"
+    "Attack",
+    "Move"
   ],
   "usage": {
     "contexts": 1,

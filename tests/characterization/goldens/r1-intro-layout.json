@@ -1,0 +1,83 @@
+{
+  "header": "REQUIREMENT — P1b acceptance",
+  "checked": {
+    "grid": 12,
+    "baseTile": 22,
+    "rocks": [
+      [
+        5,
+        0
+      ],
+      [
+        6,
+        0
+      ],
+      [
+        5,
+        11
+      ],
+      [
+        6,
+        11
+      ]
+    ],
+    "spawns": {
+      "P1": {
+        "row": 11,
+        "col": 5,
+        "direction": "topRight"
+      },
+      "P2": {
+        "row": 11,
+        "col": 3,
+        "direction": "topRight"
+      },
+      "P3": {
+        "row": 11,
+        "col": 8,
+        "direction": "topRight"
+      },
+      "E1": {
+        "row": 0,
+        "col": 5,
+        "direction": "bottomLeft"
+      },
+      "E2": {
+        "row": 0,
+        "col": 7,
+        "direction": "bottomLeft"
+      },
+      "E3": {
+        "row": 0,
+        "col": 2,
+        "direction": "bottomLeft"
+      }
+    },
+    "centralClear": "rows/cols 3..8",
+    "enemyMode": "wolves",
+    "seeds": {
+      "scenarioId": "intro",
+      "scenarioVersion": 1,
+      "seed": 1,
+      "handSeed": 1
+    },
+    "restartButtonHidden": false
+  },
+  "worldMode": {
+    "scenarioId": null,
+    "features": {
+      "hills": 27,
+      "ponds": 48,
+      "trees": 2,
+      "flowers": 1
+    },
+    "handSize": 5,
+    "restartButtonHidden": true
+  },
+  "usage": {
+    "contexts": 3,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
