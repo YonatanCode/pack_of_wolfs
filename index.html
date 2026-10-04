@@ -153,6 +153,100 @@
             <button type="button" class="ui-button" id="dev-rotate" aria-label="Rotate dev preview unit clockwise">Rotate</button>
           </div>
         </section>
+        <details id="rules-panel" class="dev-rules-panel">
+          <summary>Rules (dev)</summary>
+          <p id="rules-notice" class="dev-rules-notice">Custom settings change gameplay. Defaults = current ruleset.</p>
+          <label class="dev-field" for="rules-preset">
+            <span>Preset</span>
+            <select id="rules-preset">
+              <option value="current">Current ruleset</option>
+              <option value="commander" disabled>Commander ruleset (arrives in P2b)</option>
+            </select>
+          </label>
+          <table class="dev-rules-table">
+            <thead>
+              <tr>
+                <th>Setting</th>
+                <th>Active</th>
+                <th>Pending</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="dev-rules-group">
+                <td colspan="3"><strong>Player</strong></td>
+              </tr>
+              <tr>
+                <td>Player action budget (shared)</td>
+                <td><span data-rules-active="playerActionBudget"></span></td>
+                <td><input type="number" step="1" id="rules-playerActionBudget" data-rules-pending="playerActionBudget" inputmode="numeric" /></td>
+              </tr>
+              <tr>
+                <td>Hand size</td>
+                <td><span data-rules-active="handSize"></span></td>
+                <td><input type="number" step="1" id="rules-handSize" data-rules-pending="handSize" inputmode="numeric" /></td>
+              </tr>
+              <tr>
+                <td>Reshuffle charges</td>
+                <td><span data-rules-active="reshuffleCharges"></span></td>
+                <td><input type="number" step="1" id="rules-reshuffleCharges" data-rules-pending="reshuffleCharges" inputmode="numeric" /></td>
+              </tr>
+              <tr>
+                <td>Duplicate-action cap</td>
+                <td><span data-rules-active="maxSameAction"></span></td>
+                <td><input type="number" step="1" id="rules-maxSameAction" data-rules-pending="maxSameAction" inputmode="numeric" /></td>
+              </tr>
+              <tr class="dev-rules-group">
+                <td colspan="3"><strong>Draw weights</strong></td>
+              </tr>
+              <tr>
+                <td>Draw weight: Move</td>
+                <td><span data-rules-active="weightMove"></span></td>
+                <td><input type="number" step="1" id="rules-weightMove" data-rules-pending="weightMove" inputmode="numeric" /></td>
+              </tr>
+              <tr>
+                <td>Draw weight: Attack</td>
+                <td><span data-rules-active="weightAttack"></span></td>
+                <td><input type="number" step="1" id="rules-weightAttack" data-rules-pending="weightAttack" inputmode="numeric" /></td>
+              </tr>
+              <tr>
+                <td>Draw weight: Defend</td>
+                <td><span data-rules-active="weightDefend"></span></td>
+                <td><input type="number" step="1" id="rules-weightDefend" data-rules-pending="weightDefend" inputmode="numeric" /></td>
+              </tr>
+              <tr class="dev-rules-group">
+                <td colspan="3"><strong>Enemy</strong></td>
+              </tr>
+              <tr>
+                <td>Enemy action budget</td>
+                <td><span data-rules-active="enemyActionBudget"></span></td>
+                <td><input type="number" step="1" id="rules-enemyActionBudget" data-rules-pending="enemyActionBudget" inputmode="numeric" /></td>
+              </tr>
+              <tr>
+                <td>Enemy pool: Move</td>
+                <td><span data-rules-active="poolMove"></span></td>
+                <td><input type="number" step="1" id="rules-poolMove" data-rules-pending="poolMove" inputmode="numeric" /></td>
+              </tr>
+              <tr>
+                <td>Enemy pool: Defend</td>
+                <td><span data-rules-active="poolDefend"></span></td>
+                <td><input type="number" step="1" id="rules-poolDefend" data-rules-pending="poolDefend" inputmode="numeric" /></td>
+              </tr>
+              <tr>
+                <td>Enemy pool: Attack</td>
+                <td><span data-rules-active="poolAttack"></span></td>
+                <td><input type="number" step="1" id="rules-poolAttack" data-rules-pending="poolAttack" inputmode="numeric" /></td>
+              </tr>
+            </tbody>
+          </table>
+          <div id="rules-active-summary" class="dev-rules-line"></div>
+          <div id="rules-pending-state" class="dev-rules-line"></div>
+          <ul id="rules-messages" class="dev-rules-messages" aria-live="polite"></ul>
+          <div class="control-group">
+            <button type="button" id="rules-apply" class="ui-button">Apply &amp; restart</button>
+            <button type="button" id="rules-reset" class="ui-button">Reset pending</button>
+            <button type="button" id="rules-copy-link" class="ui-button">Copy link</button>
+          </div>
+        </details>
       </div>
     </main>
     <script src="scenarios/intro.js"></script>

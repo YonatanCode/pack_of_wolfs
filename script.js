@@ -29,8 +29,7 @@ const RULES = deepFreeze({
     handSize: 5, // cards in the shared hand
     reshuffleCharges: 2, // reshuffles per battle
     maxSameAction: 3, // duplicate cap per action type in a hand
-    // Draw weights are DATA ONLY: stored and hashed, NOT consulted by randomAction.
-    // P2 implements weighted drawing + validation.
+    // Draw weights: consulted by randomAction since P2a (equal weights = the old uniform draw).
     drawWeights: { Move: 1, Attack: 1, Defend: 1 },
     enemyActionBudget: 5, // actions an enemy plan is filled to
     enemyActionPool: ["Move", "Move", "Defend", "Attack", "Attack"], // ordered doctrine pool (copied per plan)
@@ -94,16 +93,340 @@ function getRulesRecord() {
   return { version: RULES_VERSION, hash: RULES_HASH, values: cloneRulesData(RULES) };
 }
 
-// Frozen per-battle snapshot, re-taken from RULES at every battle load/restart.
+// ---------------------------------------------------------------------------
+// P2a: configurable per-battle SETTINGS (preset "current" only; "commander" arrives in P2b).
+// RULES stays the frozen default record (its shape and hash are unchanged). A flat settings record
+// (11 integers, keys below) is validated and, when ACTIVE, expanded into the perBattle values that
+// takeActiveRulesSnapshot() freezes into activeRules; activeRules.hash is recomputed from the full
+// effective rules (RULES with perBattle replaced). Default settings reproduce RULES exactly.
+// NOTE: no new top-level let/const/var/class is added here on purpose (r19 pins the top-level
+// declaration inventory). The constant tables are window properties (still plain globals in the
+// classic script) and the mutable state lives on getRulesState.store.
+// ---------------------------------------------------------------------------
+window.SETTINGS_BOUNDS = deepFreeze({
+  playerActionBudget: { min: 1, max: 8 }, // shared by the whole player pack
+  handSize: { min: 1, max: 8 },
+  reshuffleCharges: { min: 0, max: 9 },
+  maxSameAction: { min: 1, max: 8 },
+  weightMove: { min: 0, max: 20 },
+  weightAttack: { min: 0, max: 20 },
+  weightDefend: { min: 0, max: 20 },
+  enemyActionBudget: { min: 0, max: 10 }, // 0 = the enemy passes (supported)
+  poolMove: { min: 0, max: 10 },
+  poolDefend: { min: 0, max: 10 },
+  poolAttack: { min: 0, max: 10 },
+});
+
+// Share-link keys (fixed order = canonical settings order).
+window.SETTINGS_LINK_KEYS = deepFreeze({
+  playerActionBudget: "pab", handSize: "hs", reshuffleCharges: "rc", maxSameAction: "cap",
+  weightMove: "wm", weightAttack: "wa", weightDefend: "wd",
+  enemyActionBudget: "eab", poolMove: "epm", poolDefend: "epd", poolAttack: "epa",
+});
+
+window.RULESET_PRESETS = deepFreeze({
+  current: { label: "Current rules", available: true },
+  commander: { label: "Commander rules", available: false, unavailableMessage: "commander ruleset arrives in P2b" },
+});
+
+function getSettingsKeys() {
+  return Object.keys(window.SETTINGS_BOUNDS);
+}
+
+// Default settings, derived from RULES.perBattle (pool array -> per-action counts).
+function getDefaultSettings() {
+  const pb = RULES.perBattle;
+  const countOf = (action) => pb.enemyActionPool.filter((entry) => entry === action).length;
+
+  return {
+    playerActionBudget: pb.playerActionBudget,
+    handSize: pb.handSize,
+    reshuffleCharges: pb.reshuffleCharges,
+    maxSameAction: pb.maxSameAction,
+    weightMove: pb.drawWeights.Move,
+    weightAttack: pb.drawWeights.Attack,
+    weightDefend: pb.drawWeights.Defend,
+    enemyActionBudget: pb.enemyActionBudget,
+    poolMove: countOf("Move"),
+    poolDefend: countOf("Defend"),
+    poolAttack: countOf("Attack"),
+  };
+}
+
+// Plain copy in canonical key order (values are NOT coerced; invalid input stays invalid).
+function normalizeSettings(settings) {
+  const out = {};
+
+  getSettingsKeys().forEach((key) => {
+    out[key] = settings?.[key];
+  });
+  return out;
+}
+
+function areSettingsEqual(a, b) {
+  return JSON.stringify(normalizeSettings(a)) === JSON.stringify(normalizeSettings(b));
+}
+
+function isDefaultSettings(settings) {
+  return areSettingsEqual(settings, getDefaultSettings());
+}
+
+// Expand settings into the perBattle shape of RULES. The pool is built in the CANONICAL order
+// Move, Defend, Attack, so the default counts {2,1,2} give exactly [Move, Move, Defend, Attack, Attack].
+function settingsToPerBattle(settings) {
+  const pool = [
+    ...Array(settings.poolMove).fill("Move"),
+    ...Array(settings.poolDefend).fill("Defend"),
+    ...Array(settings.poolAttack).fill("Attack"),
+  ];
+
+  return {
+    playerActionBudget: settings.playerActionBudget,
+    handSize: settings.handSize,
+    reshuffleCharges: settings.reshuffleCharges,
+    maxSameAction: settings.maxSameAction,
+    drawWeights: { Move: settings.weightMove, Attack: settings.weightAttack, Defend: settings.weightDefend },
+    enemyActionBudget: settings.enemyActionBudget,
+    enemyActionPool: pool,
+  };
+}
+
+// Full effective rules: RULES with perBattle replaced by the settings.
+function computeEffectiveRules(settings) {
+  return { ...cloneRulesData(RULES), perBattle: settingsToPerBattle(settings) };
+}
+
+// STRICT validation: every value must be a finite integer inside its bounds (no coercion: "5", "5abc", 1.5,
+// NaN, Infinity, null, undefined, booleans are all rejected). Reports ALL problems at once:
+// { valid, errors: [{ field, message }], warnings: [{ field, message }] }. Warnings never block.
+function validateSettings(settings) {
+  const errors = [];
+  const warnings = [];
+  const bounds = window.SETTINGS_BOUNDS;
+
+  if (settings === null || typeof settings !== "object" || Array.isArray(settings)) {
+    return { valid: false, errors: [{ field: "settings", message: "settings must be an object" }], warnings };
+  }
+
+  Object.keys(settings).forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(bounds, key)) {
+      errors.push({ field: key, message: `${key} is not a known setting` });
+    }
+  });
+
+  const okField = {};
+
+  getSettingsKeys().forEach((key) => {
+    const { min, max } = bounds[key];
+    const value = settings[key];
+
+    if (typeof value === "number" && Number.isInteger(value) && value >= min && value <= max) {
+      okField[key] = true;
+    } else {
+      errors.push({ field: key, message: `${key} must be a whole number from ${min} to ${max}` });
+    }
+  });
+
+  const weightKeys = ["weightMove", "weightAttack", "weightDefend"];
+
+  if (weightKeys.every((key) => okField[key])) {
+    const drawable = weightKeys.filter((key) => settings[key] > 0).length;
+
+    if (drawable === 0) {
+      errors.push({ field: "drawWeights", message: "at least one draw weight must be greater than 0" });
+    }
+
+    if (okField.maxSameAction && okField.handSize && drawable * settings.maxSameAction < settings.handSize) {
+      errors.push({
+        field: "handSize",
+        message: `the hand cannot be filled: ${drawable} drawable action(s) x maxSameAction ${settings.maxSameAction} = ${drawable * settings.maxSameAction}, but handSize is ${settings.handSize}`,
+      });
+    }
+  }
+
+  if (okField.playerActionBudget && okField.handSize && settings.playerActionBudget > settings.handSize) {
+    warnings.push({
+      field: "playerActionBudget",
+      message: `at most ${settings.handSize} cards can be queued per turn; the budget is not resized`,
+    });
+  }
+
+  if (okField.enemyActionBudget && okField.poolMove && okField.poolDefend && okField.poolAttack) {
+    const poolSize = settings.poolMove + settings.poolDefend + settings.poolAttack;
+
+    if (settings.enemyActionBudget > 0 && poolSize === 0) {
+      warnings.push({ field: "enemyActionBudget", message: "the enemy has nothing to plan" });
+    } else if (settings.enemyActionBudget > poolSize) {
+      warnings.push({
+        field: "enemyActionBudget",
+        message: `the enemy can plan at most ${poolSize} actions (pool size); neither budget nor pool is resized`,
+      });
+    }
+  }
+
+  return { valid: errors.length === 0, errors, warnings };
+}
+
+// Mutable settings state (kept off the top level, see the note above). `active` is always a validated,
+// frozen record; `pending` is what the panel edits (raw values, possibly invalid).
+function getRulesState() {
+  if (!getRulesState.store) {
+    getRulesState.store = {
+      active: deepFreeze(normalizeSettings(getDefaultSettings())),
+      pending: normalizeSettings(getDefaultSettings()),
+      linkStatus: { status: "none", message: "" },
+      tutorialReset: false,
+      notice: null,
+    };
+  }
+
+  return getRulesState.store;
+}
+
+function getActiveSettings() {
+  return { ...getRulesState().active };
+}
+
+function getPendingSettings() {
+  return { ...getRulesState().pending };
+}
+
+// Internal: the ONLY writer of the active settings (callers validate first and then restart/snapshot).
+function setActiveSettingsUnchecked(settings) {
+  getRulesState().active = deepFreeze(normalizeSettings(settings));
+}
+
+// Share-link grammar: rules=<key>:<int>,<key>:<int> with only NON-default keys, fixed key order.
+function formatRulesParam(settings) {
+  const defaults = getDefaultSettings();
+  const keys = window.SETTINGS_LINK_KEYS;
+
+  return getSettingsKeys()
+    .filter((key) => settings[key] !== defaults[key])
+    .map((key) => `${keys[key]}:${settings[key]}`)
+    .join(",");
+}
+
+// "?scenario=<id>&seed=<n>" plus, only for non-default settings, "&preset=current&rules=...".
+function buildRulesLink(settings, scenarioId, seed) {
+  const rules = formatRulesParam(settings);
+  const base = `?scenario=${encodeURIComponent(scenarioId)}&seed=${seed}`;
+
+  return rules ? `${base}&preset=current&rules=${rules}` : base;
+}
+
+// STRICT parse of the preset/rules URL parameters. Any problem rejects the WHOLE rules parameter (no partial
+// application): { ok: true, settings, hasRules } or { ok: false, message }.
+function parseRulesParams(params) {
+  const reject = (reason) => ({ ok: false, message: `rules link rejected (${reason}); default settings are used` });
+  const presets = params.getAll("preset");
+  const rulesParams = params.getAll("rules");
+  const defaults = getDefaultSettings();
+
+  if (presets.length > 1) {
+    return reject("duplicate preset parameter");
+  }
+
+  if (presets.length === 1 && presets[0] !== "current") {
+    const preset = window.RULESET_PRESETS[presets[0]];
+
+    return reject(preset && !preset.available ? preset.unavailableMessage : `unknown preset "${presets[0]}"`);
+  }
+
+  if (rulesParams.length === 0) {
+    return { ok: true, settings: defaults, hasRules: false };
+  }
+
+  if (rulesParams.length > 1) {
+    return reject("duplicate rules parameter");
+  }
+
+  const linkToKey = {};
+
+  getSettingsKeys().forEach((key) => {
+    linkToKey[window.SETTINGS_LINK_KEYS[key]] = key;
+  });
+
+  const settings = { ...defaults };
+  const seen = new Set();
+
+  for (const pair of rulesParams[0].split(",")) {
+    const match = /^([a-z]+):(.*)$/.exec(pair);
+
+    if (!match) {
+      return reject(`malformed pair "${pair}"`);
+    }
+
+    const [, linkKey, text] = match;
+
+    if (!Object.prototype.hasOwnProperty.call(linkToKey, linkKey)) {
+      return reject(`unknown key "${linkKey}"`);
+    }
+
+    if (seen.has(linkKey)) {
+      return reject(`duplicate key "${linkKey}"`);
+    }
+
+    seen.add(linkKey);
+
+    if (!/^(0|[1-9]\d*)$/.test(text) || text.length > 6) {
+      return reject(`${linkKey} must be a whole number, got "${text}"`);
+    }
+
+    settings[linkToKey[linkKey]] = Number(text);
+  }
+
+  const validation = validateSettings(settings);
+
+  if (!validation.valid) {
+    return reject(validation.errors.map((entry) => entry.message).join("; "));
+  }
+
+  return { ok: true, settings, hasRules: true };
+}
+
+// Reproducibility record of the ACTIVE rules (activeRules.hash is the hash of the full effective rules).
+function getEffectiveRulesRecord() {
+  const active = getRulesState().active;
+
+  return {
+    preset: "current",
+    customized: !isDefaultSettings(active),
+    version: activeRules.version,
+    hash: activeRules.hash,
+    settings: { ...active },
+    values: computeEffectiveRules(active),
+  };
+}
+
+function getRulesLinkStatus() {
+  return { ...getRulesState().linkStatus };
+}
+
+// Frozen per-battle snapshot, re-taken at every battle load/restart from the ACTIVE settings (default
+// settings reproduce RULES.perBattle exactly). The hash is recomputed from the full effective rules.
 function createActiveRulesSnapshot() {
-  return deepFreeze({ version: RULES_VERSION, hash: RULES_HASH, ...cloneRulesData(RULES.perBattle) });
+  const effective = computeEffectiveRules(getRulesState().active);
+
+  return deepFreeze({ version: RULES_VERSION, hash: computeRulesHash(effective), ...effective.perBattle });
 }
 
 let activeRules = createActiveRulesSnapshot();
 
 function takeActiveRulesSnapshot() {
   activeRules = createActiveRulesSnapshot();
+  applyRulesCssVariables();
   return activeRules;
+}
+
+// Hand/queue slot counts for the markup (defaults 5 / 5), from the ACTIVE rules.
+function applyRulesCssVariables() {
+  const style = document.documentElement?.style;
+
+  if (style && typeof style.setProperty === "function") {
+    style.setProperty("--hand-slots", String(activeRules.handSize));
+    style.setProperty("--queue-slots", String(activeRules.playerActionBudget));
+  }
 }
 
 const DEFAULT_GRID_SIZE = RULES.buildDefaults.grid.defaultSize;
@@ -1611,16 +1934,37 @@ function clearPlayerHand() {
   playerHandViewItems = [];
 }
 
-// Pick a random action, skipping any type that has already hit MAX_SAME_ACTION
-// in the hand being built. `counts` maps action -> how many are placed so far;
-// the caller increments it as each draw lands. If every type is somehow capped
-// (can't happen at the current slot count) we fall back to an unconstrained
-// pick so we never return undefined.
+// Pick a random action. Eligible = under the duplicate cap (activeRules.maxSameAction) AND weight > 0
+// (activeRules.drawWeights). `counts` maps action -> how many are placed so far; the caller increments it as
+// each draw lands. The pick is proportional to the integer weights and consumes EXACTLY ONE handRandom()
+// value: floor(r * totalWeight) walked through the cumulative weights. With equal weights this is the same
+// index as the old floor(r * eligible.length), so equal-weight hands are unchanged.
+// Fallback (unreachable under valid settings, because they require drawable actions x cap >= hand size;
+// reachable only through dev tools such as "fill Move"): if no action is eligible, pick (one value) among
+// the actions with weight > 0 (or among all actions if there is none), ignoring the cap.
 function randomAction(counts = {}) {
-  const eligible = ACTIONS.filter((action) => (counts[action] ?? 0) < activeRules.maxSameAction);
-  const pool = eligible.length > 0 ? eligible : ACTIONS;
+  const weights = activeRules.drawWeights;
+  const eligible = ACTIONS.filter((action) => (counts[action] ?? 0) < activeRules.maxSameAction && weights[action] > 0);
 
-  return pool[Math.floor(handRandom() * pool.length)];
+  if (eligible.length === 0) {
+    const drawable = ACTIONS.filter((action) => weights[action] > 0);
+    const pool = drawable.length > 0 ? drawable : ACTIONS;
+
+    return pool[Math.floor(handRandom() * pool.length)];
+  }
+
+  const total = eligible.reduce((sum, action) => sum + weights[action], 0);
+  let ticket = Math.floor(handRandom() * total);
+
+  for (const action of eligible) {
+    ticket -= weights[action];
+
+    if (ticket < 0) {
+      return action;
+    }
+  }
+
+  return eligible[eligible.length - 1];
 }
 
 function createIcon(src, className) {
@@ -2504,6 +2848,7 @@ function startArena(node, entryCorner = currentEntryCorner) {
     console.log(`[spawn] entryCorner=${entryCorner} | player primary=(${p.row},${p.col}) facing ${p.direction} | enemy primary=(${e.row},${e.col})`);
   }
 
+  useDefaultSettingsForWorldMode();
   takeActiveRulesSnapshot();
   reshuffleChargesRemaining = activeRules.reshuffleCharges;
 
@@ -3593,7 +3938,7 @@ function renderUnitIntentTags(unit, actions = getUnitActionQueue(unit)) {
 
   const concealIntent = unit.team === "enemy" && isUnitHidden(unit);
   const visibleActions = isUnitAlive(unit) && !concealIntent
-    ? actions.slice(0, activeRules.playerActionBudget)
+    ? actions.slice(0, unit.team === "enemy" ? activeRules.enemyActionBudget : activeRules.playerActionBudget) // each side shows its own budget
     : [];
   const tags = visibleActions.map((action, index) => {
     const tag = document.createElement("span");
@@ -5156,6 +5501,7 @@ function resetGame() {
   }
 
   if (gameResultOverlay) gameResultOverlay.hidden = true;
+  useDefaultSettingsForWorldMode();
   takeActiveRulesSnapshot();
   reshuffleChargesRemaining = activeRules.reshuffleCharges;
   resetDevTest();
@@ -9596,14 +9942,26 @@ async function runDevTestScenario(scenarioId) {
     throw new Error(`Unknown dev test scenario: ${scenarioId}`);
   }
 
-  // Mechanics scenarios assume a clear board; suppress the seeded hill/water for
-  // the whole scenario (including any arena resize that re-stamps terrain) so a
-  // stray obstacle can't derail a movement/pack test.
-  clearActiveScenario();
-  devTestObstaclesDisabled = true;
-  clearArenaObstacles();
+  // The built-in scenarios assume the DEFAULT rules (and the constant aliases): run under the default settings
+  // and restore the previous active settings and rules afterwards, so custom settings neither break them nor
+  // are broken by them. (No-op under default settings.)
+  const savedSettings = getRulesState().active;
+  const savedRules = activeRules;
+  const swapSettings = !isDefaultSettings(savedSettings);
 
   try {
+    if (swapSettings) {
+      setActiveSettingsUnchecked(getDefaultSettings());
+      takeActiveRulesSnapshot();
+    }
+
+    // Mechanics scenarios assume a clear board; suppress the seeded hill/water for
+    // the whole scenario (including any arena resize that re-stamps terrain) so a
+    // stray obstacle can't derail a movement/pack test.
+    clearActiveScenario();
+    devTestObstaclesDisabled = true;
+    clearArenaObstacles();
+
     const state = await scenario.run();
     const passed = scenario.expect(state);
 
@@ -9615,6 +9973,13 @@ async function runDevTestScenario(scenarioId) {
     };
   } finally {
     devTestObstaclesDisabled = false;
+
+    if (swapSettings) {
+      getRulesState().active = savedSettings;
+      activeRules = savedRules;
+      applyRulesCssVariables();
+      refreshRulesPanel();
+    }
   }
 }
 
@@ -9911,6 +10276,14 @@ window.devTest = {
   getBattleRecord,
   getRulesRecord,
   getActiveRules: () => activeRules,
+  // P2a settings (see "P2a: configurable per-battle SETTINGS"): effective rules record, pending/active settings.
+  getEffectiveRulesRecord,
+  getRulesLinkStatus,
+  getActiveSettings,
+  getPendingSettings,
+  setPendingSettings,
+  resetPendingSettings,
+  applyPendingSettings,
   // Fixture-only (see drainTurnCore): run one full turn's rules headlessly, and read the last turn's events.
   drainTurnCore,
   getTurnEventLog,
@@ -10097,7 +10470,9 @@ function updateScenarioLabel(text = null) {
   }
 
   scenarioLabelElement.textContent =
-    text ?? (activeScenario ? `${activeScenario.id} · seed ${activeScenarioSeed}` : "");
+    text ?? (activeScenario
+      ? `${activeScenario.id} · seed ${activeScenarioSeed}${isDefaultSettings(getRulesState().active) ? "" : ` · custom rules ${activeRules.hash.slice(0, 6)}`}`
+      : "");
 }
 
 function clearActiveScenario() {
@@ -10116,6 +10491,8 @@ function updateRestartBattleControl() {
     restartBattleButton.disabled = isExecutingActionQueue || !activeScenario;
     restartBattleButton.hidden = !activeScenario; // world mode has nothing to restart
   }
+
+  refreshRulesPanel(); // the settings lock follows the same busy state
 }
 
 // Replace terrain with the scenario's authored layout: one uniform base tile,
@@ -10217,6 +10594,7 @@ function loadScenario(id = "intro", seed) {
   syncEnemyModeControls();
   syncArenaSizeControl(`${GRID_SIZE} x ${GRID_SIZE} tiles`);
   updateScenarioLabel();
+  refreshRulesPanel();
   return true;
 }
 
@@ -10227,6 +10605,384 @@ function restartBattle() {
   }
 
   return loadScenario(activeScenario.id, activeScenarioSeed);
+}
+
+// ---------------------------------------------------------------------------
+// P2a: pending vs active settings, the atomic Apply, boot link, and the small developer panel.
+// Active settings change ONLY through applyPendingSettings() (validate -> set active -> restart the scenario
+// battle), the boot link, the tutorial reset and the world-mode/dev-scenario defaults below. The ordinary
+// Restart button / R key / Play Again restart with the ACTIVE settings (pending is NOT applied).
+// ---------------------------------------------------------------------------
+function getRulesLockMessage(reason) {
+  switch (reason) {
+    case "swap-active": return "locked: a battle copy is active";
+    case "units-moving": return "locked: units are moving";
+    case "tutorial-active": return "locked: the tutorial uses the default settings";
+    case "no-scenario-battle": return "locked: world mode and custom boards always use the default settings";
+    default: return "locked: a turn is running";
+  }
+}
+
+// Why settings cannot be applied right now (null = free).
+function getRulesLockReason() {
+  const busy = getBattleStateBusyReason();
+
+  if (busy !== null) {
+    return busy;
+  }
+
+  if (isGuidedTutorialActive) {
+    return "tutorial-active";
+  }
+
+  return activeScenario ? null : "no-scenario-battle";
+}
+
+function setRulesNotice(kind, text) {
+  getRulesState().notice = text ? { kind, text } : null;
+}
+
+function setPendingSettings(partial) {
+  Object.assign(getRulesState().pending, partial);
+  refreshRulesPanel();
+  return getPendingSettings();
+}
+
+// Pending := defaults. NOT applied.
+function resetPendingSettings() {
+  getRulesState().pending = normalizeSettings(getDefaultSettings());
+  getRulesState().linkStatusStale = true;
+  setRulesNotice("info", "Pending settings reset to the defaults (not applied).");
+  refreshRulesPanel();
+  return getPendingSettings();
+}
+
+// Atomic: refuse while busy (throws DryRunRejected, nothing changed) -> validate pending (invalid: refuse, nothing
+// changed) -> set active -> restart the scenario battle so terrain, units, hand size, budgets, charges, pool and
+// RNG all reset together.
+function applyPendingSettings() {
+  const store = getRulesState();
+  const reason = getRulesLockReason();
+
+  if (reason !== null) {
+    throw new DryRunRejected(reason, "applyPendingSettings");
+  }
+
+  const validation = validateSettings(store.pending);
+
+  if (!validation.valid) {
+    setRulesNotice("error", "Not applied: fix the errors first. Nothing changed.");
+    refreshRulesPanel();
+    return { ok: false, reason: "invalid", errors: validation.errors, warnings: validation.warnings };
+  }
+
+  const previous = store.active;
+  let restarted = false;
+
+  setActiveSettingsUnchecked(store.pending);
+
+  try {
+    restarted = restartBattle();
+  } finally {
+    if (!restarted) {
+      store.active = previous; // never leave settings active that no battle is running under
+      takeActiveRulesSnapshot(); // and keep activeRules (and the CSS variables) in step with them
+    }
+  }
+
+  if (!restarted) {
+    throw new DryRunRejected("restart-refused", "applyPendingSettings");
+  }
+
+  store.pending = normalizeSettings(store.active);
+  store.tutorialReset = false;
+  store.linkStatusStale = true;
+  setRulesNotice("info", "Applied. The battle was restarted; custom settings change gameplay and are not balanced.");
+  refreshRulesPanel();
+  return { ok: true, warnings: validation.warnings, record: getEffectiveRulesRecord() };
+}
+
+// World mode (startArena / legacy reset) always plays the default settings; pending is untouched.
+function useDefaultSettingsForWorldMode() {
+  if (!isDefaultSettings(getRulesState().active)) {
+    setActiveSettingsUnchecked(getDefaultSettings());
+  }
+}
+
+// Guided tutorial: switch the ACTIVE settings to the defaults and restart the battle under them, so custom
+// settings never leak into it. No-op (no restart) when the defaults are already active. The pending values
+// stay in the panel, flagged "not applied". Returns false (tutorial must not start) if the switch is refused.
+function enterTutorialDefaultSettings() {
+  const store = getRulesState();
+
+  if (isDefaultSettings(store.active)) {
+    return true;
+  }
+
+  if (getBattleStateBusyReason() !== null) {
+    setRulesNotice("error", "The tutorial was not started: a turn is running. Try again when it ends.");
+    refreshRulesPanel();
+    return false;
+  }
+
+  const previous = store.active;
+
+  setActiveSettingsUnchecked(getDefaultSettings());
+
+  if (activeScenario ? !restartBattle() : !takeActiveRulesSnapshot()) {
+    store.active = previous;
+    setRulesNotice("error", "The tutorial was not started: the battle could not be restarted.");
+    refreshRulesPanel();
+    return false;
+  }
+
+  store.tutorialReset = true;
+  store.linkStatusStale = true;
+  setRulesNotice("info", "The tutorial reset the active settings to the defaults and restarted the battle.");
+  refreshRulesPanel();
+  return true;
+}
+
+// Boot: apply (or reject) the ?preset=&rules= link. World mode ignores custom settings.
+function resolveBootRules(route) {
+  const search = window.location?.search;
+
+  if (typeof search !== "string") {
+    return;
+  }
+
+  const params = new URLSearchParams(search);
+  const store = getRulesState();
+
+  if (!params.has("preset") && !params.has("rules")) {
+    return;
+  }
+
+  if (!route.scenario) {
+    store.linkStatus = { status: "ignored", message: "rules link ignored: world mode always uses the default settings" };
+    return;
+  }
+
+  const parsed = parseRulesParams(params);
+
+  if (!parsed.ok) {
+    store.linkStatus = { status: "rejected", message: parsed.message };
+    return;
+  }
+
+  setActiveSettingsUnchecked(parsed.settings);
+  store.pending = normalizeSettings(parsed.settings);
+  store.linkStatus = { status: "applied", message: parsed.hasRules ? "rules link applied" : "preset current (default settings)" };
+}
+
+function getRulesPanelElement(id) {
+  return document.getElementById(id);
+}
+
+// Strict text -> value: a whole number becomes a number, anything else stays the raw string (so validation
+// reports it; it is never coerced to 0 or truncated).
+function readRulesInputValue(text) {
+  const raw = typeof text === "string" ? text : "";
+
+  if (!/^-?(0|[1-9]\d{0,6})$/.test(raw)) {
+    return raw;
+  }
+
+  const value = Number(raw);
+
+  return Object.is(value, -0) ? raw : value; // "-0" stays a raw string, so validation rejects it
+}
+
+function describeRulesSettings(settings) {
+  return `pab ${settings.playerActionBudget} · hand ${settings.handSize} · charges ${settings.reshuffleCharges} · cap ${settings.maxSameAction}`
+    + ` · weights M${settings.weightMove} A${settings.weightAttack} D${settings.weightDefend}`
+    + ` · enemy ${settings.enemyActionBudget} (pool M${settings.poolMove} D${settings.poolDefend} A${settings.poolAttack})`;
+}
+
+function refreshRulesPanel() {
+  const store = getRulesState();
+  const validation = validateSettings(store.pending);
+  const lockReason = getRulesLockReason();
+  const isLocked = lockReason !== null;
+  const isCustom = !isDefaultSettings(store.active);
+  const differs = !areSettingsEqual(store.pending, store.active);
+  const panel = getRulesPanelElement("rules-panel");
+
+  panel?.classList.toggle("is-locked", isLocked);
+  panel?.classList.toggle("is-custom", isCustom);
+
+  const notice = getRulesPanelElement("rules-notice");
+
+  if (notice) {
+    notice.textContent = "Applying settings restarts the battle and changes gameplay (not balanced). "
+      + "Restart / R / Play Again keep the ACTIVE settings; pending values are not applied until you click Apply.";
+  }
+
+  getSettingsKeys().forEach((key) => {
+    const input = getRulesPanelElement(`rules-${key}`);
+    const activeCell = document.querySelector(`[data-rules-active="${key}"]`);
+
+    if (input) {
+      if (input !== document.activeElement) {
+        input.value = String(store.pending[key]);
+      }
+
+      input.disabled = isLocked;
+    }
+
+    if (activeCell) {
+      activeCell.textContent = String(store.active[key]);
+    }
+  });
+
+  const preset = getRulesPanelElement("rules-preset");
+
+  if (preset) {
+    preset.value = "current";
+  }
+
+  const summary = getRulesPanelElement("rules-active-summary");
+
+  if (summary) {
+    summary.textContent = `active: ${describeRulesSettings(store.active)} · hash ${activeRules.hash.slice(0, 6)}${isCustom ? " (custom)" : ""}`;
+  }
+
+  const pendingState = getRulesPanelElement("rules-pending-state");
+
+  if (pendingState) {
+    pendingState.textContent = !differs
+      ? "pending matches active"
+      : store.tutorialReset
+        ? "pending differs from active: not applied (the tutorial reset the active settings)"
+        : "pending differs from active: not applied yet";
+  }
+
+  const messages = getRulesPanelElement("rules-messages");
+
+  if (messages) {
+    const items = [
+      ...validation.errors.map((entry) => ({ className: "is-error", text: entry.message })),
+      ...validation.warnings.map((entry) => ({ className: "is-warning", text: entry.message })),
+    ];
+
+    if (isLocked) {
+      items.push({ className: "is-warning", text: getRulesLockMessage(lockReason) });
+    }
+
+    if (store.linkStatus.message && !store.linkStatusStale) {
+      items.push({ className: store.linkStatus.status === "applied" ? "" : "is-warning", text: store.linkStatus.message });
+    }
+
+    if (store.notice) {
+      items.push({ className: store.notice.kind === "error" ? "is-error" : "", text: store.notice.text });
+    }
+
+    const signature = JSON.stringify(items);
+
+    if (store.messagesSignature !== signature) {
+      store.messagesSignature = signature;
+      messages.replaceChildren(...items.map((entry) => {
+        const item = document.createElement("li");
+
+        item.className = entry.className;
+        item.textContent = entry.text;
+        return item;
+      }));
+    }
+  }
+
+  const applyButton = getRulesPanelElement("rules-apply");
+
+  if (applyButton) {
+    applyButton.disabled = isLocked || !validation.valid;
+  }
+
+  const resetButton = getRulesPanelElement("rules-reset");
+
+  if (resetButton) {
+    resetButton.disabled = isLocked;
+  }
+
+  const copyButton = getRulesPanelElement("rules-copy-link");
+
+  if (copyButton) {
+    copyButton.disabled = !activeScenario;
+  }
+}
+
+// Link for the ACTIVE settings (current scenario + seed + non-default rules), copied like the hill layout.
+async function copyRulesLink() {
+  if (!activeScenario) {
+    setRulesNotice("error", "No scenario battle: there is nothing to link.");
+    refreshRulesPanel();
+    return { copied: false, link: null };
+  }
+
+  const location = window.location;
+  const prefix = location?.origin === "null"
+    ? (location.href ? location.href.split(/[?#]/)[0] : "") // file:// has the string origin "null"
+    : (location?.origin ? `${location.origin}${location.pathname ?? "/"}` : "");
+  const link = `${prefix}${buildRulesLink(getRulesState().active, activeScenario.id, activeScenarioSeed)}`;
+  let copied = false;
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(link);
+      copied = true;
+    } else {
+      copied = copyTextWithSelectionFallback(link);
+    }
+  } catch (error) {
+    copied = copyTextWithSelectionFallback(link);
+  }
+
+  setRulesNotice(copied ? "info" : "error", copied ? `Link copied: ${link}` : `Copy failed. Link: ${link}`);
+  refreshRulesPanel();
+  return { copied, link };
+}
+
+function setupRulesPanel() {
+  getSettingsKeys().forEach((key) => {
+    const input = getRulesPanelElement(`rules-${key}`);
+    const onEdit = () => {
+      getRulesState().pending[key] = readRulesInputValue(input.value);
+      setRulesNotice("", "");
+      refreshRulesPanel();
+    };
+
+    input?.addEventListener("input", onEdit);
+    input?.addEventListener("change", onEdit);
+  });
+
+  getRulesPanelElement("rules-preset")?.addEventListener("change", (event) => {
+    const value = event?.target?.value ?? getRulesPanelElement("rules-preset").value;
+    const preset = window.RULESET_PRESETS[value];
+
+    if (!preset?.available) {
+      setRulesNotice("error", preset?.unavailableMessage ?? `unknown preset "${value}"`);
+    } else {
+      setRulesNotice("", "");
+    }
+
+    refreshRulesPanel();
+  });
+
+  getRulesPanelElement("rules-apply")?.addEventListener("click", () => {
+    try {
+      applyPendingSettings();
+    } catch (error) {
+      if (!(error instanceof DryRunRejected)) {
+        throw error;
+      }
+
+      setRulesNotice("error", `Not applied (${error.reason}). Nothing changed.`);
+      refreshRulesPanel();
+    }
+  });
+
+  getRulesPanelElement("rules-reset")?.addEventListener("click", resetPendingSettings);
+  getRulesPanelElement("rules-copy-link")?.addEventListener("click", copyRulesLink);
+  refreshRulesPanel();
 }
 
 if (restartBattleButton) {
@@ -10285,6 +11041,8 @@ function resolveBootRoute() {
 
 const bootRoute = resolveBootRoute();
 
+resolveBootRules(bootRoute);
+
 if (bootRoute.scenario) {
   loadScenario(bootRoute.scenario, bootRoute.seed);
 } else {
@@ -10299,6 +11057,7 @@ resizeArena();
 updatePlayerTileLabels();
 updateActiveDirection(player.direction);
 setupDevTestControls();
+setupRulesPanel();
 setupArenaSizeControls();
 setupEnemyModeControls();
 updateEnemyIntentPreview();
@@ -10476,8 +11235,14 @@ if (tutorialToggle && tutorialOverlay) {
   }
 
   function startGuidedTutorial() {
+    // Custom settings must not leak into the tutorial: switch to the defaults (restarting the battle) first.
+    if (!enterTutorialDefaultSettings()) {
+      return;
+    }
+
     setIntroOpen(false);
     isGuidedTutorialActive = true;
+    refreshRulesPanel();
     guidedStepIndex = 0;
     seedTutorialActionHand();
     window.addEventListener("resize", layoutCurrentStep);
@@ -10501,6 +11266,7 @@ if (tutorialToggle && tutorialOverlay) {
     if (tutorialCoachCard) tutorialCoachCard.hidden = true;
     if (tutorialCoachCatcher) tutorialCoachCatcher.hidden = true;
     setPlayerSelected(null);
+    refreshRulesPanel(); // active settings stay the defaults; pending (custom) stays, flagged not applied
   }
 
   tutorialToggle.addEventListener("click", () => setIntroOpen(true));
