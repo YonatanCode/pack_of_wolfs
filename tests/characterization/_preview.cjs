@@ -239,6 +239,6 @@ function installPresentationTrace(g) {
 }
 
 module.exports = {
-  REQ_HEADER, L, boot, evJ, snapshot, stateHash, liveFingerprint, dryRun, dryRunInternal, spiedDryRun, ZERO_COUNTERS, summarizeEvents,
+  REQ_HEADER, L, boot, installProbes, evJ, snapshot, stateHash, liveFingerprint, dryRun, dryRunInternal, spiedDryRun, ZERO_COUNTERS, summarizeEvents,
   BOARDS, queueCards, PRESENTATION_SPY_NAMES, installPresentationTrace, sha256,
 };

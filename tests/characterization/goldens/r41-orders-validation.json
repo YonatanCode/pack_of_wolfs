@@ -1,0 +1,440 @@
+{
+  "header": "REQUIREMENT — L1 player orders: validation and atomic refusal",
+  "hands": 5,
+  "cases": [
+    {
+      "case": "not a list",
+      "orders": {
+        "unit": "P1",
+        "action": "Move"
+      },
+      "validate": "malformed-orders@-1",
+      "apply": "malformed-orders@-1",
+      "turn": "malformed-orders@-1",
+      "message": "orders must be an array"
+    },
+    {
+      "case": "order without action or target",
+      "orders": [
+        {
+          "unit": "P1"
+        }
+      ],
+      "validate": "malformed-order@0",
+      "apply": "malformed-order@0",
+      "turn": "malformed-order@0",
+      "message": "an order is { unit, action } or { unit, target }"
+    },
+    {
+      "case": "order with action AND target",
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Move",
+          "target": "E1"
+        }
+      ],
+      "validate": "malformed-order@0",
+      "apply": "malformed-order@0",
+      "turn": "malformed-order@0",
+      "message": "an order is { unit, action } or { unit, target }"
+    },
+    {
+      "case": "null order",
+      "orders": [
+        null
+      ],
+      "validate": "malformed-order@0",
+      "apply": "malformed-order@0",
+      "turn": "malformed-order@0",
+      "message": "an order is { unit, action } or { unit, target }"
+    },
+    {
+      "case": "enemy id as unit",
+      "orders": [
+        {
+          "unit": "E1",
+          "action": "Move"
+        }
+      ],
+      "validate": "unknown-unit@0",
+      "apply": "unknown-unit@0",
+      "turn": "unknown-unit@0",
+      "message": "E1 is not a player wolf"
+    },
+    {
+      "case": "unknown unit id",
+      "orders": [
+        {
+          "unit": "P4",
+          "action": "Move"
+        }
+      ],
+      "validate": "unknown-unit@0",
+      "apply": "unknown-unit@0",
+      "turn": "unknown-unit@0",
+      "message": "P4 is not a player wolf"
+    },
+    {
+      "case": "unknown action",
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Jump"
+        }
+      ],
+      "validate": "unknown-action@0",
+      "apply": "unknown-action@0",
+      "turn": "unknown-action@0",
+      "message": "Jump is not an action"
+    },
+    {
+      "case": "second Move: one Move card in the hand",
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        }
+      ],
+      "validate": "card-not-in-hand@1",
+      "apply": "card-not-in-hand@1",
+      "turn": "card-not-in-hand@1",
+      "message": "no Move card in the hand"
+    },
+    {
+      "case": "sixth card: budget 5 full (hand also empty)",
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P3",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        },
+        {
+          "unit": "P3",
+          "action": "Move"
+        }
+      ],
+      "validate": "action-budget@5",
+      "apply": "action-budget@5",
+      "turn": "action-budget@5",
+      "message": "the pack already queued 5 of 5 actions"
+    },
+    {
+      "case": "target a player wolf",
+      "orders": [
+        {
+          "unit": "P1",
+          "target": "P2"
+        }
+      ],
+      "validate": "invalid-target@0",
+      "apply": "invalid-target@0",
+      "turn": "invalid-target@0",
+      "message": "P2 is not an enemy in this battle"
+    },
+    {
+      "case": "target an unknown id",
+      "orders": [
+        {
+          "unit": "P1",
+          "target": "E7"
+        }
+      ],
+      "validate": "invalid-target@0",
+      "apply": "invalid-target@0",
+      "turn": "invalid-target@0",
+      "message": "E7 is not an enemy in this battle"
+    },
+    {
+      "case": "target not a string",
+      "orders": [
+        {
+          "unit": "P1",
+          "target": 3
+        }
+      ],
+      "validate": "invalid-target@0",
+      "apply": "invalid-target@0",
+      "turn": "invalid-target@0",
+      "message": "3 is not an enemy in this battle"
+    },
+    {
+      "case": "valid prefix (2 targets, 2 cards), last order fails",
+      "orders": [
+        {
+          "unit": "P1",
+          "target": "E2"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        },
+        {
+          "unit": "P3",
+          "target": "E3"
+        },
+        {
+          "unit": "P3",
+          "action": "Move"
+        }
+      ],
+      "validate": "card-not-in-hand@4",
+      "apply": "card-not-in-hand@4",
+      "turn": "card-not-in-hand@4",
+      "message": "no Move card in the hand"
+    },
+    {
+      "case": "empty list: Play would not start",
+      "orders": [],
+      "validate": "ok",
+      "apply": "ok",
+      "turn": "no-player-orders@-1",
+      "message": "no player action is queued: Play would not start a turn"
+    },
+    {
+      "case": "target only: Play would not start",
+      "orders": [
+        {
+          "unit": "P1",
+          "target": "E2"
+        }
+      ],
+      "validate": "ok",
+      "turn": "no-player-orders@-1",
+      "message": "no player action is queued: Play would not start a turn"
+    },
+    {
+      "case": "turn executing (flag raised)",
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Move"
+        }
+      ],
+      "validate": "turn-executing@-1",
+      "apply": "turn-executing@-1",
+      "turn": "turn-executing@-1",
+      "message": "the battle is not open for orders (turn-executing)"
+    },
+    {
+      "case": "turn driver busy (flag raised)",
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Move"
+        }
+      ],
+      "validate": "ok",
+      "apply": "turn-driver-running@-1",
+      "turn": "turn-driver-running@-1",
+      "message": "the battle is not open for orders (turn-driver-running)"
+    },
+    {
+      "case": "guided tutorial active (flag raised)",
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Move"
+        }
+      ],
+      "validate": "ok",
+      "apply": "tutorial-active@-1",
+      "turn": "tutorial-active@-1",
+      "message": "the battle is not open for orders (tutorial-active)"
+    },
+    {
+      "case": "second Move with cap 1",
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        }
+      ],
+      "validate": "max-same-action@1",
+      "apply": "max-same-action@1",
+      "turn": "max-same-action@1",
+      "message": "the pack already queued 1 Move (max per action)"
+    },
+    {
+      "case": "target under current",
+      "orders": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        }
+      ],
+      "validate": "target-selection-inactive@0",
+      "apply": "target-selection-inactive@0",
+      "turn": "target-selection-inactive@0",
+      "message": "targets exist only under the commander preset (wolves mode)"
+    },
+    {
+      "case": "fourth card with budget 3 (Defend still in the hand)",
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        },
+        {
+          "unit": "P3",
+          "action": "Attack"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ],
+      "validate": "action-budget@3",
+      "apply": "action-budget@3",
+      "turn": "action-budget@3",
+      "message": "the pack already queued 3 of 3 actions"
+    },
+    {
+      "case": "defeated wolf",
+      "orders": [
+        {
+          "unit": "P3",
+          "action": "Move"
+        }
+      ],
+      "validate": "unit-defeated@0",
+      "apply": "unit-defeated@0",
+      "turn": "unit-defeated@0",
+      "message": "P3 is absent or defeated"
+    },
+    {
+      "case": "defeated target",
+      "orders": [
+        {
+          "unit": "P1",
+          "target": "E2"
+        }
+      ],
+      "validate": "target-defeated@0",
+      "apply": "target-defeated@0",
+      "turn": "target-defeated@0",
+      "message": "E2 is defeated"
+    },
+    {
+      "case": "battle over (every enemy defeated)",
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Move"
+        }
+      ],
+      "validate": "ok",
+      "apply": "battle-over@-1",
+      "turn": "battle-over@-1",
+      "message": "the battle is over"
+    }
+  ],
+  "ui": {
+    "cardNotInHand": [
+      "P1 Move: queued",
+      "P2 Move: refused"
+    ],
+    "cardNotInHandValidations": [
+      "[{\"unit\":\"P1\",\"action\":\"Move\"}] -> ok",
+      "[{\"unit\":\"P2\",\"action\":\"Move\"}] -> card-not-in-hand@0"
+    ],
+    "maxSameAction": [
+      "P1 Move: queued",
+      "P2 Move: refused"
+    ],
+    "actionBudget": [
+      "P1 Attack: queued",
+      "P2 Move: queued",
+      "P3 Attack: queued",
+      "P1 Defend: refused"
+    ],
+    "targetDefeated": {
+      "validations": [
+        "[{\"unit\":\"P1\",\"target\":\"E2\"}] -> target-defeated@0"
+      ],
+      "status": "intro · seed 1 · commander (experimental) · E2 is defeated: pick a living enemy"
+    },
+    "defeatedWolf": {
+      "selected": null,
+      "validations": [
+        "[{\"unit\":null,\"action\":\"Move\"}] -> unknown-unit@0"
+      ]
+    },
+    "turnExecuting": {
+      "validations": [
+        "[{\"unit\":\"P1\",\"action\":\"Attack\"}] -> turn-executing@-1",
+        "[{\"unit\":\"P1\",\"target\":\"E1\"}] -> turn-executing@-1"
+      ],
+      "status": "intro · seed 1 · commander (experimental) · targets are locked while the turn plays"
+    }
+  },
+  "accepted": {
+    "verdict": {
+      "ok": true,
+      "queuedTotal": 2
+    },
+    "hand": [
+      "Move",
+      "Attack",
+      "Defend"
+    ],
+    "queues": [
+      "P1:Attack",
+      "P2:Defend",
+      "P3:"
+    ],
+    "targets": "P1:E2/chosen P2:E3/auto P3:-",
+    "handView": [
+      "Attack",
+      "Move",
+      "Attack",
+      "Defend",
+      "Defend"
+    ],
+    "afterClear": "P1:- P2:E3/auto P3:-",
+    "handViewBefore": [
+      "Attack",
+      "Move",
+      "Attack",
+      "Defend",
+      "Defend"
+    ]
+  },
+  "usage": {
+    "contexts": 5,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
