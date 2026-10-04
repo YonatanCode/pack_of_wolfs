@@ -1,0 +1,310 @@
+{
+  "header": "REQUIREMENT — L1 player orders: observation and state isolation",
+  "hands": 8,
+  "hiddenInEngine": {
+    "packQueue": [
+      {
+        "unit": "E2",
+        "action": "Move"
+      },
+      {
+        "unit": "E2",
+        "action": "Move"
+      },
+      {
+        "unit": "E2",
+        "action": "Attack"
+      },
+      {
+        "unit": "E2",
+        "action": "Attack"
+      },
+      {
+        "unit": "E1",
+        "action": "Defend"
+      }
+    ],
+    "focus": "P1",
+    "frozen": true,
+    "objectives": [
+      {
+        "mode": "engage",
+        "slotDelta": {
+          "row": -1,
+          "col": 1
+        }
+      },
+      {
+        "mode": "engage",
+        "slotDelta": {
+          "row": 0,
+          "col": 1
+        }
+      }
+    ],
+    "concealed": [
+      "E1"
+    ],
+    "tagsShown": {
+      "E1": false,
+      "E2": true
+    },
+    "handState": "(recorded in the context; asserted absent from the observation)"
+  },
+  "observation": {
+    "schema": "player-observation/1",
+    "config": {
+      "gridSize": 12,
+      "enemyMode": "wolves"
+    },
+    "rules": {
+      "preset": "commander",
+      "version": "0.3.0-commander-enemy-actions-targets",
+      "hash": "1ef03d7c79476f",
+      "playerActionBudget": 5,
+      "enemyActionBudget": 5,
+      "handSize": 5,
+      "maxSameAction": 3
+    },
+    "terrain": {
+      "pond": [],
+      "hill": [
+        "5,0",
+        "6,0",
+        "5,11",
+        "6,11"
+      ],
+      "tree": [],
+      "hillLevels": []
+    },
+    "units": [
+      {
+        "id": "P1",
+        "team": "player",
+        "type": "wolf",
+        "row": 7,
+        "col": 0,
+        "direction": "topRight",
+        "health": 10,
+        "maxHealth": 10,
+        "defeated": false,
+        "concealed": false,
+        "movementMode": "Hunt",
+        "queue": [
+          "Attack"
+        ],
+        "target": "E1",
+        "targetSource": "auto"
+      },
+      {
+        "id": "P2",
+        "team": "player",
+        "type": "wolf",
+        "row": 11,
+        "col": 3,
+        "direction": "topRight",
+        "health": 10,
+        "maxHealth": 10,
+        "defeated": false,
+        "concealed": false,
+        "movementMode": "Hunt",
+        "queue": [],
+        "target": "E2",
+        "targetSource": "chosen"
+      },
+      {
+        "id": "E1",
+        "team": "enemy",
+        "type": "wolf",
+        "row": 4,
+        "col": 0,
+        "direction": "bottomLeft",
+        "health": 10,
+        "maxHealth": 10,
+        "defeated": false,
+        "concealed": true
+      },
+      {
+        "id": "E2",
+        "team": "enemy",
+        "type": "wolf",
+        "row": 0,
+        "col": 7,
+        "direction": "bottomLeft",
+        "health": 10,
+        "maxHealth": 10,
+        "defeated": false,
+        "concealed": false
+      }
+    ],
+    "hand": {
+      "cards": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Defend"
+      ],
+      "reshuffleChargesRemaining": 2
+    },
+    "outcome": "none"
+  },
+  "keyWalk": {
+    "keysWalked": 70,
+    "forbiddenFound": [],
+    "misplaced": []
+  },
+  "currentObservationUnits": [
+    {
+      "id": "P1",
+      "team": "player",
+      "type": "wolf",
+      "row": 11,
+      "col": 5,
+      "direction": "topRight",
+      "health": 10,
+      "maxHealth": 10,
+      "defeated": false,
+      "concealed": false,
+      "movementMode": "Hunt",
+      "queue": []
+    },
+    {
+      "id": "P2",
+      "team": "player",
+      "type": "wolf",
+      "row": 11,
+      "col": 3,
+      "direction": "topRight",
+      "health": 10,
+      "maxHealth": 10,
+      "defeated": false,
+      "concealed": false,
+      "movementMode": "Hunt",
+      "queue": []
+    },
+    {
+      "id": "P3",
+      "team": "player",
+      "type": "wolf",
+      "row": 11,
+      "col": 8,
+      "direction": "topRight",
+      "health": 10,
+      "maxHealth": 10,
+      "defeated": false,
+      "concealed": false,
+      "movementMode": "Hunt",
+      "queue": []
+    },
+    {
+      "id": "E1",
+      "team": "enemy",
+      "type": "wolf",
+      "row": 0,
+      "col": 5,
+      "direction": "bottomLeft",
+      "health": 10,
+      "maxHealth": 10,
+      "defeated": false,
+      "concealed": false
+    },
+    {
+      "id": "E2",
+      "team": "enemy",
+      "type": "wolf",
+      "row": 0,
+      "col": 7,
+      "direction": "bottomLeft",
+      "health": 10,
+      "maxHealth": 10,
+      "defeated": false,
+      "concealed": false
+    },
+    {
+      "id": "E3",
+      "team": "enemy",
+      "type": "wolf",
+      "row": 0,
+      "col": 2,
+      "direction": "bottomLeft",
+      "health": 10,
+      "maxHealth": 10,
+      "defeated": false,
+      "concealed": false
+    }
+  ],
+  "headlessResult": {
+    "outcome": "none",
+    "eventCount": 18
+  },
+  "rejection": {
+    "refusals": [
+      "action-budget@5",
+      "target-selection-inactive@1"
+    ],
+    "counters": [
+      {
+        "created": 0,
+        "mutations": {},
+        "scheduled": {}
+      },
+      {
+        "created": 0,
+        "mutations": {},
+        "scheduled": {}
+      },
+      {
+        "created": 0,
+        "mutations": {},
+        "scheduled": {}
+      }
+    ],
+    "validTurn": {
+      "count": 19,
+      "types": {
+        "turnStart": 1,
+        "enemyPlan": 2,
+        "fighters": 1,
+        "tickStart": 1,
+        "consumed": 1,
+        "move": 3,
+        "attackSwing": 1,
+        "defendSwing": 2,
+        "miss": 1,
+        "tickEnd": 1,
+        "recovery": 1,
+        "debugNote": 1,
+        "handDraw": 1,
+        "turnEnd": 1,
+        "outcome": 1
+      },
+      "key": [
+        "recovery heals=[]",
+        "handDraw drawn=[Move,Attack,Defend] hand=[Move,Attack,Defend,Attack,Defend]",
+        "outcome winner=none doubleKO=false"
+      ],
+      "eventHash": "f769cd5f07236966a101d98e905f42fc693daa284dd3c919371fefc4703b3007",
+      "stateHash": "d898b5dca5ba7c339bd0b8ff0b6ebfc3389565d64089984af51aa833577de398",
+      "hand": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Attack",
+        "Defend"
+      ]
+    },
+    "handViewAfterHeadless": [
+      "Attack",
+      "Move",
+      "Attack",
+      "Defend",
+      "Defend"
+    ]
+  },
+  "usage": {
+    "contexts": 5,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
