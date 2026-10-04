@@ -2732,18 +2732,11 @@ function updatePlayerTileLabels() {
 
 function applyPlayerAction(action) {
   const selectedUnit = getSelectedPlayerUnit();
+  // The same order validation as headless orders (validatePlayerOrders). A hand miss falls through to
+  // consumeAvailableAction, which first adopts a pending direct DOM edit of the hand (shim) and checks again.
+  const verdict = validatePlayerOrders([{ unit: selectedUnit ? getBattleDebugUnitId(selectedUnit) : null, action }]);
 
-  if (isExecutingActionQueue) {
-    updatePlayerActionControls();
-    return;
-  }
-
-  if (!selectedUnit || isUnitActionQueueFull(selectedUnit)) {
-    updatePlayerActionControls();
-    return;
-  }
-
-  if (!consumeAvailableAction(action)) {
+  if ((!verdict.ok && !["unknown-action", "max-same-action", "card-not-in-hand"].includes(verdict.reason)) || !consumeAvailableAction(action)) {
     updatePlayerActionControls();
     return;
   }
@@ -7570,6 +7563,96 @@ function loadBattleState(state) {
   hillTileLevels = new Map(state.terrain.hillLevels.map(([key, level]) => [key, level]));
 }
 
+// ============================================================================
+// PLAYER ORDERS AND OBSERVATIONS (L1): one order validation for the UI click paths and headless orders.
+// ============================================================================
+// An order is plain data, with the unit ids of the events:
+//   { unit: "P1" | "P2" | "P3", action: "Move" | "Attack" | "Defend" }  queue ONE hand card (first match) for that wolf
+//   { unit: "P1" | "P2" | "P3", target: "E1" | "E2" | "E3" | null }     commander target selection: choose / clear
+// validatePlayerOrders(orders) -> { ok: true, queuedTotal } | { ok: false, index, reason, message }. Pure (reads the live
+//   battle, writes nothing). Orders are checked IN SEQUENCE, each against what the previous ones leave, exactly like
+//   successive clicks. The UI validates its one order here too: applyPlayerAction (card click for the selected wolf) and
+//   handleEnemyTargetIntent (enemy click). Reasons, in check order (index -1 = the whole list):
+//     malformed-orders (-1), turn-executing (-1), malformed-order (not { unit, action } / { unit, target });
+//     target orders first check the target (the UI's status-line precedence): target-selection-inactive (not commander /
+//     wolves mode), invalid-target (not an enemy of this battle), target-defeated;
+//     unknown-unit (not a player wolf id), unit-defeated (absent or defeated);
+//     action orders: action-budget (the pack already holds activeRules.playerActionBudget queued actions; the budget is
+//     shared by the pack, so it is also each wolf's ceiling), unknown-action, then the hand: max-same-action (the card is
+//     not in the hand AND the pack already queued activeRules.maxSameAction of it: the cap is a DRAW cap, hand + queued
+//     never exceed it, so the hand check is what enforces it; this reason names that case), card-not-in-hand.
+function validatePlayerOrders(orders) {
+  const reject = (index, reason, message) => ({ ok: false, index, reason, message });
+
+  if (!Array.isArray(orders)) {
+    return reject(-1, "malformed-orders", "orders must be an array");
+  }
+
+  if (isExecutingActionQueue) {
+    return reject(-1, "turn-executing", "a turn is playing");
+  }
+
+  const hand = [...playerHand];
+  const queued = getPlayerTimelineUnits().flatMap((unit) => unitActionQueues.get(unit) ?? []); // read-only
+
+  for (let index = 0; index < orders.length; index += 1) {
+    const order = orders[index];
+
+    if (!order || typeof order !== "object" || ("action" in order) === ("target" in order)) {
+      return reject(index, "malformed-order", "an order is { unit, action } or { unit, target }");
+    }
+
+    if ("target" in order) {
+      const target = order.target === null ? null : getUnitByBattleId(order.target);
+
+      if (!isTargetSelectionActive()) {
+        return reject(index, "target-selection-inactive", "targets exist only under the commander preset (wolves mode)");
+      }
+
+      if (order.target !== null && (!target || target.team !== "enemy" || !isUnitActive(target))) {
+        return reject(index, "invalid-target", `${order.target} is not an enemy in this battle`);
+      }
+
+      if (target && !isUnitAlive(target)) {
+        return reject(index, "target-defeated", `${order.target} is defeated`);
+      }
+    }
+
+    const unit = ["P1", "P2", "P3"].includes(order.unit) ? getUnitByBattleId(order.unit) : null;
+
+    if (!unit || unit.team !== "player") {
+      return reject(index, "unknown-unit", `${order.unit} is not a player wolf`);
+    }
+
+    if (!isUnitAlive(unit)) {
+      return reject(index, "unit-defeated", `${order.unit} is absent or defeated`);
+    }
+
+    if ("action" in order) {
+      if (queued.length >= activeRules.playerActionBudget) {
+        return reject(index, "action-budget", `the pack already queued ${queued.length} of ${activeRules.playerActionBudget} actions`);
+      }
+
+      if (!ACTIONS.includes(order.action)) {
+        return reject(index, "unknown-action", `${order.action} is not an action`);
+      }
+
+      const cardIndex = hand.indexOf(order.action);
+
+      if (cardIndex === -1) {
+        return queued.filter((action) => action === order.action).length >= activeRules.maxSameAction
+          ? reject(index, "max-same-action", `the pack already queued ${activeRules.maxSameAction} ${order.action} (max per action)`)
+          : reject(index, "card-not-in-hand", `no ${order.action} card in the hand`);
+      }
+
+      hand.splice(cardIndex, 1);
+      queued.push(order.action);
+    }
+  }
+
+  return { ok: true, queuedTotal: queued.length };
+}
+
 function hasCombatantQueuedActions(combatant) {
   if (!isUnitAlive(combatant.unit)) {
     return false;
@@ -11061,21 +11144,19 @@ function handleEnemyTargetIntent(enemyUnit) {
   }
 
   const enemyId = getBattleDebugUnitId(enemyUnit);
-
-  if (isExecutingActionQueue) {
-    showTargetStatus("targets are locked while the turn plays");
-    return true;
-  }
-
-  if (!isUnitAlive(enemyUnit)) {
-    showTargetStatus(`${enemyId} is defeated: pick a living enemy`);
-    return true;
-  }
-
   const selected = getSelectedPlayerUnit();
+  // The same order validation as headless orders (validatePlayerOrders); its refusals are explained in the status line.
+  const verdict = validatePlayerOrders([{ unit: selected ? getBattleDebugUnitId(selected) : null, target: enemyId }]);
 
-  if (!selected) {
-    showTargetStatus(`select a wolf first, then click an enemy to target it`);
+  if (!verdict.ok) {
+    if (verdict.reason === "turn-executing") {
+      showTargetStatus("targets are locked while the turn plays");
+    } else if (verdict.reason === "unknown-unit" || verdict.reason === "unit-defeated") {
+      showTargetStatus(`select a wolf first, then click an enemy to target it`);
+    } else {
+      showTargetStatus(`${enemyId} is defeated: pick a living enemy`);
+    }
+
     return true;
   }
 
