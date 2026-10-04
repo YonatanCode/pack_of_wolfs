@@ -126,7 +126,20 @@ window.SETTINGS_LINK_KEYS = deepFreeze({
 
 window.RULESET_PRESETS = deepFreeze({
   current: { label: "Current rules", available: true },
-  commander: { label: "Commander rules", available: false, unavailableMessage: "commander ruleset arrives in P2b" },
+  commander: { label: "Commander ruleset (experimental: enemy-action rules only)", available: true },
+});
+
+// Commander preset (LIMITED EXPERIMENT): its ONLY differences from "current" are these enemy-action rules. They are
+// fixed by the preset (not editable flags); activeRules carries preset "commander" and code asks isCommanderRules().
+//   frozenPlan                 the enemy plan is computed once per planning phase and not recomputed by edits / Play
+//   forfeitOnDeath             a dead enemy's remaining actions are forfeited; no mid-turn replan, no refund
+//   budgetCeiling              enemy actions spent in a turn never exceed enemyActionBudget (asserted in the core)
+//   enemyQueueLimitByEnemyBudget  the enemy branch of isUnitActionQueueFull uses enemyActionBudget
+//   accounting                 enemyBudget / unassigned / forfeited / enemyAccounting events + the "Enemy actions" note
+window.COMMANDER_RULES = deepFreeze({
+  version: "0.2.0-commander-enemy-actions",
+  scopeLabel: "experimental: enemy-action rules only",
+  enemyRules: { frozenPlan: true, forfeitOnDeath: true, budgetCeiling: true, enemyQueueLimitByEnemyBudget: true, accounting: true },
 });
 
 function getSettingsKeys() {
@@ -283,6 +296,44 @@ function getRulesState() {
   return getRulesState.store;
 }
 
+// The ruleset PRESET (active / pending), kept beside the settings store so the settings record keeps its shape.
+// Applied together with the settings (applyPendingSettings); restarts keep the ACTIVE preset.
+function getRulesPresetState() {
+  if (!getRulesPresetState.store) {
+    getRulesPresetState.store = { active: "current", pending: "current" };
+  }
+
+  return getRulesPresetState.store;
+}
+
+function getActivePreset() {
+  return getRulesPresetState().active;
+}
+
+function getPendingPreset() {
+  return getRulesPresetState().pending;
+}
+
+function isPresetAvailable(name) {
+  return Object.prototype.hasOwnProperty.call(window.RULESET_PRESETS, name) && window.RULESET_PRESETS[name].available === true;
+}
+
+// Panel / fixtures: choose the pending preset (not applied). Unknown or unavailable presets are refused.
+function setPendingPreset(name) {
+  if (!isPresetAvailable(name)) {
+    return { ok: false, message: `unknown preset "${name}"` };
+  }
+
+  getRulesPresetState().pending = name;
+  refreshRulesPanel();
+  return { ok: true, pending: name };
+}
+
+// Is the given (default: active) rules snapshot the commander preset?
+function isCommanderRules(rules = activeRules) {
+  return rules?.preset === "commander";
+}
+
 function getActiveSettings() {
   return { ...getRulesState().active };
 }
@@ -307,10 +358,15 @@ function formatRulesParam(settings) {
     .join(",");
 }
 
-// "?scenario=<id>&seed=<n>" plus, only for non-default settings, "&preset=current&rules=...".
-function buildRulesLink(settings, scenarioId, seed) {
+// "?scenario=<id>&seed=<n>" plus, only for non-default settings, "&preset=current&rules=...". The commander preset
+// always emits "&preset=commander" (with "&rules=..." only for non-default settings).
+function buildRulesLink(settings, scenarioId, seed, preset = "current") {
   const rules = formatRulesParam(settings);
   const base = `?scenario=${encodeURIComponent(scenarioId)}&seed=${seed}`;
+
+  if (preset === "commander") {
+    return `${base}&preset=commander${rules ? `&rules=${rules}` : ""}`;
+  }
 
   return rules ? `${base}&preset=current&rules=${rules}` : base;
 }
@@ -327,14 +383,15 @@ function parseRulesParams(params) {
     return reject("duplicate preset parameter");
   }
 
-  if (presets.length === 1 && presets[0] !== "current") {
-    const preset = window.RULESET_PRESETS[presets[0]];
-
-    return reject(preset && !preset.available ? preset.unavailableMessage : `unknown preset "${presets[0]}"`);
+  if (presets.length === 1 && !isPresetAvailable(presets[0])) {
+    return reject(`unknown preset "${presets[0]}"`);
   }
 
+  // The current preset keeps its result shape; only the commander preset adds `preset`.
+  const presetField = presets[0] === "commander" ? { preset: "commander" } : {};
+
   if (rulesParams.length === 0) {
-    return { ok: true, settings: defaults, hasRules: false };
+    return { ok: true, settings: defaults, hasRules: false, ...presetField };
   }
 
   if (rulesParams.length > 1) {
@@ -382,20 +439,22 @@ function parseRulesParams(params) {
     return reject(validation.errors.map((entry) => entry.message).join("; "));
   }
 
-  return { ok: true, settings, hasRules: true };
+  return { ok: true, settings, hasRules: true, ...presetField };
 }
 
 // Reproducibility record of the ACTIVE rules (activeRules.hash is the hash of the full effective rules).
+// values are exactly what activeRules.hash is computed from (computeRulesHash(record.values) === record.hash).
 function getEffectiveRulesRecord() {
   const active = getRulesState().active;
+  const preset = getActivePreset();
 
   return {
-    preset: "current",
+    preset,
     customized: !isDefaultSettings(active),
     version: activeRules.version,
     hash: activeRules.hash,
     settings: { ...active },
-    values: computeEffectiveRules(active),
+    values: computeEffectiveRulesForPreset(active, preset),
   };
 }
 
@@ -405,8 +464,21 @@ function getRulesLinkStatus() {
 
 // Frozen per-battle snapshot, re-taken at every battle load/restart from the ACTIVE settings (default
 // settings reproduce RULES.perBattle exactly). The hash is recomputed from the full effective rules.
+// The current preset hashes the effective rules exactly as before; the commander preset adds its preset name and
+// enemy-action rule switches to what is hashed (so its hash differs for identical numbers).
+function computeEffectiveRulesForPreset(settings, preset) {
+  const effective = computeEffectiveRules(settings);
+
+  return preset === "commander" ? { ...effective, preset: "commander", enemyRules: cloneRulesData(window.COMMANDER_RULES.enemyRules) } : effective;
+}
+
 function createActiveRulesSnapshot() {
-  const effective = computeEffectiveRules(getRulesState().active);
+  const preset = getActivePreset();
+  const effective = computeEffectiveRulesForPreset(getRulesState().active, preset);
+
+  if (preset === "commander") {
+    return deepFreeze({ version: window.COMMANDER_RULES.version, hash: computeRulesHash(effective), ...effective.perBattle, preset: "commander" });
+  }
 
   return deepFreeze({ version: RULES_VERSION, hash: computeRulesHash(effective), ...effective.perBattle });
 }
@@ -2115,15 +2187,14 @@ function getUnitActionQueue(unit) {
   return unitActionQueues.get(unit);
 }
 
-// NOTE (P2): the enemy branch below still caps at the player's shared budget, as it
-// always has. It is not tied to activeRules.enemyActionBudget; decide that in P2 if the
-// two budgets are allowed to differ.
+// The enemy branch caps at the player's shared budget under the current preset (as it always has); under the
+// commander preset it uses the enemy's own budget (activeRules.enemyActionBudget), independent of the player's.
 function isUnitActionQueueFull(unit) {
   if (unit.team === "player") {
     return getQueuedPlayerActionTotal() >= activeRules.playerActionBudget;
   }
 
-  return getUnitActionQueue(unit).length >= activeRules.playerActionBudget;
+  return getUnitActionQueue(unit).length >= (isCommanderRules() ? activeRules.enemyActionBudget : activeRules.playerActionBudget);
 }
 
 function getAvailableActionCount(action) {
@@ -2593,6 +2664,11 @@ function planEnemyIntentPreview() {
   if (!hasAliveUnitsByTeam("player") || !hasAliveUnitsByTeam("enemy")) {
     clearEnemyPackActionQueue();
     return { renderUnits: enemyUnits, viaPackPlanner: false };
+  }
+
+  // Commander: the plan of this planning phase is frozen; edits, Play and refreshes only re-render it.
+  if (isCommanderRules() && getEnemyPlanState().frozen) {
+    return { renderUnits: enemyUnits, viaPackPlanner: false, frozen: true };
   }
 
   planEnemyPackTurn(enemyUnits, playerUnits);
@@ -4694,9 +4770,22 @@ function pushEnemyPlannedAction(actionQueue, doctrinePool, action) {
   return true;
 }
 
+// Commander frozen-plan flag (BattleState under commander: snapshotBattleState enemyPack.planFrozen, swapped by
+// withBattleState, written by loadBattleState). Kept off the top level (r19 pins the declaration inventory).
+// Set by the pack planner under commander; cleared whenever the pack plan is cleared (every battle reset clears it),
+// and at the end of a turn so the next planning phase plans afresh. Always false under the current preset.
+function getEnemyPlanState() {
+  if (!getEnemyPlanState.store) {
+    getEnemyPlanState.store = { frozen: false };
+  }
+
+  return getEnemyPlanState.store;
+}
+
 function clearEnemyPackActionQueue() {
   enemyPackActionQueue.length = 0;
   enemyPackFocusTarget = null;
+  getEnemyPlanState().frozen = false;
 }
 
 function getEnemyPackActionsForUnit(unit) {
@@ -4732,6 +4821,10 @@ function planEnemyPackTurnRules(enemyUnits, playerUnits) {
   const alivePlayers = playerUnits.filter(isUnitAlive);
 
   clearEnemyPackActionQueue();
+
+  if (isCommanderRules()) {
+    getEnemyPlanState().frozen = true; // commander: this plan stands for the whole planning phase
+  }
 
   if (aliveEnemies.length === 0 || alivePlayers.length === 0) {
     return enemyPackActionQueue;
@@ -5716,6 +5809,10 @@ function formatBattleDebugReport(log) {
     ...log.after.map((snapshot) => formatBattleDebugUnitLine(snapshot)),
   );
 
+  if (log.enemyActions) {
+    lines.push(...formatEnemyActionsNote(log.enemyActions)); // commander only
+  }
+
   return lines.join("\n");
 }
 
@@ -5994,6 +6091,148 @@ function getBattleOutcome() {
   return "none";
 }
 
+// ---- Commander enemy-action accounting (rules, core-safe; only under the commander preset, wolves mode) --------
+// ASSIGNED   the plan the turn starts with (the frozen plan of the planning phase);
+// SPENT      enemy actions consumed by a tick (executed);
+// FORFEITED  a dead enemy's remaining planned actions (per unit, with the tick), never executed or refunded;
+// UNPLAYED   planned actions still queued when the turn ended because the battle ended first;
+// UNASSIGNED budget not planned, with reasons: budget-zero, pool-limit (budget > pool size),
+//            no-valid-assignment (the planner found no valid use for the remaining pool actions).
+// Invariants (asserted): assigned = spent + forfeited + unplayed; enemyActionBudget = assigned + unassigned;
+// spent <= enemyActionBudget (a casualty never creates budget; nothing carries over to the next turn).
+function beginEnemyAccounting(context) {
+  const budget = activeRules.enemyActionBudget;
+  const pool = [...activeRules.enemyActionPool];
+  const assigned = getPackQueueData();
+  const leftover = [...pool];
+
+  assigned.forEach(({ unit, action }) => {
+    const index = leftover.indexOf(action);
+
+    if (index === -1) {
+      throw new Error(`commander accounting: ${unit} ${action} is not covered by the enemy pool`);
+    }
+
+    leftover.splice(index, 1);
+  });
+
+  if (assigned.length > budget) {
+    throw new Error(`commander budget ceiling: ${assigned.length} enemy actions assigned, budget ${budget}`);
+  }
+
+  const unassignedCount = budget - assigned.length;
+  const poolLimit = Math.max(0, budget - pool.length);
+  const noValid = unassignedCount - poolLimit;
+  const reasons = [];
+
+  if (budget === 0) {
+    reasons.push({ code: "budget-zero", count: 0, message: "the enemy action budget is 0" });
+  }
+
+  if (poolLimit > 0) {
+    reasons.push({ code: "pool-limit", count: poolLimit, message: `the pool has only ${pool.length} actions` });
+  }
+
+  if (noValid > 0) {
+    reasons.push({
+      code: "no-valid-assignment",
+      count: noValid,
+      actions: [...leftover],
+      message: `the planner could place no valid use for ${leftover.length} pool action(s): ${leftover.join(", ")}`,
+    });
+  }
+
+  context.enemyAccounting = { budget, pool, assigned, unassigned: { count: unassignedCount, reasons }, spent: [], forfeited: [] };
+  emitTurnEvent(context, "enemyBudget", { budget, pool, poolSize: pool.length, assigned });
+  emitTurnEvent(context, "unassigned", { count: unassignedCount, reasons: cloneRulesData(reasons) });
+}
+
+function recordEnemySpent(context, tick, unit, action) {
+  const accounting = context.enemyAccounting;
+
+  accounting.spent.push({ unit: getBattleDebugUnitId(unit), action, tick });
+
+  if (accounting.spent.length > accounting.budget) {
+    throw new Error(`commander budget ceiling: ${accounting.spent.length} enemy actions spent, budget ${accounting.budget}`);
+  }
+}
+
+function recordEnemyForfeit(context, tick, unit, actions) {
+  const entry = { unit: getBattleDebugUnitId(unit), tick, actions: [...actions] };
+
+  context.enemyAccounting.forfeited.push(entry);
+  emitTurnEvent(context, "forfeited", { ...entry, actions: [...actions] });
+}
+
+// Turn end: close the accounting (unplayed = still queued), assert the invariants, emit enemyAccounting and hand the
+// summary to the battle note.
+function finishEnemyAccounting(context) {
+  const accounting = context.enemyAccounting;
+
+  if (!accounting) {
+    return null;
+  }
+
+  const unplayed = getPackQueueData();
+  const summary = {
+    budget: accounting.budget,
+    pool: [...accounting.pool],
+    assigned: accounting.assigned.length,
+    spent: accounting.spent.length,
+    forfeited: accounting.forfeited.reduce((sum, entry) => sum + entry.actions.length, 0),
+    unplayed: unplayed.length,
+    unassigned: accounting.unassigned.count,
+    assignedActions: accounting.assigned.map((entry) => ({ ...entry })),
+    spentActions: accounting.spent.map((entry) => ({ ...entry })),
+    forfeitedActions: accounting.forfeited.map((entry) => ({ ...entry, actions: [...entry.actions] })),
+    unplayedActions: unplayed,
+    reasons: cloneRulesData(accounting.unassigned.reasons),
+  };
+
+  if (summary.assigned !== summary.spent + summary.forfeited + summary.unplayed) {
+    throw new Error(`commander accounting: assigned ${summary.assigned} != spent ${summary.spent} + forfeited ${summary.forfeited} + unplayed ${summary.unplayed}`);
+  }
+
+  if (summary.budget !== summary.assigned + summary.unassigned) {
+    throw new Error(`commander accounting: budget ${summary.budget} != assigned ${summary.assigned} + unassigned ${summary.unassigned}`);
+  }
+
+  if (summary.spent > summary.budget) {
+    throw new Error(`commander budget ceiling: ${summary.spent} enemy actions spent, budget ${summary.budget}`);
+  }
+
+  emitTurnEvent(context, "enemyAccounting", cloneRulesData(summary));
+
+  if (activeBattleDebugLog) {
+    activeBattleDebugLog.enemyActions = cloneRulesData(summary);
+  }
+
+  return summary;
+}
+
+// The battle note's "Enemy actions" block (commander only).
+function formatEnemyActionsNote(summary) {
+  const list = (entries, format) => (entries.length ? entries.map(format).join(", ") : "-");
+  const forfeited = summary.forfeitedActions.length
+    ? summary.forfeitedActions.map((entry) => `${entry.unit} ${entry.actions.length ? entry.actions.join(", ") : "none"} (died tick ${entry.tick})`).join("; ")
+    : "-";
+  const reasons = summary.reasons.length
+    ? summary.reasons.map((reason) => `${reason.code}${reason.count ? ` x${reason.count}` : ""} (${reason.message})`).join("; ")
+    : "-";
+
+  return [
+    "",
+    `Enemy actions (commander, ${window.COMMANDER_RULES.scopeLabel}):`,
+    `Budget ${summary.budget} | pool ${summary.pool.length}: ${summary.pool.join(", ") || "-"}`,
+    `Assigned ${summary.assigned}: ${list(summary.assignedActions, (entry) => `${entry.unit} ${entry.action}`)}`,
+    `Spent ${summary.spent}: ${list(summary.spentActions, (entry) => `${entry.unit} ${entry.action} (tick ${entry.tick})`)}`,
+    `Forfeited ${summary.forfeited}: ${forfeited}`,
+    `Unplayed ${summary.unplayed}: ${list(summary.unplayedActions, (entry) => `${entry.unit} ${entry.action}`)}${summary.unplayed ? " (the battle ended first)" : ""}`,
+    `Unassigned ${summary.unassigned}: ${reasons}`,
+    `Check: assigned ${summary.assigned} = spent ${summary.spent} + forfeited ${summary.forfeited} + unplayed ${summary.unplayed}; budget ${summary.budget} = assigned ${summary.assigned} + unassigned ${summary.unassigned}`,
+  ];
+}
+
 function* turnStartPhase(context) {
   emitTurnEvent(context, "turnStart", {
     enemyMode,
@@ -6003,11 +6242,18 @@ function* turnStartPhase(context) {
   });
 
   let renderUnits = null;
+  let usedFrozenPlan = false;
 
   if (enemyMode === "wolves") {
     const enemyUnits = units.filter((unit) => unit.team === "enemy" && unit.type === "wolf");
 
-    planEnemyPackTurn(enemyUnits, units.filter((unit) => unit.team === "player"));
+    // Commander: the frozen plan of this planning phase is used as it is (no replanning at Play).
+    usedFrozenPlan = isCommanderRules() && getEnemyPlanState().frozen;
+
+    if (!usedFrozenPlan) {
+      planEnemyPackTurn(enemyUnits, units.filter((unit) => unit.team === "player"));
+    }
+
     renderUnits = getUnitIds(enemyUnits);
   } else {
     clearEnemyPackActionQueue();
@@ -6016,11 +6262,17 @@ function* turnStartPhase(context) {
   emitTurnEvent(context, "enemyPlan", {
     reason: "turnStart",
     skipped: false,
-    planned: enemyMode === "wolves",
+    planned: enemyMode === "wolves" && !usedFrozenPlan,
     queue: getPackQueueData(),
     focus: getPackFocusData(),
     renderUnits,
+    ...(isCommanderRules() ? { frozen: usedFrozenPlan } : {}),
   });
+
+  if (isCommanderRules() && enemyMode === "wolves") {
+    beginEnemyAccounting(context);
+  }
+
   yield takeTurnStep(context, "enemyPlan");
 
   beginBattleDebugLog();
@@ -6089,6 +6341,10 @@ function* runTickCore(context, combatants) {
       }
 
       const action = shiftCombatantAction({ isEnemyPackCombatant, unit });
+
+      if (action && isEnemyPackCombatant && context.enemyAccounting) {
+        recordEnemySpent(context, tick, unit, action);
+      }
 
       return action ? { unit, action } : null;
     })
@@ -6197,7 +6453,9 @@ function* runTickCore(context, combatants) {
 
   recordBattleDebugTick(tickActions, startStates, moveTargets, damageResult);
 
-  if (enemyMode === "wolves" && damageResult.defeated.some((unit) => unit.team === "enemy")) {
+  // Current preset: a casualty replans the pack from a fresh pool. Commander: no mid-turn replan (the dead unit's
+  // actions were forfeited in resolveTickDamageRules; the survivors keep their queued actions).
+  if (enemyMode === "wolves" && !isCommanderRules() && damageResult.defeated.some((unit) => unit.team === "enemy")) {
     const enemyUnits = units.filter((unit) => unit.team === "enemy" && unit.type === "wolf");
 
     planEnemyPackTurn(enemyUnits, units.filter((unit) => unit.team === "player"));
@@ -6220,6 +6478,11 @@ function* runTickCore(context, combatants) {
 
 function* turnEndPhase(context) {
   isExecutingActionQueue = false;
+
+  if (!context.aborted) {
+    finishEnemyAccounting(context); // commander only (no-op without accounting); skipped when the turn is unwinding from an error, so its invariants cannot mask the original error
+  }
+
   emitTurnEvent(context, "recovery", { heals: applyTurnEndRecovery() });
   yield takeTurnStep(context, "recovery");
 
@@ -6230,6 +6493,10 @@ function* turnEndPhase(context) {
 
   emitTurnEvent(context, "handDraw", { drawn, hand: [...playerHand] });
   yield takeTurnStep(context, "handDraw");
+
+  if (isCommanderRules()) {
+    getEnemyPlanState().frozen = false; // commander: a new planning phase begins with the next turn's plan
+  }
 
   const preview = updateEnemyIntentPreview();
 
@@ -6264,6 +6531,9 @@ function* runTurnCore(context) {
     while (shouldRunAnotherTick(fighters)) {
       yield* runTickCore(context, fighters);
     }
+  } catch (error) {
+    context.aborted = true;
+    throw error;
   } finally {
     yield* turnEndPhase(context);
   }
@@ -6489,6 +6759,9 @@ async function executePlayerActionQueue() {
     while (runInTurnCore(() => shouldRunAnotherTick(combatants))) {
       await executeActionTick(combatants, context);
     }
+  } catch (error) {
+    context.aborted = true;
+    throw error;
   } finally {
     driveTurnCoreSync(turnEndPhase(context), (step) => replayTurnStep(step));
   }
@@ -6593,7 +6866,8 @@ function getTurnEventLog() {
 //   units    [ { id, team, type, isActive, row, col, direction, health, maxHealth, isDefeated, movementMode,
 //              turnsSinceHit, tookDamageThisTurn, isFleeing, isHidden, packObjective, queue } ] in P1,P2,P3,E1,E2,E3
 //            order; queue = the unit's player action queue (unitActionQueues), [] if it has none
-//   enemyPack { queue: [{ unit, action }], focus: unit id | null }
+//   enemyPack { queue: [{ unit, action }], focus: unit id | null, planFrozen (commander preset only: the frozen-plan
+//            flag, getEnemyPlanState().frozen) }
 //   hand     { cards: [ordered playerHand], reshuffleChargesRemaining }
 //   rng      { handSeed, handState }             the hand stream's CURRENT 32-bit position (not just its seed)
 // EXCLUDED on purpose: DOM, selection / hover / move preview / action menu / tutorial, sprite and animation
@@ -6610,6 +6884,9 @@ function getTurnEventLog() {
 //   (a) player, playerSupport, playerFlank, enemy, enemySupport, enemyFlank, units: units (logical fields)
 //   (a) unitActionQueues: player action queues (WeakMap keyed by unit)
 //   (a) enemyPackActionQueue, enemyPackFocusTarget: enemy pack plan
+//   also BattleState, off the top level (no row; fingerprinted by the follow-up fixtures): getEnemyPlanState().frozen
+//   (commander frozen-plan flag; snapshot enemyPack.planFrozen under commander, swapped by withBattleState). Settings
+//   state off the top level: getRulesState() (settings store) and getRulesPresetState() (active / pending preset).
 //   (a) playerHand, reshuffleChargesRemaining: player economy
 //   (a) handRandom, handSeed: hand stream (position via getState)
 //   (a) pondTileKeys, hillTileKeys, treeTileKeys, hillTileLevels: terrain the core reads
@@ -6736,6 +7013,7 @@ function snapshotBattleState() {
     enemyPack: {
       queue: enemyPackActionQueue.map((entry) => ({ unit: getBattleDebugUnitId(entry.unit), action: entry.action })),
       focus: enemyPackFocusTarget ? getBattleDebugUnitId(enemyPackFocusTarget) : null,
+      ...(isCommanderRules() ? { planFrozen: getEnemyPlanState().frozen } : {}), // commander only
     },
     hand: { cards: [...playerHand], reshuffleChargesRemaining },
     rng: { handSeed, handState: getHandRandomState() },
@@ -6758,6 +7036,7 @@ function validateBattleState(state) {
   if (!state.units.every((unit) => isStringList(unit.queue) && Number.isFinite(unit.row) && Number.isFinite(unit.col))) fail("unit fields");
   if (!state.enemyPack || !Array.isArray(state.enemyPack.queue)) fail("enemyPack");
   if (![...state.enemyPack.queue.map((entry) => entry && entry.unit), state.enemyPack.focus].every((id) => id === null || BATTLE_STATE_UNIT_IDS.includes(id))) fail("enemyPack unit ids");
+  if (state.enemyPack.planFrozen !== undefined && typeof state.enemyPack.planFrozen !== "boolean") fail("enemyPack.planFrozen");
   if (!state.hand || !isStringList(state.hand.cards) || !Number.isFinite(state.hand.reshuffleChargesRemaining)) fail("hand");
   if (!state.rng || !Number.isInteger(state.rng.handState)) fail("rng");
 }
@@ -6825,6 +7104,7 @@ function withBattleState(state, fn) {
     lastTurnEventLog,
     turnCoreDepth,
     turnDriverDepth,
+    planFrozen: getEnemyPlanState().frozen,
   };
   const clones = state.units.map(createBattleStateUnitClone);
   const cloneById = new Map(state.units.map((record, index) => [record.id, clones[index]]));
@@ -6841,6 +7121,7 @@ function withBattleState(state, fn) {
       ...state.enemyPack.queue.map((entry) => ({ unit: cloneById.get(entry.unit), action: entry.action })),
     );
     enemyPackFocusTarget = state.enemyPack.focus === null ? null : cloneById.get(state.enemyPack.focus);
+    getEnemyPlanState().frozen = state.enemyPack.planFrozen === true;
     playerHand.splice(0, playerHand.length, ...state.hand.cards);
     reshuffleChargesRemaining = state.hand.reshuffleChargesRemaining;
     handRandom = createSeededRandom(state.rng.handState);
@@ -6861,6 +7142,7 @@ function withBattleState(state, fn) {
     clones.forEach((clone) => unitActionQueues.delete(clone));
     enemyPackActionQueue.splice(0, enemyPackActionQueue.length, ...saved.packQueue);
     enemyPackFocusTarget = saved.focus;
+    getEnemyPlanState().frozen = saved.planFrozen;
     playerHand.splice(0, playerHand.length, ...saved.hand);
     reshuffleChargesRemaining = saved.reshuffleChargesRemaining;
     handRandom = saved.handRandom;
@@ -6955,6 +7237,14 @@ function loadBattleState(state) {
     throw new BattleStateError("loadBattleState: grid size and enemy mode must match the live battle");
   }
 
+  // The state's rules must be the live battle's EFFECTIVE rules (version, hash and values): a state recorded under
+  // other settings is refused, never silently adopted.
+  const { version: liveVersion, hash: liveHash, ...liveValues } = activeRules;
+
+  if (state.rules.version !== liveVersion || state.rules.hash !== liveHash || canonicalizeRules(state.rules.values) !== canonicalizeRules(liveValues)) {
+    throw new BattleStateError("loadBattleState: the state's rules must match the live battle's effective rules");
+  }
+
   state.units.forEach((record) => {
     const unit = getUnitByBattleId(record.id);
 
@@ -6975,6 +7265,7 @@ function loadBattleState(state) {
     ...state.enemyPack.queue.map((entry) => ({ unit: getUnitByBattleId(entry.unit), action: entry.action })),
   );
   enemyPackFocusTarget = state.enemyPack.focus === null ? null : getUnitByBattleId(state.enemyPack.focus);
+  getEnemyPlanState().frozen = state.enemyPack.planFrozen === true;
   playerHand.splice(0, playerHand.length, ...state.hand.cards);
   reshuffleChargesRemaining = state.hand.reshuffleChargesRemaining;
   handSeed = state.rng.handSeed;
@@ -8344,11 +8635,18 @@ function resolveTickDamageRules(context, tick, damageIntents) {
   damageResults.forEach(({ target, defeated }) => {
     if (defeated) {
       emitTurnEvent(context, "death", { tick, unit: getBattleDebugUnitId(target) });
+
+      const cleared = clearQueuedActionsForUnit(target);
+
       emitTurnEvent(context, "queueCleared", {
         tick,
         unit: getBattleDebugUnitId(target),
-        cleared: clearQueuedActionsForUnit(target),
+        cleared,
       });
+
+      if (target.team === "enemy" && context.enemyAccounting) {
+        recordEnemyForfeit(context, tick, target, cleared); // commander: forfeited, never refunded
+      }
     }
   });
 
@@ -9946,12 +10244,14 @@ async function runDevTestScenario(scenarioId) {
   // and restore the previous active settings and rules afterwards, so custom settings neither break them nor
   // are broken by them. (No-op under default settings.)
   const savedSettings = getRulesState().active;
+  const savedPreset = getActivePreset();
   const savedRules = activeRules;
-  const swapSettings = !isDefaultSettings(savedSettings);
+  const swapSettings = !isDefaultSettings(savedSettings) || savedPreset !== "current";
 
   try {
     if (swapSettings) {
       setActiveSettingsUnchecked(getDefaultSettings());
+      getRulesPresetState().active = "current"; // dev scenarios run under the current preset
       takeActiveRulesSnapshot();
     }
 
@@ -9976,6 +10276,7 @@ async function runDevTestScenario(scenarioId) {
 
     if (swapSettings) {
       getRulesState().active = savedSettings;
+      getRulesPresetState().active = savedPreset;
       activeRules = savedRules;
       applyRulesCssVariables();
       refreshRulesPanel();
@@ -10282,6 +10583,9 @@ window.devTest = {
   getActiveSettings,
   getPendingSettings,
   setPendingSettings,
+  getActivePreset,
+  getPendingPreset,
+  setPendingPreset,
   resetPendingSettings,
   applyPendingSettings,
   // Fixture-only (see drainTurnCore): run one full turn's rules headlessly, and read the last turn's events.
@@ -10471,7 +10775,7 @@ function updateScenarioLabel(text = null) {
 
   scenarioLabelElement.textContent =
     text ?? (activeScenario
-      ? `${activeScenario.id} · seed ${activeScenarioSeed}${isDefaultSettings(getRulesState().active) ? "" : ` · custom rules ${activeRules.hash.slice(0, 6)}`}`
+      ? `${activeScenario.id} · seed ${activeScenarioSeed}${isDefaultSettings(getRulesState().active) ? "" : ` · custom rules ${activeRules.hash.slice(0, 6)}`}${getActivePreset() === "commander" ? " · commander (experimental)" : ""}`
       : "");
 }
 
@@ -10651,6 +10955,7 @@ function setPendingSettings(partial) {
 // Pending := defaults. NOT applied.
 function resetPendingSettings() {
   getRulesState().pending = normalizeSettings(getDefaultSettings());
+  getRulesPresetState().pending = "current";
   getRulesState().linkStatusStale = true;
   setRulesNotice("info", "Pending settings reset to the defaults (not applied).");
   refreshRulesPanel();
@@ -10669,6 +10974,7 @@ function applyPendingSettings() {
   }
 
   const validation = validateSettings(store.pending);
+  const presetStore = getRulesPresetState();
 
   if (!validation.valid) {
     setRulesNotice("error", "Not applied: fix the errors first. Nothing changed.");
@@ -10676,16 +10982,25 @@ function applyPendingSettings() {
     return { ok: false, reason: "invalid", errors: validation.errors, warnings: validation.warnings };
   }
 
+  if (!isPresetAvailable(presetStore.pending)) {
+    setRulesNotice("error", `Not applied: unknown preset "${presetStore.pending}". Nothing changed.`);
+    refreshRulesPanel();
+    return { ok: false, reason: "invalid-preset", errors: [{ field: "preset", message: `unknown preset "${presetStore.pending}"` }], warnings: validation.warnings };
+  }
+
   const previous = store.active;
+  const previousPreset = presetStore.active;
   let restarted = false;
 
   setActiveSettingsUnchecked(store.pending);
+  presetStore.active = presetStore.pending; // the preset is applied together with the settings
 
   try {
     restarted = restartBattle();
   } finally {
     if (!restarted) {
       store.active = previous; // never leave settings active that no battle is running under
+      presetStore.active = previousPreset;
       takeActiveRulesSnapshot(); // and keep activeRules (and the CSS variables) in step with them
     }
   }
@@ -10695,9 +11010,12 @@ function applyPendingSettings() {
   }
 
   store.pending = normalizeSettings(store.active);
+  presetStore.pending = presetStore.active;
   store.tutorialReset = false;
   store.linkStatusStale = true;
-  setRulesNotice("info", "Applied. The battle was restarted; custom settings change gameplay and are not balanced.");
+  setRulesNotice("info", presetStore.active === "commander"
+    ? `Applied: commander ruleset (${window.COMMANDER_RULES.scopeLabel}). The battle was restarted; custom settings change gameplay and are not balanced.`
+    : "Applied. The battle was restarted; custom settings change gameplay and are not balanced.");
   refreshRulesPanel();
   return { ok: true, warnings: validation.warnings, record: getEffectiveRulesRecord() };
 }
@@ -10707,6 +11025,8 @@ function useDefaultSettingsForWorldMode() {
   if (!isDefaultSettings(getRulesState().active)) {
     setActiveSettingsUnchecked(getDefaultSettings());
   }
+
+  getRulesPresetState().active = "current"; // world mode always plays the current preset
 }
 
 // Guided tutorial: switch the ACTIVE settings to the defaults and restart the battle under them, so custom
@@ -10714,8 +11034,9 @@ function useDefaultSettingsForWorldMode() {
 // stay in the panel, flagged "not applied". Returns false (tutorial must not start) if the switch is refused.
 function enterTutorialDefaultSettings() {
   const store = getRulesState();
+  const presetStore = getRulesPresetState();
 
-  if (isDefaultSettings(store.active)) {
+  if (isDefaultSettings(store.active) && presetStore.active === "current") {
     return true;
   }
 
@@ -10726,11 +11047,14 @@ function enterTutorialDefaultSettings() {
   }
 
   const previous = store.active;
+  const previousPreset = presetStore.active;
 
   setActiveSettingsUnchecked(getDefaultSettings());
+  presetStore.active = "current"; // the tutorial also resets the preset
 
   if (activeScenario ? !restartBattle() : !takeActiveRulesSnapshot()) {
     store.active = previous;
+    presetStore.active = previousPreset;
     setRulesNotice("error", "The tutorial was not started: the battle could not be restarted.");
     refreshRulesPanel();
     return false;
@@ -10772,6 +11096,17 @@ function resolveBootRules(route) {
 
   setActiveSettingsUnchecked(parsed.settings);
   store.pending = normalizeSettings(parsed.settings);
+
+  if (parsed.preset === "commander") {
+    getRulesPresetState().active = "commander";
+    getRulesPresetState().pending = "commander";
+    store.linkStatus = {
+      status: "applied",
+      message: `preset commander (${window.COMMANDER_RULES.scopeLabel})${parsed.hasRules ? "; rules link applied" : "; default settings"}`,
+    };
+    return;
+  }
+
   store.linkStatus = { status: "applied", message: parsed.hasRules ? "rules link applied" : "preset current (default settings)" };
 }
 
@@ -10804,8 +11139,9 @@ function refreshRulesPanel() {
   const validation = validateSettings(store.pending);
   const lockReason = getRulesLockReason();
   const isLocked = lockReason !== null;
+  const presetStore = getRulesPresetState();
   const isCustom = !isDefaultSettings(store.active);
-  const differs = !areSettingsEqual(store.pending, store.active);
+  const differs = !areSettingsEqual(store.pending, store.active) || presetStore.pending !== presetStore.active;
   const panel = getRulesPanelElement("rules-panel");
 
   panel?.classList.toggle("is-locked", isLocked);
@@ -10815,7 +11151,10 @@ function refreshRulesPanel() {
 
   if (notice) {
     notice.textContent = "Applying settings restarts the battle and changes gameplay (not balanced). "
-      + "Restart / R / Play Again keep the ACTIVE settings; pending values are not applied until you click Apply.";
+      + "Restart / R / Play Again keep the ACTIVE settings; pending values are not applied until you click Apply."
+      + (presetStore.active === "commander" || presetStore.pending === "commander"
+        ? ` Commander ruleset (${window.COMMANDER_RULES.scopeLabel}): only the enemy-action rules differ from the current ruleset.`
+        : "");
   }
 
   getSettingsKeys().forEach((key) => {
@@ -10838,13 +11177,13 @@ function refreshRulesPanel() {
   const preset = getRulesPanelElement("rules-preset");
 
   if (preset) {
-    preset.value = "current";
+    preset.value = presetStore.pending;
   }
 
   const summary = getRulesPanelElement("rules-active-summary");
 
   if (summary) {
-    summary.textContent = `active: ${describeRulesSettings(store.active)} · hash ${activeRules.hash.slice(0, 6)}${isCustom ? " (custom)" : ""}`;
+    summary.textContent = `active: ${presetStore.active === "commander" ? `commander (${window.COMMANDER_RULES.scopeLabel}) · ` : ""}${describeRulesSettings(store.active)} · hash ${activeRules.hash.slice(0, 6)}${isCustom ? " (custom)" : ""}`;
   }
 
   const pendingState = getRulesPanelElement("rules-pending-state");
@@ -10922,7 +11261,7 @@ async function copyRulesLink() {
   const prefix = location?.origin === "null"
     ? (location.href ? location.href.split(/[?#]/)[0] : "") // file:// has the string origin "null"
     : (location?.origin ? `${location.origin}${location.pathname ?? "/"}` : "");
-  const link = `${prefix}${buildRulesLink(getRulesState().active, activeScenario.id, activeScenarioSeed)}`;
+  const link = `${prefix}${buildRulesLink(getRulesState().active, activeScenario.id, activeScenarioSeed, getActivePreset())}`;
   let copied = false;
 
   try {
@@ -10956,11 +11295,11 @@ function setupRulesPanel() {
 
   getRulesPanelElement("rules-preset")?.addEventListener("change", (event) => {
     const value = event?.target?.value ?? getRulesPanelElement("rules-preset").value;
-    const preset = window.RULESET_PRESETS[value];
 
-    if (!preset?.available) {
-      setRulesNotice("error", preset?.unavailableMessage ?? `unknown preset "${value}"`);
+    if (!isPresetAvailable(value)) {
+      setRulesNotice("error", `unknown preset "${value}"`);
     } else {
+      getRulesPresetState().pending = value; // pending only: applied together with the settings on Apply
       setRulesNotice("", "");
     }
 
