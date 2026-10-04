@@ -493,21 +493,19 @@
       "underMin": "rules link rejected (playerActionBudget must be a whole number from 1 to 8); default settings are used",
       "weightOverMax": "rules link rejected (weightMove must be a whole number from 0 to 20); default settings are used",
       "crossField": "rules link rejected (at least one draw weight must be greater than 0; the hand cannot be filled: 0 drawable action(s) x maxSameAction 3 = 0, but handSize is 5); default settings are used",
-      "commander": "rules link rejected (commander ruleset arrives in P2b); default settings are used",
-      "commanderAlone": "rules link rejected (commander ruleset arrives in P2b); default settings are used",
       "bogusPreset": "rules link rejected (unknown preset \"bogus\"); default settings are used",
       "duplicatePreset": "rules link rejected (duplicate preset parameter); default settings are used",
       "duplicateRules": "rules link rejected (duplicate rules parameter); default settings are used"
     },
     "bootStatus": {
       "rejected0": "rules link rejected (duplicate key \"hs\"); default settings are used",
-      "rejected1": "rules link rejected (commander ruleset arrives in P2b); default settings are used",
+      "rejected1": "rules link rejected (unknown preset \"bogus\"); default settings are used",
       "rejected2": "rules link rejected (handSize must be a whole number from 1 to 8); default settings are used"
     }
   },
   "presets": [
     "current (available)",
-    "commander (rejected: commander ruleset arrives in P2b)"
+    "commander (available: experimental, enemy-action rules only)"
   ],
   "panelInputParsing": {
     "0": 0,

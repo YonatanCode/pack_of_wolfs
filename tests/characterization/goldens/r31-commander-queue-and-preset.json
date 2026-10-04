@@ -1,0 +1,73 @@
+{
+  "header": "REQUIREMENT — enemy-action experiment",
+  "handsGenerated": 18,
+  "tutorialSeededHandsCounted": 1,
+  "queueLimitAndTags": {
+    "commander enemy 3 / player 5": {
+      "enemyQueueLimit": 3,
+      "enemyTags": 3,
+      "playerTags": 5
+    },
+    "commander enemy 5 / player 2": {
+      "enemyQueueLimit": 5,
+      "enemyTags": 5,
+      "playerTags": 2
+    },
+    "current enemy 3 / player 5": {
+      "enemyQueueLimit": 5,
+      "enemyTags": 3,
+      "playerTags": 5
+    },
+    "current enemy 5 / player 2": {
+      "enemyQueueLimit": 2,
+      "enemyTags": 5,
+      "playerTags": 2
+    }
+  },
+  "indexHtmlOption": "<option value=\"commander\">Commander ruleset (experimental: enemy-action rules only)</option>",
+  "links": {
+    "commanderAlone": "?scenario=intro&seed=1&preset=commander",
+    "commanderWithRules": "?scenario=intro&seed=1&preset=commander&rules=pab:3"
+  },
+  "records": {
+    "currentDefault": {
+      "version": "0.1.0-current",
+      "hash": "0d3ce2ec6fa6de"
+    },
+    "commanderDefault": {
+      "version": "0.2.0-commander-enemy-actions",
+      "hash": "0224eced47f0bf"
+    },
+    "commanderPab3": {
+      "hash": "0eae1d4e4556ce",
+      "currentHashSameNumbers": "1d4995c324af15"
+    }
+  },
+  "labels": {
+    "commanderDefault": "intro · seed 1 · commander (experimental)",
+    "commanderCustom": "intro · seed 1 · custom rules 0eae1d · commander (experimental)"
+  },
+  "panel": {
+    "summary": "active: commander (experimental: enemy-action rules only) · pab 5 · hand 5 · charges 2 · cap 3 · weights M1 A1 D1 · enemy 5 (pool M2 D1 A2) · hash 0224ec",
+    "notice": "Applying settings restarts the battle and changes gameplay (not balanced). Restart / R / Play Again keep the ACTIVE settings; pending values are not applied until you click Apply. Commander ruleset (experimental: enemy-action rules only): only the enemy-action rules differ from the current ruleset."
+  },
+  "failedApplyWithPreset": {
+    "error": "injected fault: restart",
+    "activePresetAfter": "current",
+    "pendingPresetAfter": "commander"
+  },
+  "resets": {
+    "tutorial": "current + defaults, pending commander kept",
+    "world": "current + defaults",
+    "devScenario": [
+      "current",
+      "0d3ce2ec6fa6de"
+    ]
+  },
+  "usage": {
+    "contexts": 13,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "header": "REQUIREMENT — P2a gap checks",
+  "handsGenerated": 4,
+  "failedApply": {
+    "prev": {
+      "playerActionBudget": 4,
+      "handSize": 6,
+      "reshuffleCharges": 3,
+      "enemyActionBudget": 4
+    },
+    "next": {
+      "playerActionBudget": 2,
+      "handSize": 7,
+      "maxSameAction": 4,
+      "enemyActionBudget": 2
+    },
+    "fault": "injected fault: restart",
+    "faultSaw": {
+      "hash": "1263cc54cfa8d9",
+      "css": "7"
+    },
+    "prevHash": "1e40f527e34ca2",
+    "nextHash": "1263cc54cfa8d9",
+    "prevCss": "6/4",
+    "restored": true,
+    "pendingPreserved": true,
+    "applyAfterwards": "ok"
+  },
+  "intentTags": {
+    "enemy 3 / player 5": {
+      "plannerTags": {
+        "E1": [
+          "Defend"
+        ],
+        "E2": [
+          "Move"
+        ],
+        "E3": [
+          "Move"
+        ]
+      },
+      "enemySixShown": 3,
+      "playerSixShown": 5
+    },
+    "enemy 5 / player 2": {
+      "plannerTags": {
+        "E1": [
+          "Defend"
+        ],
+        "E2": [
+          "Move"
+        ],
+        "E3": [
+          "Move"
+        ]
+      },
+      "enemySixShown": 5,
+      "playerSixShown": 2
+    }
+  },
+  "panelInput": {
+    "minusZero": {
+      "playerActionBudget": "playerActionBudget must be a whole number from 1 to 8",
+      "handSize": "handSize must be a whole number from 1 to 8",
+      "reshuffleCharges": "reshuffleCharges must be a whole number from 0 to 9",
+      "maxSameAction": "maxSameAction must be a whole number from 1 to 8",
+      "weightMove": "weightMove must be a whole number from 0 to 20",
+      "weightAttack": "weightAttack must be a whole number from 0 to 20",
+      "weightDefend": "weightDefend must be a whole number from 0 to 20",
+      "enemyActionBudget": "enemyActionBudget must be a whole number from 0 to 10",
+      "poolMove": "poolMove must be a whole number from 0 to 10",
+      "poolDefend": "poolDefend must be a whole number from 0 to 10",
+      "poolAttack": "poolAttack must be a whole number from 0 to 10"
+    },
+    "zeroAcceptedFor": [
+      "reshuffleCharges",
+      "weightMove",
+      "weightAttack",
+      "weightDefend",
+      "enemyActionBudget",
+      "poolMove",
+      "poolDefend",
+      "poolAttack"
+    ]
+  },
+  "usage": {
+    "contexts": 3,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

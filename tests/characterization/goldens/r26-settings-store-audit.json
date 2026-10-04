@@ -1,0 +1,79 @@
+{
+  "header": "REQUIREMENT — P2a gap checks",
+  "handsGenerated": 4,
+  "knownKeys": [
+    "active",
+    "linkStatus",
+    "linkStatusStale",
+    "messagesSignature",
+    "notice",
+    "pending",
+    "tutorialReset"
+  ],
+  "bootKeys": [
+    "active",
+    "linkStatus",
+    "messagesSignature",
+    "notice",
+    "pending",
+    "tutorialReset"
+  ],
+  "auditedStore": {
+    "active": {
+      "playerActionBudget": 3,
+      "handSize": 6,
+      "reshuffleCharges": 2,
+      "maxSameAction": 3,
+      "weightMove": 5,
+      "weightAttack": 1,
+      "weightDefend": 1,
+      "enemyActionBudget": 3,
+      "poolMove": 1,
+      "poolDefend": 0,
+      "poolAttack": 2
+    },
+    "pending": {
+      "playerActionBudget": 3,
+      "handSize": 7,
+      "reshuffleCharges": 4,
+      "maxSameAction": 3,
+      "weightMove": 5,
+      "weightAttack": 1,
+      "weightDefend": 1,
+      "enemyActionBudget": 3,
+      "poolMove": 1,
+      "poolDefend": 0,
+      "poolAttack": 2
+    },
+    "linkStatus": {
+      "status": "applied",
+      "message": "rules link applied"
+    },
+    "tutorialReset": false,
+    "notice": {
+      "kind": "info",
+      "text": "Applied. The battle was restarted; custom settings change gameplay and are not balanced."
+    },
+    "messagesSignature": "[{\"className\":\"\",\"text\":\"Applied. The battle was restarted; custom settings change gameplay and are not balanced.\"}]",
+    "linkStatusStale": true
+  },
+  "unchangedAfter": [
+    "preview without player orders (DryRunRejected:no-player-orders)",
+    "player orders queued",
+    "dry run 1",
+    "dry run 2",
+    "failed dry run (turn-start planning) (Error:injected fault: enemy planning)",
+    "failed dry run (turn-end refill) (Error:injected fault: hand refill)",
+    "preview with options.queues (BattleStateError:dryRunTurn previews only the currently queued player orders; options.queues is not supported)",
+    "nested preview (DryRunRejected:swap-active)",
+    "preview during a turn (DryRunRejected:turn-executing)",
+    "Apply during a turn (DryRunRejected:turn-executing)",
+    "Apply inside a battle-state swap (DryRunRejected:swap-active)"
+  ],
+  "usage": {
+    "contexts": 1,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

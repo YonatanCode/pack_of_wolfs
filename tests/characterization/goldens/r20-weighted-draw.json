@@ -1,6 +1,6 @@
 {
   "header": "REQUIREMENT — P2a acceptance",
-  "handsGenerated": 352,
+  "handsGenerated": 442,
   "c8Golden": {
     "seeds": "1..8 (default and 2/2/2)",
     "identical": true,

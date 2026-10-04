@@ -1,0 +1,103 @@
+{
+  "header": "REQUIREMENT — P2a gap checks",
+  "handsGenerated": 15,
+  "settings": {
+    "playerActionBudget": 3,
+    "handSize": 6,
+    "weightMove": 5,
+    "enemyActionBudget": 3,
+    "poolMove": 1,
+    "poolDefend": 0
+  },
+  "effective": {
+    "version": "0.1.0-current",
+    "hash": "13c5ea984a49ce",
+    "defaultHash": "0d3ce2ec6fa6de"
+  },
+  "preview": {
+    "orders": [
+      "Move",
+      "Move",
+      "Move"
+    ],
+    "turnStartBudgets": {
+      "player": 3,
+      "enemy": 3
+    },
+    "enemyActionsConsumed": 1,
+    "events": {
+      "count": 16,
+      "types": {
+        "turnStart": 1,
+        "enemyPlan": 2,
+        "fighters": 1,
+        "tickStart": 1,
+        "consumed": 1,
+        "move": 4,
+        "tickEnd": 1,
+        "recovery": 1,
+        "debugNote": 1,
+        "handDraw": 1,
+        "turnEnd": 1,
+        "outcome": 1
+      },
+      "key": [
+        "recovery heals=[]",
+        "handDraw drawn=[Move,Attack,Move] hand=[Move,Attack,Move,Defend,Defend,Attack]",
+        "outcome winner=none doubleKO=false"
+      ]
+    },
+    "eventHash": "1b3b1331d95146",
+    "outcome": {
+      "winner": "none",
+      "doubleKO": false
+    },
+    "handAfter": "Move,Attack,Move,Defend,Defend,Attack",
+    "rngAfter": "seed=1 state=3599190430",
+    "nextStreamValuesBeforePlay": [
+      0.6128388606011868,
+      0.7207431411370635,
+      0.425796952098608
+    ],
+    "liveUnchanged": true,
+    "previewEqualsPlay": true,
+    "controlEqualsPlay": true
+  },
+  "snapshotRestore": {
+    "snapshotRules": {
+      "version": "0.1.0-current",
+      "hash": "13c5ea984a49ce"
+    },
+    "swappedIn": {
+      "swapped": true,
+      "liveObject": false,
+      "frozen": true,
+      "hash": "13c5ea984a49ce",
+      "playerActionBudget": 3,
+      "enemyActionBudget": 3,
+      "handSize": 6,
+      "enemyActionPool": [
+        "Move",
+        "Attack",
+        "Attack"
+      ]
+    },
+    "failedDryRun": "injected fault: hand refill",
+    "liveRulesRestored": true,
+    "sameSettingsLoad": {
+      "identicalSnapshot": true,
+      "identicalRules": true,
+      "dryRunEventHash": "1b3b1331d95146"
+    },
+    "differentRulesRefused": {
+      "defaults": "BattleStateError: loadBattleState: the state's rules must match the live battle's effective rules",
+      "other custom": "BattleStateError: loadBattleState: the state's rules must match the live battle's effective rules"
+    }
+  },
+  "usage": {
+    "contexts": 6,
+    "maxSteps": 23,
+    "totalSteps": 46,
+    "cap": 4000
+  }
+}

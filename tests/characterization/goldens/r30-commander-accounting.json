@@ -1,0 +1,263 @@
+{
+  "header": "REQUIREMENT — enemy-action experiment",
+  "handsGenerated": 12,
+  "cases": {
+    "no-valid-assignment": {
+      "rules": "(defaults)",
+      "orders": [
+        "Attack",
+        "Move",
+        "Attack"
+      ],
+      "plan": [
+        {
+          "unit": "E3",
+          "action": "Move"
+        },
+        {
+          "unit": "E2",
+          "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Defend"
+        }
+      ],
+      "accounting": {
+        "budget": 5,
+        "assigned": 3,
+        "spent": 3,
+        "forfeited": 0,
+        "unplayed": 0,
+        "unassigned": 2,
+        "reasons": [
+          "no-valid-assignment x2"
+        ]
+      },
+      "reasons": [
+        {
+          "code": "no-valid-assignment",
+          "count": 2,
+          "actions": [
+            "Attack",
+            "Attack"
+          ],
+          "message": "the planner could place no valid use for 2 pool action(s): Attack, Attack"
+        }
+      ],
+      "enemyActionsNote": [
+        "Enemy actions (commander, experimental: enemy-action rules only):",
+        "Budget 5 | pool 5: Move, Move, Defend, Attack, Attack",
+        "Assigned 3: E3 Move, E2 Move, E1 Defend",
+        "Spent 3: E1 Defend (tick 1), E2 Move (tick 1), E3 Move (tick 1)",
+        "Forfeited 0: -",
+        "Unplayed 0: -",
+        "Unassigned 2: no-valid-assignment x2 (the planner could place no valid use for 2 pool action(s): Attack, Attack)",
+        "Check: assigned 3 = spent 3 + forfeited 0 + unplayed 0; budget 5 = assigned 3 + unassigned 2"
+      ]
+    },
+    "pool-limit": {
+      "rules": "epd:0,epa:0",
+      "orders": [
+        "Attack",
+        "Move",
+        "Attack"
+      ],
+      "plan": [
+        {
+          "unit": "E3",
+          "action": "Move"
+        },
+        {
+          "unit": "E2",
+          "action": "Move"
+        }
+      ],
+      "accounting": {
+        "budget": 5,
+        "assigned": 2,
+        "spent": 2,
+        "forfeited": 0,
+        "unplayed": 0,
+        "unassigned": 3,
+        "reasons": [
+          "pool-limit x3"
+        ]
+      },
+      "reasons": [
+        {
+          "code": "pool-limit",
+          "count": 3,
+          "message": "the pool has only 2 actions"
+        }
+      ],
+      "enemyActionsNote": [
+        "Enemy actions (commander, experimental: enemy-action rules only):",
+        "Budget 5 | pool 2: Move, Move",
+        "Assigned 2: E3 Move, E2 Move",
+        "Spent 2: E2 Move (tick 1), E3 Move (tick 1)",
+        "Forfeited 0: -",
+        "Unplayed 0: -",
+        "Unassigned 3: pool-limit x3 (the pool has only 2 actions)",
+        "Check: assigned 2 = spent 2 + forfeited 0 + unplayed 0; budget 5 = assigned 2 + unassigned 3"
+      ]
+    },
+    "budget-zero": {
+      "rules": "eab:0",
+      "orders": [
+        "Attack",
+        "Move",
+        "Attack"
+      ],
+      "plan": [],
+      "accounting": {
+        "budget": 0,
+        "assigned": 0,
+        "spent": 0,
+        "forfeited": 0,
+        "unplayed": 0,
+        "unassigned": 0,
+        "reasons": [
+          "budget-zero x0"
+        ]
+      },
+      "reasons": [
+        {
+          "code": "budget-zero",
+          "count": 0,
+          "message": "the enemy action budget is 0"
+        }
+      ],
+      "enemyActionsNote": [
+        "Enemy actions (commander, experimental: enemy-action rules only):",
+        "Budget 0 | pool 5: Move, Move, Defend, Attack, Attack",
+        "Assigned 0: -",
+        "Spent 0: -",
+        "Forfeited 0: -",
+        "Unplayed 0: -",
+        "Unassigned 0: budget-zero (the enemy action budget is 0)",
+        "Check: assigned 0 = spent 0 + forfeited 0 + unplayed 0; budget 0 = assigned 0 + unassigned 0"
+      ]
+    },
+    "unplayed": {
+      "rules": "(defaults)",
+      "orders": [
+        "P1:Attack"
+      ],
+      "plan": [
+        {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E1",
+          "action": "Defend"
+        }
+      ],
+      "accounting": {
+        "budget": 5,
+        "assigned": 3,
+        "spent": 1,
+        "forfeited": 0,
+        "unplayed": 2,
+        "unassigned": 2,
+        "reasons": [
+          "no-valid-assignment x2"
+        ]
+      },
+      "reasons": [
+        {
+          "code": "no-valid-assignment",
+          "count": 2,
+          "actions": [
+            "Move",
+            "Move"
+          ],
+          "message": "the planner could place no valid use for 2 pool action(s): Move, Move"
+        }
+      ],
+      "enemyActionsNote": [
+        "Enemy actions (commander, experimental: enemy-action rules only):",
+        "Budget 5 | pool 5: Move, Move, Defend, Attack, Attack",
+        "Assigned 3: E1 Attack, E1 Attack, E1 Defend",
+        "Spent 1: E1 Attack (tick 1)",
+        "Forfeited 0: -",
+        "Unplayed 2: E1 Attack, E1 Defend (the battle ended first)",
+        "Unassigned 2: no-valid-assignment x2 (the planner could place no valid use for 2 pool action(s): Move, Move)",
+        "Check: assigned 3 = spent 1 + forfeited 0 + unplayed 2; budget 5 = assigned 3 + unassigned 2"
+      ]
+    }
+  },
+  "currentControls": {
+    "far board": {
+      "events": {
+        "count": 20,
+        "types": {
+          "turnStart": 1,
+          "enemyPlan": 2,
+          "fighters": 1,
+          "tickStart": 1,
+          "consumed": 1,
+          "move": 3,
+          "attackSwing": 2,
+          "defendSwing": 1,
+          "miss": 2,
+          "tickEnd": 1,
+          "recovery": 1,
+          "debugNote": 1,
+          "handDraw": 1,
+          "turnEnd": 1,
+          "outcome": 1
+        },
+        "key": [
+          "recovery heals=[]",
+          "handDraw drawn=[Move,Attack,Defend] hand=[Move,Attack,Defend,Defend,Defend]",
+          "outcome winner=none doubleKO=false"
+        ]
+      },
+      "noCommanderEvents": true,
+      "noEnemyActionsBlock": true
+    },
+    "last stand": {
+      "events": {
+        "count": 20,
+        "types": {
+          "turnStart": 1,
+          "enemyPlan": 2,
+          "fighters": 1,
+          "tickStart": 1,
+          "consumed": 1,
+          "attackSwing": 2,
+          "hit": 2,
+          "damage": 2,
+          "death": 1,
+          "queueCleared": 1,
+          "tickEnd": 1,
+          "recovery": 1,
+          "debugNote": 1,
+          "handDraw": 1,
+          "turnEnd": 1,
+          "outcome": 1
+        },
+        "key": [
+          "death tick=1 unit=P1",
+          "recovery heals=[]",
+          "handDraw drawn=[Move] hand=[Move,Move,Attack,Defend,Defend]",
+          "outcome winner=enemy doubleKO=false"
+        ]
+      },
+      "noCommanderEvents": true,
+      "noEnemyActionsBlock": true
+    }
+  },
+  "usage": {
+    "contexts": 6,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

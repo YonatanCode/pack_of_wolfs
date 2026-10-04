@@ -34,7 +34,7 @@ async function run() {
     ["Move", "Defend", "Defend", "Attack", "Attack", "Attack"], "pool order is canonical: Move, Defend, Attack");
   check(g.ev("computeRulesHash(computeEffectiveRules(getDefaultSettings()))") === DEFAULT_HASH && g.ev("RULES_HASH") === DEFAULT_HASH, "default effective hash is 0d3ce2ec6fa6de");
   same(J(g, "window.RULESET_PRESETS"), { current: { label: "Current rules", available: true },
-    commander: { label: "Commander rules", available: false, unavailableMessage: "commander ruleset arrives in P2b" } }, "preset registry");
+    commander: { label: "Commander ruleset (experimental: enemy-action rules only)", available: true } }, "preset registry");
 
   // ---- R21b
   const fieldReport = {};
@@ -123,7 +123,6 @@ async function run() {
     overMax: ["rules=hs:9", "handSize must be a whole number from 1 to 8"], underMin: ["rules=pab:0", "playerActionBudget must be a whole number from 1 to 8"],
     weightOverMax: ["rules=wm:21", "weightMove must be a whole number from 0 to 20"],
     crossField: ["rules=wm:0,wa:0,wd:0", "at least one draw weight must be greater than 0; the hand cannot be filled: 0 drawable action(s) x maxSameAction 3 = 0, but handSize is 5"],
-    commander: ["preset=commander&rules=hs:6", "commander ruleset arrives in P2b"], commanderAlone: ["preset=commander", "commander ruleset arrives in P2b"],
     bogusPreset: ["preset=bogus&rules=hs:6", 'unknown preset "bogus"'], duplicatePreset: ["preset=current&preset=current", "duplicate preset parameter"],
     duplicateRules: ["rules=hs:6&rules=hs:7", "duplicate rules parameter"],
   };
@@ -135,7 +134,7 @@ async function run() {
   });
   // boot behaviour (4 boots): rejected link -> defaults + status; valid -> applied; world -> ignored
   const bootStatus = {};
-  ["&preset=current&rules=hs:7,hs:6", "&preset=commander&rules=hs:7", "&rules=hs:9,pab:3"].forEach((q, i) => {
+  ["&preset=current&rules=hs:7,hs:6", "&preset=bogus&rules=hs:7", "&rules=hs:9,pab:3"].forEach((q, i) => {
     const b = mk(`?scenario=intro&seed=1${q}`);
     const st = J(b, "window.devTest.getRulesLinkStatus()");
     check(st.status === "rejected" && st.message.startsWith("rules link rejected ("), `boot ${q}: rejected`);
@@ -159,8 +158,9 @@ async function run() {
   const pr = mk();
   pr.ev("document.getElementById('rules-preset').value = 'commander'");
   P.click(pr, "rules-preset", "change");
-  check(P.messages(pr).some((m) => m.text === "commander ruleset arrives in P2b" && m.cls === "is-error"), "selecting commander is rejected with an explicit message");
-  check(pr.ev("document.getElementById('rules-preset').value") === "current" && P.record(pr).preset === "current" && P.record(pr).hash === DEFAULT_HASH, "no silent fallback: the select returns to current and nothing changed");
+  check(pr.ev("window.devTest.getPendingPreset()") === "commander" && pr.ev("document.getElementById('rules-preset').value") === "commander", "selecting commander sets the pending preset");
+  check(!P.messages(pr).some((m) => m.cls === "is-error"), "selecting commander shows no error");
+  check(P.record(pr).preset === "current" && P.record(pr).hash === DEFAULT_HASH, "the effective record stays current / DEFAULT_HASH until Apply");
   // strict panel input parsing
   const inputs = { "5": 5, "0": 0, "-1": -1, "5abc": "5abc", "": "", " 5": " 5", "1.5": "1.5", "05": "05", "5 ": "5 ", "1e1": "1e1", "9999999": 9999999 };
   Object.entries(inputs).forEach(([text, expected]) => same(pr.ev(`readRulesInputValue(${JSON.stringify(text)})`), expected, `panel input ${JSON.stringify(text)}`));
@@ -172,6 +172,6 @@ async function run() {
 
   const handsGenerated = P.reportHands(ID, ctxs.reduce((n, c) => n + P.handsOf(c), 0)); // boot hands only (no other draws)
   return { header: P.REQ_HEADER_P2A, handsGenerated, bounds: BOUNDS, defaults: DEFAULTS, perField: fieldReport, crossField: cross, links: { roundTrips, rejections: rejectReport, bootStatus },
-    presets: ["current (available)", "commander (rejected: commander ruleset arrives in P2b)"], panelInputParsing: inputs };
+    presets: ["current (available)", "commander (available: experimental, enemy-action rules only)"], panelInputParsing: inputs };
 }
 module.exports = { id: ID, run };
