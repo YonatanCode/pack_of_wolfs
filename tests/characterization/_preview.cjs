@@ -135,6 +135,14 @@ function dryRun(g, options) {
   return out;
 }
 
+/** Internal fixture entry: like dryRun but through dryRunTurnInternal (the only way to apply queue overrides to the copy). */
+function dryRunInternal(g, options) {
+  return JSON.parse(g.ev(`JSON.stringify((function () {
+    try { return { ok: true, result: dryRunTurnInternal(${options === undefined ? "" : JSON.stringify(options)}) }; }
+    catch (e) { return { ok: false, error: { name: e && e.name, reason: (e && e.reason) ?? null, message: String(e && e.message).split("\\n")[0] } }; }
+  })())`));
+}
+
 /** Preview with the spies counting; returns the dry-run outcome and the counters for that preview only. */
 function spiedDryRun(g, options) {
   g.ev("__p1e.spy.active = true; __p1e.spy.created = 0; __p1e.spy.mutations = {}; __p1e.spy.scheduled = {};");
@@ -231,6 +239,6 @@ function installPresentationTrace(g) {
 }
 
 module.exports = {
-  REQ_HEADER, L, boot, evJ, snapshot, stateHash, liveFingerprint, dryRun, spiedDryRun, ZERO_COUNTERS, summarizeEvents,
+  REQ_HEADER, L, boot, evJ, snapshot, stateHash, liveFingerprint, dryRun, dryRunInternal, spiedDryRun, ZERO_COUNTERS, summarizeEvents,
   BOARDS, queueCards, PRESENTATION_SPY_NAMES, installPresentationTrace, sha256,
 };

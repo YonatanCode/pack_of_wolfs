@@ -175,8 +175,14 @@ function syntheticRejections() {
   P.L.check(r.thrown && r.reason === "no-player-orders", `no orders: ${JSON.stringify(r)}`);
   out["no queued player orders"] = `${r.name} reason=${r.reason}`;
   const before = P.liveFingerprint(n);
-  const q = P.dryRun(n, { queues: { P1: ["Move"], P3: ["Defend"] } });
-  P.L.check(q.ok, "options.queues gives the copy orders");
+  // Public entry refuses hypothetical orders (P2 must validate them first); nothing changes.
+  const refused = P.dryRun(n, { queues: { P1: ["Move"] } });
+  P.L.check(!refused.ok && refused.error.name === "BattleStateError", `public dryRunTurn refuses options.queues: ${JSON.stringify(refused)}`);
+  P.L.same(P.liveFingerprint(n), before, "refused options.queues changed nothing live");
+  out["public dryRunTurn refuses options.queues"] = `${refused.error.name}: ${refused.error.message}`;
+  // Fixture-only internal entry applies the override to the copy.
+  const q = P.dryRunInternal(n, { queues: { P1: ["Move"], P3: ["Defend"] } });
+  P.L.check(q.ok, "internal options.queues gives the copy orders");
   P.L.same(P.liveFingerprint(n), before, "options.queues changed nothing live");
   const consumed = q.result.events.find((e) => e.type === "consumed");
   out["options.queues on the copy only"] = `consumed tick 1: ${consumed.actions.map((x) => `${x.unit}:${x.action}`).join(" ")}; live queues untouched`;

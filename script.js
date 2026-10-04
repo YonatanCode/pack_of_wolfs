@@ -6187,8 +6187,9 @@ function getTurnEventLog() {
 //                                  the turn core reads or writes. Shares nothing mutable with the live battle.
 //                                  Read-only (never draws from a stream, never creates queue entries). Called
 //                                  while a swap is active it copies the swapped-in state.
-// loadBattleState(state)        -> applies a BattleState's LOGICAL state to the live battle (fixtures/round
-//                                  trips). It renders NOTHING: unit sprites (position, facing, hidden/defeated
+// loadBattleState(state)        -> INTERNAL, fixtures only (not on window.devTest; not a user-facing loading
+//                                  feature, and it gets no rendering support). Applies a BattleState's LOGICAL
+//                                  state to the live battle for round-trip tests. It renders NOTHING: unit sprites (position, facing, hidden/defeated
 //                                  look, idle/death animation), health bars, intent tags, the hand view
 //                                  (#actions-list; the next hand operation rebuilds it from the data), queue
 //                                  rows / timeline, controls, the result overlay, the arena tiles and the
@@ -6198,15 +6199,21 @@ function getTurnEventLog() {
 //                                  need the arena or the sprites rebuilt). Rejected while busy (DryRunRejected).
 // withBattleState(state, fn)    -> runs fn() with the rules code reading a fresh copy built from `state`, then
 //                                  restores the ORIGINAL objects/arrays/bindings in a finally (also on throw).
-// dryRunTurn({ queues }?)       -> { events, outcome, finalState, eventHash }: the SAME full lifecycle as the
+// dryRunTurn()                  -> { events, outcome, finalState, eventHash }: the SAME full lifecycle as the
 //                                  Play button (runTurnCore: turn-start plan, ticks, casualty replans, recovery,
 //                                  debug note, hand draw, next-turn preview plan, outcome), drained with NO replay
 //                                  on a copy of the live battle as of the call; the copy is then discarded.
+//                                  It previews ONLY the player orders currently queued: any options.queues is
+//                                  refused (BattleStateError). The live hand DATA is used, never the DOM hand
+//                                  (see the hand-view shim note below).
+// dryRunTurnInternal({ queues }?) -> INTERNAL, fixtures only (not on window.devTest). Same as dryRunTurn but
 //                                  options.queues = { P1: [actions], P2: [...], P3: [...] } replaces those units'
-//                                  queues IN THE COPY ONLY (unlisted units keep their queues; no validation, no
-//                                  hand cards are consumed: order validation is P2). The live hand DATA is used,
-//                                  never the DOM hand (see the hand-view shim note below).
-// Exposed as window.devTest.snapshotBattleState / loadBattleState / dryRunTurn: dev/fixture hooks, no UI.
+//                                  queues IN THE COPY ONLY (unlisted units keep their queues; NO validation, no
+//                                  hand cards consumed, no action budget check). P2 MUST validate hypothetical
+//                                  orders against the same hand, card consumption and action budgets as real
+//                                  play before any such entry point is exposed to the Battle Lab.
+// Exposed as window.devTest.snapshotBattleState / dryRunTurn: dev/fixture hooks, no UI. See ENGINE-NOTES.md
+// for the full hook list and when they are to be separated from the normal game.
 //
 // SWAP MECHANISM (temporary seam: replace it if the engine moves into its own files). The rules code reads
 // module-level bindings, so withBattleState points those bindings at the copy and back:
@@ -6551,6 +6558,16 @@ function applyDryRunQueueOverrides(state, queues) {
 
 // The same full lifecycle as the Play button, drained on a copy with no replay (see the block comment).
 function dryRunTurn(options = {}) {
+  if (options && options.queues !== undefined) {
+    // Hypothetical orders are not exposed until P2 validates them (see the API comment above).
+    throw new BattleStateError("dryRunTurn previews only the currently queued player orders; options.queues is not supported");
+  }
+
+  return dryRunTurnInternal();
+}
+
+// Fixtures only (see the API comment): queue overrides are applied to the COPY without validation.
+function dryRunTurnInternal(options = {}) {
   rejectIfBattleStateBusy("dryRunTurn");
 
   const state = snapshotBattleState();
@@ -9899,7 +9916,6 @@ window.devTest = {
   getTurnEventLog,
   // Dev/fixture hooks (no UI), see "BATTLE STATE (X3)": plain-data battle copies and dry runs of a turn.
   snapshotBattleState,
-  loadBattleState,
   dryRunTurn,
 };
 
