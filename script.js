@@ -138,7 +138,7 @@ window.RULESET_PRESETS = deepFreeze({
 //   enemyQueueLimitByEnemyBudget  the enemy branch of isUnitActionQueueFull uses enemyActionBudget
 //   accounting                 enemyBudget / unassigned / forfeited / enemyAccounting events + the "Enemy actions" note
 window.COMMANDER_RULES = deepFreeze({
-  version: "0.3.0-commander-enemy-actions-targets",
+  version: "0.4.0-commander-enemy-actions-targets-fallback",
   scopeLabel: "experimental: enemy-action and target-selection rules",
   enemyRules: { frozenPlan: true, forfeitOnDeath: true, budgetCeiling: true, enemyQueueLimitByEnemyBudget: true, accounting: true },
 });
@@ -5885,7 +5885,7 @@ function recordBattleDebugTick(tickActions, startStates, moveTargets, damageResu
 
       if (hits.length > 0) {
         return hits
-          .map((hit) => `${getBattleDebugUnitName(unit)} Attack ${movement} hit ${getBattleDebugUnitName(hit.target)} for ${hit.damage}`)
+          .map((hit) => `${getBattleDebugUnitName(unit)} Attack ${movement} hit ${getBattleDebugUnitName(hit.target)} for ${hit.damage}${hit.fallbackFromTargetId ? ` (fallback: ${hit.fallbackFromTargetId} not adjacent or defeated)` : ""}`)
           .join("; ");
       }
 
@@ -6365,8 +6365,10 @@ function formatEnemyActionsNote(summary) {
 // only (snapshot keys `target` / `targetSource` on player records); under current they are never set. A target stays
 // until the player changes it, the battle is reset, or (once dead) a first-queue / Play-time auto-pick replaces it.
 // Play commits the targets for the whole turn: Move follows the committed target with the wolf's approach, Attack
-// hits only the committed target when it is adjacent after the moves (else a Miss "target-not-adjacent"), and a
-// Move / Attack whose target died earlier in the turn is consumed without effect ("target-defeated").
+// hits the committed target when it is adjacent after the moves; if it is not adjacent (or is defeated) and another
+// enemy is adjacent it hits that one by the no-target selection (hit event field fallbackFromTargetId); with nobody
+// adjacent it is a Miss "target-not-adjacent". A Move (or an Attack with nobody adjacent) whose target died earlier in
+// the turn is consumed without effect ("target-defeated").
 function isTargetSelectionActive() {
   return isCommanderRules() && enemyMode === "wolves";
 }
@@ -6466,7 +6468,12 @@ function commitTurnTargets(context) {
 // A player Move / Attack whose committed target is dead is consumed without effect. Returns those tick actions.
 function getTargetDefeatedSkips(tickActions) {
   return tickActions.filter(({ unit, action }) => {
-    return unit.team === "player" && (action === "Move" || action === "Attack") && Boolean(unit.targetId) && !getLivingTargetUnit(unit);
+    if (unit.team !== "player" || (action !== "Move" && action !== "Attack") || !unit.targetId || getLivingTargetUnit(unit)) {
+      return false;
+    }
+
+    // An Attack whose target died still swings when another living enemy is adjacent (fallback hit); Move never does.
+    return !(action === "Attack" && getAttackTarget(unit));
   });
 }
 
@@ -6719,6 +6726,10 @@ function* runTickCore(context, combatants) {
         defended: targetIsDefending,
         // commander: why a player Attack on its committed target missed (used only if it does miss)
         ...(isTargetSelectionActive() && unit.team === "player" ? { missReason: liveTarget ? "target-not-adjacent" : "no-target" } : {}),
+        // commander: the hit landed on another enemy because the committed target was not adjacent / defeated
+        ...(isTargetSelectionActive() && unit.team === "player" && unit.targetId && liveTarget && getBattleDebugUnitId(liveTarget) !== unit.targetId && isAttackDamageStillValid(unit, liveTarget)
+          ? { fallbackFromTargetId: unit.targetId }
+          : {}),
       };
     });
   const damageResult = resolveTickDamageRules(context, tick, damageIntents);
@@ -9037,7 +9048,16 @@ function getBlockingUnitAtSnapshotPosition(row, col, startStates) {
 
 function getAttackIntentTarget(attacker, startStates) {
   if (isTargetSelectionActive() && attacker.team === "player") {
-    return getLivingTargetUnit(attacker); // commander: only the committed target, adjacent or not (then a Miss)
+    // commander: the committed target while it is alive and adjacent; otherwise the SAME choice the wolf makes with no
+    // target (adjacent enemy by the start-of-tick snapshot, facing tiebreak: a fallback hit); else the committed target
+    // (adjacent or not) so a swing with nobody adjacent still faces it and then Misses.
+    const committed = getLivingTargetUnit(attacker);
+
+    if (committed && isAdjacentTile(attacker.row, attacker.col, committed.row, committed.col)) {
+      return committed;
+    }
+
+    return getAttackTargetFromSnapshot(attacker, startStates) ?? committed;
   }
 
   return getAttackTargetFromSnapshot(attacker, startStates);
@@ -9045,7 +9065,13 @@ function getAttackIntentTarget(attacker, startStates) {
 
 function getLiveAttackTarget(attacker, intendedTarget, startStates) {
   if (isTargetSelectionActive() && attacker.team === "player") {
-    return intendedTarget; // commander: no fallback to another adjacent enemy
+    // commander: the committed (or snapshot-fallback) target while alive and adjacent, else the live no-target choice
+    // (getAttackTarget, as the current preset), else the committed target (not adjacent: a Miss).
+    if (intendedTarget && isUnitAlive(intendedTarget) && isAdjacentTile(attacker.row, attacker.col, intendedTarget.row, intendedTarget.col)) {
+      return intendedTarget;
+    }
+
+    return getAttackTarget(attacker) ?? getLivingTargetUnit(attacker) ?? intendedTarget;
   }
 
   if (
@@ -9135,13 +9161,14 @@ function resolveTickDamageRules(context, tick, damageIntents) {
   missedAttackers.forEach((attacker) => {
     emitTurnEvent(context, "miss", { tick, attacker: getBattleDebugUnitId(attacker), ...(missDetails.get(attacker) ?? {}) });
   });
-  validIntents.forEach(({ attacker, target, damage, defended }) => {
+  validIntents.forEach(({ attacker, target, damage, defended, fallbackFromTargetId }) => {
     emitTurnEvent(context, "hit", {
       tick,
       attacker: getBattleDebugUnitId(attacker),
       target: getBattleDebugUnitId(target),
       damage,
       defended: Boolean(defended),
+      ...(fallbackFromTargetId ? { fallbackFromTargetId } : {}),
     });
   });
 
@@ -9190,7 +9217,7 @@ function resolveTickDamageRules(context, tick, damageIntents) {
   });
 
   return {
-    hits: validIntents.map(({ attacker, target, damage }) => ({ attacker, target, damage })),
+    hits: validIntents.map(({ attacker, target, damage, fallbackFromTargetId }) => ({ attacker, target, damage, ...(fallbackFromTargetId ? { fallbackFromTargetId } : {}) })),
     misses: Array.from(missedAttackers),
     defeated: damageResults.filter(({ defeated }) => defeated).map(({ target }) => target),
   };
