@@ -75,7 +75,7 @@
           "ring": false
         }
       },
-      "status": "intro · seed 1 · commander (experimental) · target P1 -> E2 (chosen)"
+      "status": "intro · seed 1 · commander (experimental) · P2 selected: click an enemy to target it, click it again to clear"
     },
     {
       "step": "P2 clicks E2 (shared badge)",

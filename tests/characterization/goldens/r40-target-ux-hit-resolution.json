@@ -1,0 +1,50 @@
+{
+  "header": "REQUIREMENT — target selection UX",
+  "hands": 6,
+  "evidence": {
+    "nearerEnemy": {
+      "status": "intro · seed 1 · commander (experimental) · target P1 -> E1 (chosen)",
+      "targets": "P1:E1/chosen P2:- P3:-"
+    },
+    "outsideFar": {
+      "stopped": false,
+      "selected": "P1"
+    },
+    "padding": {
+      "bandStatus": "intro · seed 1 · commander (experimental) · target P1 cleared"
+    },
+    "deadRect": {
+      "stopped": false,
+      "selected": "P1"
+    }
+  },
+  "pointers": {
+    "nearerEnemy": {
+      "stopped": true
+    },
+    "nearerWolf": {
+      "stopped": true
+    },
+    "tieSelected": {
+      "stopped": true
+    },
+    "tieNone": {
+      "stopped": true
+    },
+    "band": {
+      "stopped": true
+    },
+    "none": {
+      "stopped": true
+    },
+    "legacy": {
+      "stopped": true
+    }
+  },
+  "usage": {
+    "contexts": 6,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "header": "REQUIREMENT — target selection UX",
+  "hands": 5,
+  "emptyHand": {
+    "hand": 0,
+    "selected": "P1",
+    "menuHidden": false,
+    "buttonsHidden": true,
+    "status": "intro · seed 1 · commander (experimental) · target P1 -> E3 (chosen)"
+  },
+  "hint": {
+    "afterSelect": "intro · seed 1 · commander (experimental) · P1 selected: click an enemy to target it, click it again to clear"
+  },
+  "unassign": [
+    {
+      "step": "E2 chosen",
+      "targets": "P1:E2/chosen P2:- P3:-",
+      "selected": "P1",
+      "markers": {
+        "E2": {
+          "chips": [
+            "P1"
+          ],
+          "autoChips": [],
+          "ring": true
+        }
+      },
+      "status": "intro · seed 1 · commander (experimental) · target P1 -> E2 (chosen)"
+    },
+    {
+      "step": "E2 clicked again: cleared (no queued Move / Attack)",
+      "targets": "P1:- P2:- P3:-",
+      "selected": "P1",
+      "markers": {},
+      "status": "intro · seed 1 · commander (experimental) · target P1 cleared"
+    },
+    {
+      "step": "E1 chosen (retarget from E2)",
+      "targets": "P1:E1/chosen P2:- P3:-",
+      "selected": "P1",
+      "markers": {
+        "E1": {
+          "chips": [
+            "P1"
+          ],
+          "autoChips": [],
+          "ring": true
+        }
+      },
+      "status": "intro · seed 1 · commander (experimental) · target P1 -> E1 (chosen)"
+    },
+    {
+      "step": "E1 clicked again with a queued Move: cleared",
+      "targets": "P1:- P2:- P3:-",
+      "selected": "P1",
+      "markers": {},
+      "status": "intro · seed 1 · commander (experimental) · target P1 cleared (Play will auto-pick the nearest)"
+    }
+  ],
+  "playTime": {
+    "targetsCommitted": {
+      "type": "targetsCommitted",
+      "targets": [
+        {
+          "unit": "P1",
+          "target": "E1",
+          "source": "auto",
+          "targetAlive": true
+        },
+        {
+          "unit": "P2",
+          "target": null,
+          "source": null,
+          "targetAlive": false
+        },
+        {
+          "unit": "P3",
+          "target": null,
+          "source": null,
+          "targetAlive": false
+        }
+      ],
+      "autoPicked": [
+        "P1"
+      ]
+    },
+    "summary": [
+      "targetsCommitted targets=[{unit:P1,target:E1,source:auto,targetAlive:true},{unit:P2,target:null,source:null,targetAlive:false},{unit:P3,target:null,source:null,targetAlive:false}] autoPicked=[P1]",
+      "move tick=1 unit=P1 from={row:11,col:5} to={row:8,col:5} direction=topRight facing=topRight moved=true path=[{row:11,col:5},{row:10,col:5},{row:9,col:5},{row:8,col:5}]",
+      "move tick=1 unit=E2 from={row:0,col:7} to={row:2,col:9} direction=bottomRight facing=bottomRight moved=true path=[{row:0,col:7},{row:1,col:8},{row:2,col:9}]",
+      "move tick=1 unit=E3 from={row:0,col:2} to={row:3,col:2} direction=bottomLeft facing=bottomLeft moved=true path=[{row:0,col:2},{row:1,col:2},{row:2,col:2},{row:3,col:2}]"
+    ]
+  },
+  "refusedWhileExecuting": "intro · seed 1 · commander (experimental) · target P1 cleared (Play will auto-pick the nearest)",
+  "usage": {
+    "contexts": 5,
+    "maxSteps": 50,
+    "totalSteps": 50,
+    "cap": 4000
+  }
+}
