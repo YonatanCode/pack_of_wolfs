@@ -43,7 +43,7 @@ const J = (g, expr) => PV.evJ(g, expr);
 /** Calls in the context, results as plain data. */
 const validate = (g, orders) => J(g, `validatePlayerOrders(${JSON.stringify(orders)})`);
 const applyOrders = (g, orders) => J(g, `applyPlayerOrders(${JSON.stringify(orders)})`);
-const headlessTurn = (g, orders) => J(g, `runHeadlessTurn(${JSON.stringify(orders)})`);
+const headlessTurn = (g, orders, options) => J(g, `runHeadlessTurn(${JSON.stringify(orders)}${options ? `, ${JSON.stringify(options)}` : ""})`);
 const observe = (g) => J(g, "observeBattle()");
 const hand = (g) => J(g, "playerHand");
 const queues = (g) => J(g, `[player, playerSupport, playerFlank].map((u) => getBattleDebugUnitId(u) + ":" + getUnitActionQueue(u).join(","))`);
@@ -77,9 +77,9 @@ async function playLive(g, orders) {
   return { ui, events, ...after(g) };
 }
 
-/** HEADLESS: runHeadlessTurn; its returned observation must equal a fresh one taken afterwards. */
+/** HEADLESS: runHeadlessTurn with the dev-only events opt-in; its returned observation must equal a fresh one. */
 function playHeadless(g, orders) {
-  const r = headlessTurn(g, orders);
+  const r = headlessTurn(g, orders, { includeEvents: true });
   S.check(r.ok === true, `headless turn ran: ${JSON.stringify(r).slice(0, 200)}`);
   const rest = after(g);
   S.same(r.observation, rest.observation, "the headless result's observation equals a fresh observeBattle()");

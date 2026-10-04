@@ -1,6 +1,6 @@
 {
   "header": "REQUIREMENT — L1 player orders: observation and state isolation",
-  "hands": 8,
+  "hands": 9,
   "hiddenInEngine": {
     "packQueue": [
       {
@@ -234,8 +234,22 @@
     }
   ],
   "headlessResult": {
-    "outcome": "none",
-    "eventCount": 18
+    "defaultKeys": [
+      "ok",
+      "outcome",
+      "observation"
+    ],
+    "optInKeys": [
+      "ok",
+      "outcome",
+      "observation",
+      "events"
+    ],
+    "outcomes": [
+      "none",
+      "none"
+    ],
+    "optInEventCount": 31
   },
   "rejection": {
     "refusals": [

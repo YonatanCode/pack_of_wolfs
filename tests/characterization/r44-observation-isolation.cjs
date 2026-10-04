@@ -11,7 +11,8 @@
 //      strings, numbers, booleans, null).
 // R44c COPIES. Mutating every part of an observation (hand, units, queues, terrain, rules, config) changes nothing in
 //      the game (live fingerprint: state, DOM, view, debug, flags) and a fresh observation equals the original; taking
-//      an observation changes nothing. Same for runHeadlessTurn's returned observation and events.
+//      an observation changes nothing. runHeadlessTurn's DEFAULT result has no events key ({ ok, outcome, observation });
+//      with the dev-only { includeEvents: true } it also carries the events; mutating either result changes nothing.
 // R44d REJECTION DOES NOT LEAK. Two refused headless turns (budget overflow, bad target), then a valid one, equal a
 //      never-refused control (events, BattleState, note, observation; fingerprint equal before the valid turn). The
 //      headless door runs NO presentation: with r10's DOM / timer spies active around refused and accepted
@@ -84,11 +85,19 @@ async function run() {
   same(O.observe(g), obs, "a fresh observation equals the original");
   const headCtx = track(O.boot());
   const res = O.J(headCtx, `(globalThis.__res = runHeadlessTurn(${JSON.stringify([{ unit: "P1", action: "Attack" }, { unit: "P2", action: "Move" }])}))`);
+  same(Object.keys(res), ["ok", "outcome", "observation"], "default headless result: no events key");
   const afterTurn = PV.liveFingerprint(headCtx);
-  headCtx.ev(`${MUTATE}(__res.observation); __res.events.forEach((e) => { e.type = "x"; }); __res.events.length = 0;`);
-  same(PV.liveFingerprint(headCtx), afterTurn, "mutating runHeadlessTurn's observation and events changes nothing");
+  headCtx.ev(`${MUTATE}(__res.observation)`);
+  same(PV.liveFingerprint(headCtx), afterTurn, "mutating the default result's observation changes nothing");
   same(O.observe(headCtx), res.observation, "a fresh observation equals the returned one");
-  same(O.J(headCtx, "window.devTest.getTurnEventLog()"), res.events, "the engine's turn log still equals the returned events");
+  same(res.observation.hand.cards, ["Move", "Attack", "Attack", "Defend", "Defend"], "turn-2 hand (the opt-in turn is written from it)");
+  const res2 = O.J(headCtx, `(globalThis.__res2 = runHeadlessTurn(${JSON.stringify([{ unit: "P1", action: "Defend" }, { unit: "P2", action: "Attack" }])}, { includeEvents: true }))`);
+  same(Object.keys(res2), ["ok", "outcome", "observation", "events"], "opt-in (dev / fixtures): the result also carries the events");
+  const afterTurn2 = PV.liveFingerprint(headCtx);
+  headCtx.ev(`${MUTATE}(__res2.observation); __res2.events.forEach((e) => { e.type = "x"; }); __res2.events.length = 0;`);
+  same(PV.liveFingerprint(headCtx), afterTurn2, "mutating the opt-in result's observation and events changes nothing");
+  same(O.observe(headCtx), res2.observation, "a fresh observation equals the returned one (opt-in)");
+  same(O.J(headCtx, "window.devTest.getTurnEventLog()"), res2.events, "the engine's turn log still equals the returned events");
 
   // ---- R44d rejection does not leak; the door runs no presentation
   const rej = track(O.boot());
@@ -118,7 +127,7 @@ async function run() {
     observation: obs,
     keyWalk: walk,
     currentObservationUnits: curObs.units,
-    headlessResult: { outcome: res.outcome, eventCount: res.events.length },
+    headlessResult: { defaultKeys: Object.keys(res), optInKeys: Object.keys(res2), outcomes: [res.outcome, res2.outcome], optInEventCount: res2.events.length },
     rejection: { refusals: refusals.map((r) => r.out), counters: [...refusals.map((r) => r.counters), accepted.counters], validTurn: valid,
       handViewAfterHeadless: staleView },
   };

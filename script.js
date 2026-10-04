@@ -7611,9 +7611,9 @@ function loadBattleState(state) {
 //   presentation runs (the hand view, queue rows, tags and markers stay as they were, like drainTurnCore). turn: also
 //   refuse when no player action would be queued (no-player-orders). Cards already queued by the UI were taken from the
 //   hand when queued; orders only take cards still in the hand, so nothing is charged twice.
-// runHeadlessTurn(orders) -> applyPlayerOrders(orders, { turn: true }) + drainTurnCore() -> { ok, events, outcome,
-//   observation }. events = the full turn log (dev / equivalence use: it includes the next turn's enemy plan, so it is
-//   NOT bot-safe); observation = observeBattle() after the turn.
+// runHeadlessTurn(orders, { includeEvents }) -> applyPlayerOrders(orders, { turn: true }) + drainTurnCore() -> { ok,
+//   outcome, observation } (observation = observeBattle() after the turn). includeEvents (dev / fixtures only) adds
+//   events = the full turn log, which includes the next turn's enemy plan, so it is NOT bot-safe and off by default.
 // observeBattle() -> a fresh plain-data copy of what a human sees: board, terrain, active units (position, facing, health,
 //   defeated, concealed; player wolves also movement mode, queued orders and, under commander, the target), own hand,
 //   reshuffle charges, a rules summary and the outcome. NO enemy plan / intent tags, no pack focus or objectives, no
@@ -7737,7 +7737,8 @@ function applyPlayerOrders(orders, { turn = false } = {}) {
   return { ok: true, queuedTotal: verdict.queuedTotal };
 }
 
-function runHeadlessTurn(orders) {
+// includeEvents (dev / fixtures only): also return the full turn log, which includes the next turn's enemy plan.
+function runHeadlessTurn(orders, { includeEvents = false } = {}) {
   const applied = applyPlayerOrders(orders, { turn: true });
 
   if (!applied.ok) {
@@ -7746,7 +7747,7 @@ function runHeadlessTurn(orders) {
 
   const events = drainTurnCore();
 
-  return { ok: true, events, outcome: getBattleOutcome(), observation: observeBattle() };
+  return { ok: true, outcome: getBattleOutcome(), observation: observeBattle(), ...(includeEvents ? { events } : {}) };
 }
 
 function observeBattle() {
