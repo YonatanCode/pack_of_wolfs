@@ -2318,11 +2318,20 @@ function queueUnitAction(unit, action) {
 
   actionQueue.push(action);
 
+  // Inside runInTurnCore (headless orders, applyPlayerOrders) the rules run and the presentation is skipped.
+  const present = !isTurnCoreRunning();
+
   if (actionQueue.length === 1 && unit.team === "player" && isTargetSelectionActive()) {
-    presentAutoTargetPick(unit, autoPickUnitTarget(unit)); // commander: the first queued action picks a target if none lives
+    const pick = autoPickUnitTarget(unit); // commander: the first queued action picks a target if none lives
+
+    if (present) {
+      presentAutoTargetPick(unit, pick);
+    }
   }
 
-  renderActionQueue();
+  if (present) {
+    renderActionQueue();
+  }
 
   if (unit.team === "player") {
     updateEnemyIntentPreview();
@@ -2407,12 +2416,23 @@ function createPlayerMovementModeSelector() {
 }
 
 // Removes the FIRST card with this name (data), and its <li> (view) with the FLIP slide of the rest.
+// Inside runInTurnCore (headless orders, applyPlayerOrders) only the hand DATA changes; the view is left as it was.
 function consumeAvailableAction(action) {
-  preparePlayerHandForEdit();
+  const headless = isTurnCoreRunning();
+
+  if (!headless) {
+    preparePlayerHandForEdit();
+  }
+
   const index = playerHand.indexOf(action);
 
   if (index === -1) {
     return false;
+  }
+
+  if (headless) {
+    playerHand.splice(index, 1);
+    return true;
   }
 
   const matchingItem = playerHandViewItems[index];
@@ -7564,7 +7584,9 @@ function loadBattleState(state) {
 }
 
 // ============================================================================
-// PLAYER ORDERS AND OBSERVATIONS (L1): one order validation for the UI click paths and headless orders.
+// PLAYER ORDERS AND OBSERVATIONS (L1): one order validation for the UI click paths and the headless door, a
+// player-limited observation, and a headless turn on the EXISTING turn core (drainTurnCore). Dev/fixture hooks, no UI;
+// see ENGINE-NOTES.md section 10 and the hooks table (marked "Separate").
 // ============================================================================
 // An order is plain data, with the unit ids of the events:
 //   { unit: "P1" | "P2" | "P3", action: "Move" | "Attack" | "Defend" }  queue ONE hand card (first match) for that wolf
@@ -7581,6 +7603,21 @@ function loadBattleState(state) {
 //     shared by the pack, so it is also each wolf's ceiling), unknown-action, then the hand: max-same-action (the card is
 //     not in the hand AND the pack already queued activeRules.maxSameAction of it: the cap is a DRAW cap, hand + queued
 //     never exceed it, so the hand check is what enforces it; this reason names that case), card-not-in-hand.
+// applyPlayerOrders(orders, { turn }) -> the headless door: refuses (never throws for a refusal; nothing changes) while
+//   the battle is not open for orders (getRulesLockReason: busy, tutorial, no scenario battle) or is over, then validates
+//   the WHOLE list first and only then applies it through the UI's own data paths (consumeAvailableAction,
+//   queueUnitAction with its first-queue auto-pick and enemy-preview replan, setUnitTarget) inside runInTurnCore, so no
+//   presentation runs (the hand view, queue rows, tags and markers stay as they were, like drainTurnCore). turn: also
+//   refuse when no player action would be queued (no-player-orders). Cards already queued by the UI were taken from the
+//   hand when queued; orders only take cards still in the hand, so nothing is charged twice.
+// runHeadlessTurn(orders) -> applyPlayerOrders(orders, { turn: true }) + drainTurnCore() -> { ok, events, outcome,
+//   observation }. events = the full turn log (dev / equivalence use: it includes the next turn's enemy plan, so it is
+//   NOT bot-safe); observation = observeBattle() after the turn.
+// observeBattle() -> a fresh plain-data copy of what a human sees: board, terrain, active units (position, facing, health,
+//   defeated, concealed; player wolves also movement mode, queued orders and, under commander, the target), own hand,
+//   reshuffle charges, a rules summary and the outcome. NO enemy plan / intent tags, no pack focus or objectives, no
+//   commander plan state, no RNG, no draw weights or enemy pool. The engine has no turn counter (not added: it would be
+//   new BattleState), so the caller counts turns.
 function validatePlayerOrders(orders) {
   const reject = (index, reason, message) => ({ ok: false, index, reason, message });
 
@@ -7651,6 +7688,107 @@ function validatePlayerOrders(orders) {
   }
 
   return { ok: true, queuedTotal: queued.length };
+}
+
+function applyPlayerOrders(orders, { turn = false } = {}) {
+  const lock = getRulesLockReason();
+
+  if (lock !== null) {
+    return { ok: false, index: -1, reason: lock, message: `the battle is not open for orders (${lock})` };
+  }
+
+  if (!hasAliveUnitsByTeam("player") || !hasAliveUnitsByTeam("enemy")) {
+    return { ok: false, index: -1, reason: "battle-over", message: "the battle is over" };
+  }
+
+  adoptExternalPlayerHandEdits(); // a pending direct DOM edit of the hand becomes data first, as the UI's next hand edit does
+
+  const verdict = validatePlayerOrders(orders);
+
+  if (!verdict.ok) {
+    return verdict;
+  }
+
+  if (turn && verdict.queuedTotal === 0) {
+    return { ok: false, index: -1, reason: "no-player-orders", message: "no player action is queued: Play would not start a turn" };
+  }
+
+  runInTurnCore(() => {
+    orders.forEach((order) => {
+      const unit = getUnitByBattleId(order.unit);
+
+      if ("target" in order) {
+        setUnitTarget(unit, order.target === null ? null : getUnitByBattleId(order.target), "chosen");
+      } else if (!consumeAvailableAction(order.action) || !queueUnitAction(unit, order.action)) {
+        throw new Error(`applyPlayerOrders: a validated order did not apply (${order.unit} ${order.action})`);
+      }
+    });
+  });
+
+  return { ok: true, queuedTotal: verdict.queuedTotal };
+}
+
+function runHeadlessTurn(orders) {
+  const applied = applyPlayerOrders(orders, { turn: true });
+
+  if (!applied.ok) {
+    return applied;
+  }
+
+  const events = drainTurnCore();
+
+  return { ok: true, events, outcome: getBattleOutcome(), observation: observeBattle() };
+}
+
+function observeBattle() {
+  const showTargets = isTargetSelectionActive();
+
+  return {
+    schema: "player-observation/1",
+    config: { gridSize: GRID_SIZE, enemyMode },
+    rules: {
+      preset: isCommanderRules() ? "commander" : "current",
+      version: activeRules.version,
+      hash: activeRules.hash,
+      playerActionBudget: activeRules.playerActionBudget,
+      enemyActionBudget: activeRules.enemyActionBudget,
+      handSize: activeRules.handSize,
+      maxSameAction: activeRules.maxSameAction,
+    },
+    terrain: {
+      pond: [...pondTileKeys],
+      hill: [...hillTileKeys],
+      tree: [...treeTileKeys],
+      hillLevels: [...hillTileLevels.entries()].map(([key, level]) => [key, level]),
+    },
+    units: units.filter((unit) => isUnitActive(unit)).map((unit) => {
+      const seen = {
+        id: getBattleDebugUnitId(unit),
+        team: unit.team,
+        type: unit.type,
+        row: unit.row,
+        col: unit.col,
+        direction: unit.direction,
+        health: unit.health,
+        maxHealth: unit.maxHealth,
+        defeated: !isUnitAlive(unit),
+        concealed: Boolean(unit.isHidden),
+      };
+
+      if (unit.team !== "player") {
+        return seen;
+      }
+
+      return {
+        ...seen,
+        movementMode: unit.movementMode ?? null,
+        queue: [...(unitActionQueues.get(unit) ?? [])],
+        ...(showTargets ? { target: unit.targetId ?? null, targetSource: unit.targetSource ?? null } : {}),
+      };
+    }),
+    hand: { cards: [...playerHand], reshuffleChargesRemaining },
+    outcome: getBattleOutcome(),
+  };
 }
 
 function hasCombatantQueuedActions(combatant) {
@@ -10986,6 +11124,12 @@ window.devTest = {
   // Dev/fixture hooks (no UI), see "BATTLE STATE (X3)": plain-data battle copies and dry runs of a turn.
   snapshotBattleState,
   dryRunTurn,
+  // L1 dev/fixture hooks (no UI), see "PLAYER ORDERS AND OBSERVATIONS (L1)": shared order validation, the headless
+  // order door and turn, and the player-limited observation.
+  validatePlayerOrders,
+  applyPlayerOrders,
+  runHeadlessTurn,
+  observeBattle,
 };
 
 function getTileFromEvent(event) {
