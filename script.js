@@ -7605,7 +7605,8 @@ function loadBattleState(state) {
 //     never exceed it, so the hand check is what enforces it; this reason names that case), card-not-in-hand.
 // applyPlayerOrders(orders, { turn }) -> the headless door: refuses (never throws for a refusal; nothing changes) while
 //   the battle is not open for orders (getRulesLockReason: busy, tutorial, no scenario battle) or is over, then validates
-//   the WHOLE list first and only then applies it through the UI's own data paths (consumeAvailableAction,
+//   the WHOLE list first (against the hand with a pending direct DOM edit adopted; a refusal restores the hand data and
+//   view items) and only then applies it through the UI's own data paths (consumeAvailableAction,
 //   queueUnitAction with its first-queue auto-pick and enemy-preview replan, setUnitTarget) inside runInTurnCore, so no
 //   presentation runs (the hand view, queue rows, tags and markers stay as they were, like drainTurnCore). turn: also
 //   refuse when no player action would be queued (no-player-orders). Cards already queued by the UI were taken from the
@@ -7701,16 +7702,24 @@ function applyPlayerOrders(orders, { turn = false } = {}) {
     return { ok: false, index: -1, reason: "battle-over", message: "the battle is over" };
   }
 
-  adoptExternalPlayerHandEdits(); // a pending direct DOM edit of the hand becomes data first, as the UI's next hand edit does
+  // A pending direct DOM edit of the hand becomes data first, as the UI's next hand edit does; a refused list restores
+  // the hand data and view items exactly as they were (the edit stays pending).
+  const savedHand = [...playerHand];
+  const savedViewItems = playerHandViewItems;
+
+  adoptExternalPlayerHandEdits();
 
   const verdict = validatePlayerOrders(orders);
+  const refusal = !verdict.ok
+    ? verdict
+    : turn && verdict.queuedTotal === 0
+      ? { ok: false, index: -1, reason: "no-player-orders", message: "no player action is queued: Play would not start a turn" }
+      : null;
 
-  if (!verdict.ok) {
-    return verdict;
-  }
-
-  if (turn && verdict.queuedTotal === 0) {
-    return { ok: false, index: -1, reason: "no-player-orders", message: "no player action is queued: Play would not start a turn" };
+  if (refusal) {
+    playerHand.splice(0, playerHand.length, ...savedHand);
+    playerHandViewItems = savedViewItems;
+    return refusal;
   }
 
   runInTurnCore(() => {

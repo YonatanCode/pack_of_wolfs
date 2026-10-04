@@ -1,6 +1,6 @@
 {
   "header": "REQUIREMENT — L1 player orders: validation and atomic refusal",
-  "hands": 5,
+  "hands": 6,
   "cases": [
     {
       "case": "not a list",
@@ -347,6 +347,51 @@
       "message": "E2 is defeated"
     },
     {
+      "case": "pending DOM edit: Move only in the data hand",
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Move"
+        }
+      ],
+      "validate": "ok",
+      "apply": "card-not-in-hand@0",
+      "turn": "card-not-in-hand@0",
+      "message": "no Move card in the hand"
+    },
+    {
+      "case": "pending DOM edit: fourth Attack (three in the edited hand)",
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P3",
+          "action": "Attack"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        }
+      ],
+      "validate": "card-not-in-hand@2",
+      "apply": "max-same-action@3",
+      "turn": "max-same-action@3",
+      "message": "the pack already queued 3 Attack (max per action)"
+    },
+    {
+      "case": "pending DOM edit: empty list for a turn",
+      "orders": [],
+      "validate": "ok",
+      "turn": "no-player-orders@-1",
+      "message": "no player action is queued: Play would not start a turn"
+    },
+    {
       "case": "battle over (every enemy defeated)",
       "orders": [
         {
@@ -399,6 +444,29 @@
       "status": "intro · seed 1 · commander (experimental) · targets are locked while the turn plays"
     }
   },
+  "pendingDomEdit": {
+    "data": [
+      "Attack",
+      "Move",
+      "Attack",
+      "Defend",
+      "Defend"
+    ],
+    "view": [
+      "Attack",
+      "Move",
+      "Attack",
+      "Defend",
+      "Defend"
+    ],
+    "dom": [
+      "Attack",
+      "Attack",
+      "Attack",
+      "Defend",
+      "Defend"
+    ]
+  },
   "accepted": {
     "verdict": {
       "ok": true,
@@ -432,7 +500,7 @@
     ]
   },
   "usage": {
-    "contexts": 5,
+    "contexts": 6,
     "maxSteps": 0,
     "totalSteps": 0,
     "cap": 4000

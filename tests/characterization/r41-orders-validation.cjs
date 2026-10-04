@@ -15,6 +15,10 @@
 //      target-defeated, turn-executing); a refused click changes neither the hand nor the queues. Known difference: a
 //      defeated wolf cannot be selected in the UI, so its click is validated with no unit (unknown-unit) where the
 //      headless order names it (unit-defeated); both refuse.
+// R41e PENDING DOM HAND EDIT (shim). With isPlayerHandViewExternallyEdited() true, the door validates against the hand
+//      the edit would give (like the UI click, which adopts before taking a card), and refused lists (card missing from
+//      the edited hand, a no-orders turn) leave the full fingerprint unchanged: hand data and view items restored, the
+//      edit still pending. validatePlayerOrders alone reads the data hand (it adopts nothing).
 // R41d ACCEPTED. A valid mixed list (target + card) is applied by the door through the UI's data paths: first-match card
 //      taken, queue, target "chosen"; { target: null } clears; the hand VIEW is left as it was (documented: like
 //      drainTurnCore, the door renders nothing).
@@ -91,6 +95,19 @@ async function run() {
   cases.push(refuse(dead, "defeated wolf", [{ unit: "P3", action: "Move" }], all("unit-defeated@0")));
   cases.push(refuse(dead, "defeated target", [{ unit: "P1", target: "E2" }], all("target-defeated@0")));
 
+  // ---- R41e: a pending direct DOM edit of the hand (shim): the door validates against the adopted hand (as the UI click
+  // does, which adopts before taking the card) and a refusal restores hand data and view items (the edit stays pending)
+  const shim = track(O.boot());
+  shim.ev(`actionsList.replaceChildren(...["Attack", "Attack", "Attack", "Defend", "Defend"].map((a) => createAvailableActionItem(a)))`);
+  check(shim.ev("isPlayerHandViewExternallyEdited()") === true, "shim: the DOM hand edit is pending");
+  cases.push(refuse(shim, "pending DOM edit: Move only in the data hand", [{ unit: "P1", action: "Move" }],
+    { validate: "ok", apply: "card-not-in-hand@0", turn: "card-not-in-hand@0" }));
+  cases.push(refuse(shim, "pending DOM edit: fourth Attack (three in the edited hand)", [{ unit: "P1", action: "Attack" }, { unit: "P2", action: "Attack" },
+    { unit: "P3", action: "Attack" }, { unit: "P1", action: "Attack" }], { validate: "card-not-in-hand@2", apply: "max-same-action@3", turn: "max-same-action@3" }));
+  cases.push(refuse(shim, "pending DOM edit: empty list for a turn", [], { validate: "ok", apply: null, turn: "no-player-orders@-1" }));
+  check(shim.ev("isPlayerHandViewExternallyEdited()") === true, "shim: after the refusals the DOM hand edit is still pending");
+  const shimHand = { data: O.hand(shim), view: O.J(shim, "playerHandViewItems.map((i) => i.dataset.action)"), dom: O.J(shim, "__p1e.view().handView") };
+
   // ---- R41c: the UI paths validate through the same function (spy), same reasons, refusals change nothing
   const ui = {};
   [g, cap, pab, dead].forEach(O.installValidateSpy);
@@ -149,6 +166,7 @@ async function run() {
     hands: O.reportOrderHands(ID, ctxs),
     cases,
     ui,
+    pendingDomEdit: shimHand,
     accepted: { verdict: accepted, ...afterAccept, handViewBefore: viewBefore },
   };
 }
