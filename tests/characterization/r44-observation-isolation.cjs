@@ -6,8 +6,9 @@
 // R44b KEY WALK. Every key of the whole observation is walked: none of the forbidden names (RNG / seed, enemy plan,
 //      focus, objectives, frozen-plan and accounting state, AI flags, draw weights, enemy pool, intents, debug) occurs;
 //      queue / movementMode / target / targetSource occur only on player records; the exact key sets of the top level,
-//      the rules summary, enemy records and player records are pinned (current: no target keys); the RNG position
-//      value does not occur in the observation text. The observation is plain data (only plain objects / arrays,
+//      the rules summary, enemy records and player records are pinned (current: no target keys); RNG: no key name
+//      contains seed / rng / state / random, and no value equals the hand-stream state, the hand seed or the battle
+//      seed as a number or a string. The observation is plain data (only plain objects / arrays,
 //      strings, numbers, booleans, null).
 // R44c COPIES. Mutating every part of an observation (hand, units, queues, terrain, rules, config) changes nothing in
 //      the game (live fingerprint: state, DOM, view, debug, flags) and a fresh observation equals the original; taking
@@ -37,7 +38,12 @@ const MUTATE = `(function (o) { o.hand.cards.push("Move"); o.hand.cards[0] = "X"
   o.units.push({ id: "P9" }); o.terrain.hill.push("1,1"); o.terrain.pond.push("2,2"); o.terrain.hillLevels.push(["1,1", 3]);
   o.rules.playerActionBudget = 99; o.rules.hash = "x"; o.config.gridSize = 3; o.outcome = "player"; return true; })`;
 
-function keyWalk(obs, handState) {
+const RNG_EXPR = "({ handState: handRandom.getState(), handSeed, seed: activeScenarioSeed })";
+const RNG_KEY_PARTS = ["seed", "rng", "state", "random"];
+/** Every leaf value of a plain-data value. */
+const leaves = (v) => (Array.isArray(v) ? v.flatMap(leaves) : v && typeof v === "object" ? Object.values(v).flatMap(leaves) : [v]);
+
+function keyWalk(obs, rng) {
   const paths = O.keyPaths(obs);
   const forbidden = paths.filter((p) => FORBIDDEN.includes(p.key)).map((p) => p.path);
   same(forbidden, [], "no forbidden key anywhere in the observation");
@@ -46,8 +52,13 @@ function keyWalk(obs, handState) {
     return !m || obs.units[Number(m[1])].team !== "player";
   }).map((p) => p.path);
   same(misplaced, [], "queue / movementMode / target keys only on player records");
-  check(!JSON.stringify(obs).includes(String(handState)), "the RNG position value does not occur in the observation");
-  return { keysWalked: paths.length, forbiddenFound: forbidden, misplaced };
+  const rngKeys = paths.filter((p) => RNG_KEY_PARTS.some((part) => p.key.toLowerCase().includes(part))).map((p) => p.path);
+  same(rngKeys, [], "no key name contains seed / rng / state / random");
+  const rngValues = Object.values(rng).flatMap((n) => [n, String(n)]);
+  const values = leaves(obs);
+  const rngHits = values.filter((v) => rngValues.includes(v));
+  same(rngHits, [], "no value equals the RNG state, hand seed or battle seed (as a number or a string)");
+  return { keysWalked: paths.length, valuesWalked: values.length, forbiddenFound: forbidden, misplaced, rngKeyNames: rngKeys, rngValueHits: rngHits };
 }
 
 async function run() {
@@ -61,11 +72,11 @@ async function run() {
   same(O.applyOrders(g, [{ unit: "P1", action: "Attack" }, { unit: "P2", target: "E2" }]), { ok: true, queuedTotal: 1 }, "board orders applied");
   const hidden = O.J(g, `({ packQueue: getPackQueueData(), focus: getPackFocusData(), frozen: getEnemyPlanState().frozen,
     objectives: [enemy.packObjective, enemySupport.packObjective], concealed: units.filter((u) => u.isHidden).map(getBattleDebugUnitId),
-    tagsShown: { E1: !enemy.intentTags.hidden, E2: !enemySupport.intentTags.hidden }, handState: handRandom.getState() })`);
+    tagsShown: { E1: !enemy.intentTags.hidden, E2: !enemySupport.intentTags.hidden }, rng: ${RNG_EXPR} })`);
   check(hidden.packQueue.some((e) => e.unit === "E1") && hidden.focus && hidden.frozen && hidden.objectives.every(Boolean), "the engine holds an enemy plan (incl. E1), focus, objectives");
   check(hidden.concealed.includes("E1") && !hidden.tagsShown.E1 && hidden.tagsShown.E2, "E1 is concealed: its intent tags are hidden on screen, E2's are shown");
   const obs = O.observe(g);
-  const walk = keyWalk(obs, hidden.handState);
+  const walk = keyWalk(obs, hidden.rng);
   same(Object.keys(obs), ["schema", "config", "rules", "terrain", "units", "hand", "outcome"], "top-level keys");
   same(Object.keys(obs.rules), ["preset", "version", "hash", "playerActionBudget", "enemyActionBudget", "handSize", "maxSameAction"], "rules summary keys");
   obs.units.forEach((u) => same(Object.keys(u), u.team === "player" ? [...SEEN, ...PLAYER_ONLY] : SEEN, `${u.id}: record keys`));
@@ -73,7 +84,7 @@ async function run() {
   same(O.J(g, `${PLAIN_CHECK}(observeBattle())`), [], "plain data only");
   const cur = track(O.boot());
   const curObs = O.observe(cur);
-  keyWalk(curObs, O.J(cur, "handRandom.getState()"));
+  keyWalk(curObs, O.J(cur, RNG_EXPR));
   curObs.units.forEach((u) => same(Object.keys(u), u.team === "player" ? [...SEEN, "movementMode", "queue"] : SEEN, `current ${u.id}: record keys (no target)`));
 
   // ---- R44c copies
@@ -123,7 +134,7 @@ async function run() {
   return {
     header: "REQUIREMENT — L1 player orders: observation and state isolation",
     hands: O.reportOrderHands(ID, ctxs),
-    hiddenInEngine: { ...hidden, handState: "(recorded in the context; asserted absent from the observation)" },
+    hiddenInEngine: { ...hidden, rng: "(read in the context; asserted absent from the observation by key name and value)" },
     observation: obs,
     keyWalk: walk,
     currentObservationUnits: curObs.units,

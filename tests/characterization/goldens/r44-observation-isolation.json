@@ -49,7 +49,7 @@
       "E1": false,
       "E2": true
     },
-    "handState": "(recorded in the context; asserted absent from the observation)"
+    "rng": "(read in the context; asserted absent from the observation by key name and value)"
   },
   "observation": {
     "schema": "player-observation/1",
@@ -150,8 +150,11 @@
   },
   "keyWalk": {
     "keysWalked": 70,
+    "valuesWalked": 67,
     "forbiddenFound": [],
-    "misplaced": []
+    "misplaced": [],
+    "rngKeyNames": [],
+    "rngValueHits": []
   },
   "currentObservationUnits": [
     {
