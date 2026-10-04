@@ -59,8 +59,8 @@
     },
     "rules": {
       "preset": "commander",
-      "version": "0.3.0-commander-enemy-actions-targets",
-      "hash": "1ef03d7c79476f",
+      "version": "0.4.0-commander-enemy-actions-targets-fallback",
+      "hash": "1ee7c8d5a26ec1",
       "playerActionBudget": 5,
       "enemyActionBudget": 5,
       "handSize": 5,

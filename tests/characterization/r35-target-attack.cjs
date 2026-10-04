@@ -3,9 +3,10 @@
 // Hand-authored boards, enemy budget 0 (the pack passes), P1 alone with one Attack (queued directly), target chosen
 // through the tile handler.
 // R35a ADJACENT TO A NON-TARGET ONLY: P1 at 6,6 facing E1 (6,5, adjacent); the chosen target E2 is far (2,9). Commander:
-//      the Attack is consumed, the swing names E2, it is a Miss with reason "target-not-adjacent" (the existing Miss
-//      event, so the existing Miss popup replays), nobody takes damage (no fallback to E1); note
-//      "miss: E2 not adjacent". Current control (characterization): the same Attack hits the adjacent E1.
+//      the Attack is consumed and, as the committed E2 is not adjacent, falls back to the adjacent E1 (the no-target
+//      selection): the swing names E1, the hit event carries fallbackFromTargetId E2, E1 takes 3 (attack-fallback
+//      change, see r45; this fixture used to assert a Miss "target-not-adjacent" with no fallback). Current control
+//      (characterization): the same Attack hits the adjacent E1.
 // R35b ADJACENT TO BOTH: E1 at 6,5 (the one P1 faces) and E2 at 5,6, target E2. Commander: only E2 is hit (once,
 //      3 damage), E1 untouched; note "hit E2 ...". Current control (characterization): the facing rule hits E1.
 // R35c DRY RUN = PLAY for both commander turns (events and final state).
@@ -41,11 +42,11 @@ async function run() {
   // ---- R35a
   const a = await attackTurn(g, "nonTargetOnly");
   check(C.ofType(a.events, "consumed")[0].actions.some((x) => x.unit === "P1" && x.action === "Attack"), "commander: the Attack is consumed");
-  same(C.one(a.events, "attackSwing").target, "E2", "commander: the swing names the committed target E2");
-  same(C.one(a.events, "miss"), { type: "miss", tick: 1, attacker: "P1", reason: "target-not-adjacent", target: "E2" }, "commander: Miss target-not-adjacent");
-  check(C.ofType(a.events, "hit").length === 0 && C.ofType(a.events, "damage").length === 0, "commander: no hit, no damage (no fallback to the adjacent E1)");
-  same(a.health, { E1: 10, E2: 10 }, "commander: nobody hurt");
-  check(a.line === "P1 lead wolf Attack 6,6 -> 6,6 miss: E2 not adjacent", `commander: note line (${a.line})`);
+  same(C.one(a.events, "attackSwing").target, "E1", "commander: the swing names the adjacent fallback E1");
+  same(C.one(a.events, "hit"), { type: "hit", tick: 1, attacker: "P1", target: "E1", damage: 3, defended: false, fallbackFromTargetId: "E2" }, "commander: fallback hit on E1 marked from E2");
+  check(C.ofType(a.events, "miss").length === 0, "commander: no miss");
+  same(a.health, { E1: 7, E2: 10 }, "commander: E1 -3, E2 untouched");
+  check(a.line.startsWith("P1 lead wolf Attack 6,6 -> 6,6 hit E1 enemy wolf for 3 (fallback: E2 not adjacent or defeated)"), `commander: note line (${a.line})`);
   const ac = await attackTurn(cur, "nonTargetOnly");
   same(C.one(ac.events, "hit"), { type: "hit", tick: 1, attacker: "P1", target: "E1", damage: 3, defended: false }, "current (characterization): the Attack hits the adjacent E1");
   check(C.ofType(ac.events, "miss").length === 0 && ac.events.every((e) => !TG.TARGET_EVENT_TYPES.includes(e.type)), "current: no miss, no target events");

@@ -35,20 +35,20 @@
       "hash": "0d3ce2ec6fa6de"
     },
     "commanderDefault": {
-      "version": "0.3.0-commander-enemy-actions-targets",
-      "hash": "1ef03d7c79476f"
+      "version": "0.4.0-commander-enemy-actions-targets-fallback",
+      "hash": "1ee7c8d5a26ec1"
     },
     "commanderPab3": {
-      "hash": "0b73a3335cc5d4",
+      "hash": "0e5e5b303c16c1",
       "currentHashSameNumbers": "1d4995c324af15"
     }
   },
   "labels": {
     "commanderDefault": "intro · seed 1 · commander (experimental)",
-    "commanderCustom": "intro · seed 1 · custom rules 0b73a3 · commander (experimental)"
+    "commanderCustom": "intro · seed 1 · custom rules 0e5e5b · commander (experimental)"
   },
   "panel": {
-    "summary": "active: commander (experimental: enemy-action and target-selection rules) · pab 5 · hand 5 · charges 2 · cap 3 · weights M1 A1 D1 · enemy 5 (pool M2 D1 A2) · hash 1ef03d",
+    "summary": "active: commander (experimental: enemy-action and target-selection rules) · pab 5 · hand 5 · charges 2 · cap 3 · weights M1 A1 D1 · enemy 5 (pool M2 D1 A2) · hash 1ee7c8",
     "notice": "Applying settings restarts the battle and changes gameplay (not balanced). Restart / R / Play Again keep the ACTIVE settings; pending values are not applied until you click Apply. Commander ruleset (experimental: enemy-action and target-selection rules): only the enemy-action and target-selection rules differ from the current ruleset."
   },
   "failedApplyWithPreset": {

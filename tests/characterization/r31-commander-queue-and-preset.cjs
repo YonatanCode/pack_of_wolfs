@@ -10,7 +10,7 @@
 //     not parse index.html; the browser rendering of it is not tested by the current harness);
 //   - links: preset=commander alone and with rules= parse (round trip through buildRulesLink / Copy link, a booted
 //     copied link reproduces the record); preset=bogus and a duplicate preset are still rejected;
-//   - record / hash: commander reports preset commander, version 0.3.0-commander-enemy-actions-targets and a hash that
+//   - record / hash: commander reports preset commander, version 0.4.0-commander-enemy-actions-targets-fallback and a hash that
 //     differs from current for identical numbers (default and custom); computeRulesHash(record.values) = record.hash
 //     for both presets; the current default hash stays 0d3ce2ec6fa6de; the scenario label is marked
 //     "commander (experimental)";
@@ -29,7 +29,7 @@ const { check, same, J, DEFAULTS, DEFAULT_HASH } = S;
 const ID = "r31-commander-queue-and-preset";
 const SIX = ["Move", "Attack", "Defend", "Move", "Attack", "Defend"];
 const OPTION = '<option value="commander">Commander ruleset (experimental: enemy-action and target-selection rules)</option>';
-const VERSION = "0.3.0-commander-enemy-actions-targets";
+const VERSION = "0.4.0-commander-enemy-actions-targets-fallback";
 const labels = (g, v) => J(g, `Array.from(${v}.intentTags.querySelectorAll(".unit-intent-label")).map((t) => t.textContent)`);
 const parse = (g, q) => J(g, `parseRulesParams(new URLSearchParams(${JSON.stringify(q)}))`);
 const currentHashOf = (g, settings) => g.ev(`computeRulesHash(computeEffectiveRules(${JSON.stringify(settings)}))`);

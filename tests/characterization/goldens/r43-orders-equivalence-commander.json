@@ -93,7 +93,7 @@
         "outcome winner=none doubleKO=false"
       ],
       "eventHash": "a0f8fab285b38b081070b69c4d1d2a613f5c1cab0b1f9c73c79778a958de0812",
-      "stateHash": "c23c636e0cae2abe0cc26483cf2d25ce3e4ff99f7538084a694f9b5747ed8a15",
+      "stateHash": "0c59feaf5e0af4e002789fbd1212c91af92e64d4e4c21658a2833afff1a77b7b",
       "hand": [
         "Move",
         "Attack",
@@ -131,7 +131,7 @@
         "outcome winner=none doubleKO=false"
       ],
       "eventHash": "d29fca267f9455bd682bff8b0daddfc6385abddb4707698f9be2be5b3de980cd",
-      "stateHash": "91f53b183f33665b5bb300392db386e725bac89cf03c77ea1884ebe11ab78c36",
+      "stateHash": "7a0b59d21424ed8dc6a51339582eca4969ba86ffa2c583666c54d90c521a2e75",
       "hand": [
         "Attack",
         "Defend",
@@ -226,7 +226,7 @@
         "outcome winner=none doubleKO=false"
       ],
       "eventHash": "a0f8fab285b38b081070b69c4d1d2a613f5c1cab0b1f9c73c79778a958de0812",
-      "stateHash": "c23c636e0cae2abe0cc26483cf2d25ce3e4ff99f7538084a694f9b5747ed8a15",
+      "stateHash": "0c59feaf5e0af4e002789fbd1212c91af92e64d4e4c21658a2833afff1a77b7b",
       "hand": [
         "Move",
         "Attack",
@@ -278,7 +278,7 @@
         "outcome winner=none doubleKO=false"
       ],
       "eventHash": "a0f8fab285b38b081070b69c4d1d2a613f5c1cab0b1f9c73c79778a958de0812",
-      "stateHash": "c23c636e0cae2abe0cc26483cf2d25ce3e4ff99f7538084a694f9b5747ed8a15",
+      "stateHash": "0c59feaf5e0af4e002789fbd1212c91af92e64d4e4c21658a2833afff1a77b7b",
       "hand": [
         "Move",
         "Attack",

@@ -1,0 +1,158 @@
+{
+  "header": "REQUIREMENT — commander attack fallback",
+  "hands": 11,
+  "boards": {
+    "a": {
+      "summary": [
+        "targetsCommitted targets=[{unit:P1,target:E2,source:chosen,targetAlive:true}] autoPicked=[]",
+        "attackSwing tick=1 unit=P1 action=Attack animation=bite cycles=1 direction=topRight faced=true target=E2",
+        "hit tick=1 attacker=P1 target=E2 damage=3 defended=false"
+      ],
+      "noteTicks": [
+        "Tick 1: P1 lead wolf Attack 6,6 -> 6,6 hit E2 enemy support wolf for 3"
+      ],
+      "health": {
+        "E1": 10,
+        "E2": 7
+      }
+    },
+    "b": {
+      "summary": [
+        "targetsCommitted targets=[{unit:P1,target:E2,source:chosen,targetAlive:true}] autoPicked=[]",
+        "attackSwing tick=1 unit=P1 action=Attack animation=bite cycles=1 direction=topLeft faced=true target=E1",
+        "hit tick=1 attacker=P1 target=E1 damage=3 defended=false fallbackFromTargetId=E2"
+      ],
+      "noteTicks": [
+        "Tick 1: P1 lead wolf Attack 6,6 -> 6,6 hit E1 enemy wolf for 3 (fallback: E2 not adjacent or defeated)"
+      ],
+      "health": {
+        "E1": 7,
+        "E2": 10
+      }
+    },
+    "c": {
+      "summary": [
+        "targetsCommitted targets=[{unit:P1,target:E1,source:chosen,targetAlive:true},{unit:P2,target:E1,source:chosen,targetAlive:true}] autoPicked=[]",
+        "attackSwing tick=1 unit=P1 action=Attack animation=bite cycles=1 direction=topLeft faced=true target=E1",
+        "hit tick=1 attacker=P1 target=E1 damage=3 defended=false",
+        "death tick=1 unit=E1",
+        "targetSkipped tick=2 unit=P2 action=Move target=E1 reason=target-defeated",
+        "attackSwing tick=3 unit=P2 action=Attack animation=bite cycles=1 direction=bottomRight faced=true target=E2",
+        "hit tick=3 attacker=P2 target=E2 damage=3 defended=false fallbackFromTargetId=E1"
+      ],
+      "noteTicks": [
+        "Tick 1: P1 lead wolf Attack 6,6 -> 6,6 hit E1 enemy wolf for 3 | P2 support wolf Defend 9,9 -> 9,9",
+        "Tick 2: P2 support wolf Move skipped: E1 defeated",
+        "Tick 3: P2 support wolf Attack 9,9 -> 9,9 hit E2 enemy support wolf for 3 (fallback: E1 not adjacent or defeated)"
+      ],
+      "health": {
+        "E1": 0,
+        "E2": 7
+      }
+    },
+    "d": {
+      "summary": [
+        "targetsCommitted targets=[{unit:P1,target:E2,source:chosen,targetAlive:true}] autoPicked=[]",
+        "attackSwing tick=1 unit=P1 action=Attack animation=bite cycles=1 direction=topRight faced=true target=E2",
+        "miss tick=1 attacker=P1 reason=target-not-adjacent target=E2"
+      ],
+      "noteTicks": [
+        "Tick 1: P1 lead wolf Attack 6,6 -> 6,6 miss: E2 not adjacent"
+      ],
+      "health": {
+        "E1": 10,
+        "E2": 10
+      }
+    },
+    "e": {
+      "summary": [
+        "targetsCommitted targets=[{unit:P1,target:E1,source:chosen,targetAlive:true},{unit:P2,target:E1,source:chosen,targetAlive:true}] autoPicked=[]",
+        "attackSwing tick=1 unit=P1 action=Attack animation=bite cycles=1 direction=topLeft faced=true target=E1",
+        "hit tick=1 attacker=P1 target=E1 damage=3 defended=false",
+        "death tick=1 unit=E1",
+        "targetSkipped tick=2 unit=P2 action=Move target=E1 reason=target-defeated",
+        "targetSkipped tick=3 unit=P2 action=Attack target=E1 reason=target-defeated"
+      ],
+      "noteTicks": [
+        "Tick 1: P1 lead wolf Attack 6,6 -> 6,6 hit E1 enemy wolf for 3 | P2 support wolf Defend 9,9 -> 9,9",
+        "Tick 2: P2 support wolf Move skipped: E1 defeated",
+        "Tick 3: P2 support wolf Attack skipped: E1 defeated"
+      ],
+      "health": {
+        "E1": 0,
+        "E2": 10
+      }
+    }
+  },
+  "headlessEqualsLive": {
+    "count": 19,
+    "types": {
+      "turnStart": 1,
+      "targetsCommitted": 1,
+      "enemyPlan": 2,
+      "enemyBudget": 1,
+      "unassigned": 1,
+      "fighters": 1,
+      "tickStart": 1,
+      "consumed": 1,
+      "attackSwing": 1,
+      "hit": 1,
+      "damage": 1,
+      "tickEnd": 1,
+      "enemyAccounting": 1,
+      "recovery": 1,
+      "debugNote": 1,
+      "handDraw": 1,
+      "turnEnd": 1,
+      "outcome": 1
+    },
+    "key": [
+      "recovery heals=[]",
+      "handDraw drawn=[Move] hand=[Move,Move,Attack,Defend,Defend]",
+      "outcome winner=none doubleKO=false"
+    ],
+    "eventHash": "1759ff2ea3b379fec9f09e764dda5ff52da1b22c1d80858bce31769b6917d080",
+    "stateHash": "1f3cb6fc9d26f9692a6e193d23d0291df910ffae531b1cf245ee2381903ebed7",
+    "hand": [
+      "Move",
+      "Move",
+      "Attack",
+      "Defend",
+      "Defend"
+    ]
+  },
+  "current": {
+    "b": {
+      "summary": [
+        "move tick=1 unit=E2 from={row:2,col:9} to={row:4,col:7} direction=bottomLeft facing=bottomLeft moved=true path=[{row:2,col:9},{row:3,col:8},{row:4,col:7}]",
+        "attackSwing tick=1 unit=P1 action=Attack animation=bite cycles=1 direction=topLeft faced=true target=E1",
+        "attackSwing tick=1 unit=E1 action=Attack animation=bite cycles=1 direction=bottomRight faced=true target=P1",
+        "hit tick=1 attacker=P1 target=E1 damage=3 defended=false",
+        "hit tick=1 attacker=E1 target=P1 damage=3 defended=false",
+        "attackSwing tick=2 unit=E1 action=Attack animation=bite cycles=1 direction=bottomRight faced=true target=P1",
+        "hit tick=2 attacker=E1 target=P1 damage=3 defended=false"
+      ]
+    },
+    "c": {
+      "summary": [
+        "move tick=1 unit=E1 from={row:6,col:5} to={row:3,col:2} direction=topRight facing=topRight moved=true path=[{row:6,col:5},{row:5,col:4},{row:4,col:3},{row:3,col:2}]",
+        "attackSwing tick=1 unit=P1 action=Attack animation=bite cycles=1 direction=topLeft faced=true target=E1",
+        "attackSwing tick=1 unit=E2 action=Attack animation=bite cycles=1 direction=topLeft faced=true target=P2",
+        "miss tick=1 attacker=P1",
+        "hit tick=1 attacker=E2 target=P2 damage=1 defended=true",
+        "move tick=2 unit=P2 from={row:9,col:9} to={row:9,col:9} direction=bottomRight facing=bottomRight moved=false path=[{row:9,col:9}]",
+        "move tick=2 unit=E1 from={row:3,col:2} to={row:1,col:0} direction=topRight facing=topRight moved=true path=[{row:3,col:2},{row:2,col:1},{row:1,col:0}]",
+        "attackSwing tick=2 unit=E2 action=Attack animation=bite cycles=1 direction=topLeft faced=true target=P2",
+        "hit tick=2 attacker=E2 target=P2 damage=3 defended=false",
+        "attackSwing tick=3 unit=P2 action=Attack animation=bite cycles=1 direction=bottomRight faced=true target=E2",
+        "hit tick=3 attacker=P2 target=E2 damage=3 defended=false"
+      ]
+    }
+  },
+  "usage": {
+    "contexts": 9,
+    "maxSteps": 138,
+    "totalSteps": 518,
+    "cap": 4000
+  }
+}

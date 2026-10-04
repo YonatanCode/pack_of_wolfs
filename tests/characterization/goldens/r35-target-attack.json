@@ -5,12 +5,12 @@
     "commander": {
       "summary": [
         "targetsCommitted targets=[{unit:P1,target:E2,source:chosen,targetAlive:true}] autoPicked=[]",
-        "attackSwing tick=1 unit=P1 action=Attack animation=bite cycles=1 direction=topRight faced=true target=E2",
-        "miss tick=1 attacker=P1 reason=target-not-adjacent target=E2"
+        "attackSwing tick=1 unit=P1 action=Attack animation=bite cycles=1 direction=topLeft faced=true target=E1",
+        "hit tick=1 attacker=P1 target=E1 damage=3 defended=false fallbackFromTargetId=E2"
       ],
-      "noteLine": "P1 lead wolf Attack 6,6 -> 6,6 miss: E2 not adjacent",
+      "noteLine": "P1 lead wolf Attack 6,6 -> 6,6 hit E1 enemy wolf for 3 (fallback: E2 not adjacent or defeated)",
       "health": {
-        "E1": 10,
+        "E1": 7,
         "E2": 10
       }
     },
@@ -46,7 +46,7 @@
   "usage": {
     "contexts": 2,
     "maxSteps": 68,
-    "totalSteps": 129,
+    "totalSteps": 136,
     "cap": 4000
   }
 }
