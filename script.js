@@ -126,10 +126,11 @@ window.SETTINGS_LINK_KEYS = deepFreeze({
 
 window.RULESET_PRESETS = deepFreeze({
   current: { label: "Current rules", available: true },
-  commander: { label: "Commander ruleset (experimental: enemy-action rules only)", available: true },
+  commander: { label: "Commander ruleset (experimental: enemy-action and target-selection rules)", available: true },
 });
 
-// Commander preset (LIMITED EXPERIMENT): its ONLY differences from "current" are these enemy-action rules. They are
+// Commander preset (LIMITED EXPERIMENT): its ONLY differences from "current" are these enemy-action rules and the player
+// target selection (isTargetSelectionActive, see "Commander target selection"; version 0.3.0 added it). They are
 // fixed by the preset (not editable flags); activeRules carries preset "commander" and code asks isCommanderRules().
 //   frozenPlan                 the enemy plan is computed once per planning phase and not recomputed by edits / Play
 //   forfeitOnDeath             a dead enemy's remaining actions are forfeited; no mid-turn replan, no refund
@@ -137,8 +138,8 @@ window.RULESET_PRESETS = deepFreeze({
 //   enemyQueueLimitByEnemyBudget  the enemy branch of isUnitActionQueueFull uses enemyActionBudget
 //   accounting                 enemyBudget / unassigned / forfeited / enemyAccounting events + the "Enemy actions" note
 window.COMMANDER_RULES = deepFreeze({
-  version: "0.2.0-commander-enemy-actions",
-  scopeLabel: "experimental: enemy-action rules only",
+  version: "0.3.0-commander-enemy-actions-targets",
+  scopeLabel: "experimental: enemy-action and target-selection rules",
   enemyRules: { frozenPlan: true, forfeitOnDeath: true, budgetCeiling: true, enemyQueueLimitByEnemyBudget: true, accounting: true },
 });
 
@@ -464,12 +465,15 @@ function getRulesLinkStatus() {
 
 // Frozen per-battle snapshot, re-taken at every battle load/restart from the ACTIVE settings (default
 // settings reproduce RULES.perBattle exactly). The hash is recomputed from the full effective rules.
-// The current preset hashes the effective rules exactly as before; the commander preset adds its preset name and
-// enemy-action rule switches to what is hashed (so its hash differs for identical numbers).
+// The current preset hashes the effective rules exactly as before; the commander preset adds its preset name, its
+// version (so a commander rules change that bumps the version also changes the hash) and its enemy-action rule switches
+// to what is hashed (so its hash differs for identical numbers).
 function computeEffectiveRulesForPreset(settings, preset) {
   const effective = computeEffectiveRules(settings);
 
-  return preset === "commander" ? { ...effective, preset: "commander", enemyRules: cloneRulesData(window.COMMANDER_RULES.enemyRules) } : effective;
+  return preset === "commander"
+    ? { ...effective, preset: "commander", commanderVersion: window.COMMANDER_RULES.version, enemyRules: cloneRulesData(window.COMMANDER_RULES.enemyRules) }
+    : effective;
 }
 
 function createActiveRulesSnapshot() {
@@ -2313,6 +2317,11 @@ function queueUnitAction(unit, action) {
   }
 
   actionQueue.push(action);
+
+  if (actionQueue.length === 1 && unit.team === "player" && isTargetSelectionActive()) {
+    presentAutoTargetPick(unit, autoPickUnitTarget(unit)); // commander: the first queued action picks a target if none lives
+  }
+
   renderActionQueue();
 
   if (unit.team === "player") {
@@ -2560,6 +2569,7 @@ function setPlayerSelected(unitOrNull) {
   updateActiveDirection(getDevPreviewUnit().direction);
   updatePlayerActionControls();
   updateAnimationControls();
+  renderTargetMarkers(); // commander: the selected wolf's target gets the strong ring (no-op under current)
 }
 
 function rotatePlayerClockwise() {
@@ -4032,6 +4042,83 @@ function renderUnitIntentTags(unit, actions = getUnitActionQueue(unit)) {
   unit.intentTags.replaceChildren(...tags);
 }
 
+// ---- Commander target markers (presentation; created lazily, so the current preset never has one) ----------------
+// One overlay per targeted enemy, a sibling of the sprite in the unit layer (never on the sprite element), scaled back
+// with --arena-scale-inverse like the other unit overlays. It lists the wolves targeting that enemy ("P1 P3~": "~" and
+// the dashed chip = auto-picked); the SELECTED wolf's target gets the strong ring. Hidden for dead enemies, under
+// current and outside wolves mode.
+function createUnitTargetMarker() {
+  const marker = document.createElement("div");
+
+  marker.className = "unit-target-marker";
+  marker.hidden = true;
+  marker.setAttribute("aria-hidden", "true");
+  return marker;
+}
+
+function positionUnitTargetMarker(unit) {
+  if (!unit.targetMarker) {
+    return;
+  }
+
+  unit.targetMarker.style.left = `${unit.x}px`;
+  unit.targetMarker.style.top = `${unit.y}px`;
+}
+
+function updateUnitTargetMarkerDepth(unit) {
+  if (!unit.targetMarker) {
+    return;
+  }
+
+  unit.targetMarker.style.zIndex = Number(unit.element.style.zIndex || 0) + 4;
+}
+
+// The wolves (alive, in P1..P3 order) whose target is this enemy.
+function getWolvesTargeting(enemyUnit) {
+  const id = getBattleDebugUnitId(enemyUnit);
+
+  return getAliveUnitsByTeam("player").filter((unit) => unit.targetId === id);
+}
+
+function renderTargetMarkers() {
+  assertNotInCore("renderTargetMarkers");
+
+  const isActive = isTargetSelectionActive();
+  const selected = getSelectedPlayerUnit();
+
+  units.filter((unit) => unit.team === "enemy").forEach((enemyUnit) => {
+    const wolves = isActive && isUnitAlive(enemyUnit) ? getWolvesTargeting(enemyUnit) : [];
+
+    if (wolves.length === 0 && !enemyUnit.targetMarker) {
+      return; // nothing to show and nothing to hide (always the case under current)
+    }
+
+    if (!enemyUnit.targetMarker) {
+      enemyUnit.targetMarker = createUnitTargetMarker();
+    }
+
+    const marker = enemyUnit.targetMarker;
+    const layer = enemyUnit.element.parentElement;
+
+    if (layer && marker.parentElement !== layer) {
+      layer.append(marker); // the arena (and its unit layer) may have been rebuilt since the marker was made
+    }
+
+    marker.hidden = wolves.length === 0;
+    marker.classList.toggle("is-selected-target", Boolean(selected) && wolves.includes(selected));
+    marker.replaceChildren(...wolves.map((unit) => {
+      const chip = document.createElement("span");
+      const isAuto = unit.targetSource === "auto";
+
+      chip.className = `unit-target-chip${isAuto ? " is-auto" : ""}${unit === selected ? " is-selected" : ""}`;
+      chip.textContent = `${getBattleDebugUnitId(unit)}${isAuto ? "~" : ""}`;
+      return chip;
+    }));
+    positionUnitTargetMarker(enemyUnit);
+    updateUnitTargetMarkerDepth(enemyUnit);
+  });
+}
+
 function updateUnitHealthBarDepth(wolf) {
   if (!wolf.healthBar) {
     return;
@@ -4214,6 +4301,7 @@ function setUnitPosition(unit, x, y) {
   positionUnitHealthBar(unit);
   positionUnitIntentTags(unit);
   positionUnitHiddenTag(unit);
+  positionUnitTargetMarker(unit);
 
   if (unit === getSelectedPlayerUnit()) {
     positionPlayerActionMenu();
@@ -4229,6 +4317,7 @@ function updateUnitDepth(unit) {
   updateUnitHealthBarDepth(unit);
   updateUnitIntentTagsDepth(unit);
   updateUnitHiddenTagDepth(unit);
+  updateUnitTargetMarkerDepth(unit);
 
   if (unit === getSelectedPlayerUnit()) {
     positionPlayerActionMenu();
@@ -4309,6 +4398,16 @@ function updatePlayerMovePreview(unit = getSelectedPlayerUnit()) {
   setMovePreviewFrame(target.direction ?? selectedUnit.direction, selectedUnit);
 }
 
+// The enemy the single-tile move preview heads for: under commander the wolf's living target, or the enemy Play's
+// auto-pick would choose (so the preview agrees with execution); under current the nearest enemy, as before.
+function getPlayerMovePreviewTargetUnit(playerUnit) {
+  if (isTargetSelectionActive()) {
+    return getLivingTargetUnit(playerUnit) ?? pickNearestTargetFor(playerUnit);
+  }
+
+  return getFriendlyFocusTarget(playerUnit);
+}
+
 function getPlayerMovePreviewTarget(playerUnit = getSelectedPlayerUnit() ?? player) {
   const actionQueue = getUnitActionQueue(playerUnit);
   const previewStates = new Map(
@@ -4329,7 +4428,7 @@ function getPlayerMovePreviewTarget(playerUnit = getSelectedPlayerUnit() ?? play
       return;
     }
 
-    const plan = getPlayerMovePlanFromSnapshot(playerUnit, getFriendlyFocusTarget(playerUnit), previewStates, {
+    const plan = getPlayerMovePlanFromSnapshot(playerUnit, getPlayerMovePreviewTargetUnit(playerUnit), previewStates, {
       actionQueue: actionQueue.slice(actionIndex + 1),
     });
 
@@ -5743,7 +5842,8 @@ function beginBattleDebugLog() {
   };
 }
 
-function recordBattleDebugTick(tickActions, startStates, moveTargets, damageResult) {
+// targetInfo (commander target selection only, else null): { skips } = the tick actions consumed with a dead target.
+function recordBattleDebugTick(tickActions, startStates, moveTargets, damageResult, targetInfo = null) {
   if (!activeBattleDebugLog) {
     return;
   }
@@ -5752,10 +5852,16 @@ function recordBattleDebugTick(tickActions, startStates, moveTargets, damageResu
     const start = startStates.get(unit);
     const end = { row: unit.row, col: unit.col };
     const movement = `${formatBattleDebugPosition(start)} -> ${formatBattleDebugPosition(end)}`;
+    const isTargeted = Boolean(targetInfo) && unit.team === "player";
+
+    if (isTargeted && targetInfo.skips.some((entry) => entry.unit === unit)) {
+      return `${getBattleDebugUnitName(unit)} ${action} skipped: ${unit.targetId} defeated`;
+    }
 
     if (action === "Move") {
       const debug = moveTargets.get(unit)?.debug;
-      return `${getBattleDebugUnitName(unit)} Move ${movement}${debug ? ` [${debug}]` : ""}`;
+      const toward = isTargeted ? ` toward ${unit.targetId ?? "-"}` : "";
+      return `${getBattleDebugUnitName(unit)} Move ${movement}${toward}${debug ? ` [${debug}]` : ""}`;
     }
 
     if (action === "Attack") {
@@ -5766,6 +5872,10 @@ function recordBattleDebugTick(tickActions, startStates, moveTargets, damageResu
         return hits
           .map((hit) => `${getBattleDebugUnitName(unit)} Attack ${movement} hit ${getBattleDebugUnitName(hit.target)} for ${hit.damage}`)
           .join("; ");
+      }
+
+      if (isTargeted && missed) {
+        return `${getBattleDebugUnitName(unit)} Attack ${movement} miss: ${unit.targetId ? `${unit.targetId} not adjacent` : "no target"}`;
       }
 
       return `${getBattleDebugUnitName(unit)} Attack ${movement}${missed ? " missed" : " no target"}`;
@@ -5791,6 +5901,7 @@ function formatBattleDebugReport(log) {
     "",
     "Before:",
     ...log.before.map((snapshot) => formatBattleDebugUnitLine(snapshot, { includeQueue: true })),
+    ...(log.targetsLine ? [log.targetsLine] : []), // commander only
     "",
     "Actions played:",
   ];
@@ -6233,6 +6344,133 @@ function formatEnemyActionsNote(summary) {
   ];
 }
 
+// ---- Commander target selection (rules, core-safe; only under the commander preset, wolves mode) ---------------
+// Each player wolf may hold a target: an enemy unit id (unit.targetId) and its source (unit.targetSource: "chosen" =
+// clicked, "auto" = picked by the game). The two fields live on the unit records and are BattleState under commander
+// only (snapshot keys `target` / `targetSource` on player records); under current they are never set. A target stays
+// until the player changes it, the battle is reset, or (once dead) a first-queue / Play-time auto-pick replaces it.
+// Play commits the targets for the whole turn: Move follows the committed target with the wolf's approach, Attack
+// hits only the committed target when it is adjacent after the moves (else a Miss "target-not-adjacent"), and a
+// Move / Attack whose target died earlier in the turn is consumed without effect ("target-defeated").
+function isTargetSelectionActive() {
+  return isCommanderRules() && enemyMode === "wolves";
+}
+
+function setUnitTarget(unit, targetUnit, source) {
+  unit.targetId = targetUnit ? getBattleDebugUnitId(targetUnit) : null;
+  unit.targetSource = targetUnit ? source : null;
+}
+
+// Reset / restart / scenario load: no wolf keeps a target (deleting keeps current-preset unit objects untouched).
+function clearAllUnitTargets() {
+  units.forEach((unit) => {
+    delete unit.targetId;
+    delete unit.targetSource;
+  });
+}
+
+// The wolf's target if it is alive, else null (a dead target stays recorded until it is replaced).
+function getLivingTargetUnit(unit) {
+  const target = unit.targetId ? getUnitByBattleId(unit.targetId) : null;
+
+  return target && isUnitAlive(target) ? target : null;
+}
+
+// Nearest living enemy by grid distance; ties go to the lowest id (E1, E2, E3).
+function pickNearestTargetFor(unit) {
+  let nearest = null;
+  let nearestDistance = Infinity;
+
+  getAliveUnitsByTeam("enemy")
+    .sort((a, b) => (getBattleDebugUnitId(a) < getBattleDebugUnitId(b) ? -1 : 1))
+    .forEach((enemyUnit) => {
+      const distance = getGridDistance(unit.row, unit.col, enemyUnit.row, enemyUnit.col);
+
+      if (distance < nearestDistance) {
+        nearest = enemyUnit;
+        nearestDistance = distance;
+      }
+    });
+
+  return nearest;
+}
+
+// A wolf without a living target gets the nearest living enemy (source "auto"). Returns the pick, or null when the
+// wolf already has a living target (never re-picked) or no enemy is alive.
+function autoPickUnitTarget(unit) {
+  if (getLivingTargetUnit(unit)) {
+    return null;
+  }
+
+  const pick = pickNearestTargetFor(unit);
+
+  if (pick) {
+    setUnitTarget(unit, pick, "auto");
+  }
+
+  return pick;
+}
+
+function formatUnitTarget(unit) {
+  if (!unit.targetId) {
+    return `${getBattleDebugUnitId(unit)} -> -`;
+  }
+
+  const defeated = getLivingTargetUnit(unit) ? "" : ", defeated";
+
+  return `${getBattleDebugUnitId(unit)} -> ${unit.targetId} (${unit.targetSource}${defeated})`;
+}
+
+// Turn start (Play or a dry run): wolves with a queued Move / Attack and no living target get an auto-pick; then the
+// targets of all living player wolves are committed for the whole turn (event + battle-note line).
+function commitTurnTargets(context) {
+  const autoPicked = [];
+
+  getAliveUnitsByTeam("player").forEach((unit) => {
+    const hasTargetedAction = getUnitActionQueue(unit).some((action) => action === "Move" || action === "Attack");
+
+    if (hasTargetedAction && autoPickUnitTarget(unit)) {
+      autoPicked.push(getBattleDebugUnitId(unit));
+    }
+  });
+
+  const playerUnits = getAliveUnitsByTeam("player");
+
+  context.targetsLine = `Targets: ${playerUnits.length ? playerUnits.map(formatUnitTarget).join(", ") : "-"}`;
+  emitTurnEvent(context, "targetsCommitted", {
+    targets: playerUnits.map((unit) => ({
+      unit: getBattleDebugUnitId(unit),
+      target: unit.targetId ?? null,
+      source: unit.targetSource ?? null,
+      targetAlive: Boolean(getLivingTargetUnit(unit)),
+    })),
+    autoPicked,
+  });
+}
+
+// A player Move / Attack whose committed target is dead is consumed without effect. Returns those tick actions.
+function getTargetDefeatedSkips(tickActions) {
+  return tickActions.filter(({ unit, action }) => {
+    return unit.team === "player" && (action === "Move" || action === "Attack") && Boolean(unit.targetId) && !getLivingTargetUnit(unit);
+  });
+}
+
+// The unit a player Move heads for: the committed target under commander target selection, else the nearest enemy.
+function getPlayerMoveTargetUnit(unit) {
+  return isTargetSelectionActive() ? getLivingTargetUnit(unit) : getFriendlyFocusTarget(unit);
+}
+
+// Commander target selection: a player wolf's attack-intent move engages (and is capped by) ONLY its committed target.
+// Under current every opposing pair of attack-intent plans may engage, as before.
+function canAttackIntentPlansEngage(plan, otherPlan) {
+  if (!isTargetSelectionActive()) {
+    return true;
+  }
+
+  return (plan.unit.team !== "player" || plan.attackTarget === otherPlan.unit) &&
+    (otherPlan.unit.team !== "player" || otherPlan.attackTarget === plan.unit);
+}
+
 function* turnStartPhase(context) {
   emitTurnEvent(context, "turnStart", {
     enemyMode,
@@ -6240,6 +6478,10 @@ function* turnStartPhase(context) {
     enemyBudget: activeRules.enemyActionBudget,
     planned: getUnitQueuesData(),
   });
+
+  if (isTargetSelectionActive()) {
+    commitTurnTargets(context); // commander only: auto-pick + commit, before anything moves
+  }
 
   let renderUnits = null;
   let usedFrozenPlan = false;
@@ -6276,6 +6518,11 @@ function* turnStartPhase(context) {
   yield takeTurnStep(context, "enemyPlan");
 
   beginBattleDebugLog();
+
+  if (context.targetsLine) {
+    activeBattleDebugLog.targetsLine = context.targetsLine; // commander only
+  }
+
   isExecutingActionQueue = true;
   yield takeTurnStep(context, "selection");
 }
@@ -6359,10 +6606,20 @@ function* runTickCore(context, combatants) {
     return;
   }
 
+  // Commander target selection: a Move / Attack whose committed target died earlier in the turn is consumed here
+  // without movement or swing (no retargeting).
+  const targetSkips = isTargetSelectionActive() ? getTargetDefeatedSkips(tickActions) : [];
+
+  targetSkips.forEach(({ unit, action }) => {
+    emitTurnEvent(context, "targetSkipped", { tick, unit: getBattleDebugUnitId(unit), action, target: unit.targetId, reason: "target-defeated" });
+  });
+
+  const playedActions = targetSkips.length ? tickActions.filter((entry) => !targetSkips.includes(entry)) : tickActions;
+
   // --- moves: targets resolved together, then each mover's grid write -----------------------------
-  const moveTargets = getTickMoveTargets(tickActions, startStates);
-  const moveActions = tickActions.filter(({ action }) => action === "Move");
-  const nonMoveActions = tickActions.filter(({ action }) => action !== "Move");
+  const moveTargets = getTickMoveTargets(playedActions, startStates);
+  const moveActions = playedActions.filter(({ action }) => action === "Move");
+  const nonMoveActions = playedActions.filter(({ action }) => action !== "Move");
   let anyUnitMoved = false;
 
   moveActions.forEach(({ unit }) => {
@@ -6445,13 +6702,15 @@ function* runTickCore(context, combatants) {
         target: liveTarget,
         damage: targetIsDefending ? UNIT_DEFENDED_DAMAGE : UNIT_ATTACK_DAMAGE,
         defended: targetIsDefending,
+        // commander: why a player Attack on its committed target missed (used only if it does miss)
+        ...(isTargetSelectionActive() && unit.team === "player" ? { missReason: liveTarget ? "target-not-adjacent" : "no-target" } : {}),
       };
     });
   const damageResult = resolveTickDamageRules(context, tick, damageIntents);
 
   yield takeTurnStep(context, "damage");
 
-  recordBattleDebugTick(tickActions, startStates, moveTargets, damageResult);
+  recordBattleDebugTick(tickActions, startStates, moveTargets, damageResult, isTargetSelectionActive() ? { skips: targetSkips } : null);
 
   // Current preset: a casualty replans the pack from a fresh pool. Commander: no mid-turn replan (the dead unit's
   // actions were forfeited in resolveTickDamageRules; the survivors keep their queued actions).
@@ -6646,6 +6905,7 @@ function replayTurnStep(step, combatants = null) {
     case "swings":
       return replayTickSwings(step, combatants);
     case "damage":
+      renderTargetMarkers(); // commander: a dead target's marker goes (no-op under current)
       return replayTickDamage(step);
     case "replan":
       presentEnemyPlanEvent(getStepEvent(step, "replan"));
@@ -6670,6 +6930,7 @@ function replayTurnStep(step, combatants = null) {
       presentEnemyPlanEvent(getStepEvent(step, "enemyPlan"));
       updatePlayerActionControls();
       syncEnemyModeControls();
+      renderTargetMarkers(); // no-op under current
       alive.player.map(getUnitByBattleId).forEach((unit) => {
         playUnitAnimation(unit, "idle", unit === player);
       });
@@ -6865,7 +7126,8 @@ function getTurnEventLog() {
 //            read by the core, not copied)
 //   units    [ { id, team, type, isActive, row, col, direction, health, maxHealth, isDefeated, movementMode,
 //              turnsSinceHit, tookDamageThisTurn, isFleeing, isHidden, packObjective, queue } ] in P1,P2,P3,E1,E2,E3
-//            order; queue = the unit's player action queue (unitActionQueues), [] if it has none
+//            order; queue = the unit's player action queue (unitActionQueues), [] if it has none; commander preset
+//            only, player records: target (enemy id | null) and targetSource ("chosen" | "auto" | null)
 //   enemyPack { queue: [{ unit, action }], focus: unit id | null, planFrozen (commander preset only: the frozen-plan
 //            flag, getEnemyPlanState().frozen) }
 //   hand     { cards: [ordered playerHand], reshuffleChargesRemaining }
@@ -6887,6 +7149,9 @@ function getTurnEventLog() {
 //   also BattleState, off the top level (no row; fingerprinted by the follow-up fixtures): getEnemyPlanState().frozen
 //   (commander frozen-plan flag; snapshot enemyPack.planFrozen under commander, swapped by withBattleState). Settings
 //   state off the top level: getRulesState() (settings store) and getRulesPresetState() (active / pending preset).
+//   also BattleState, on the unit records (no row): unit.targetId / unit.targetSource (commander target selection;
+//   snapshot keys target / targetSource under commander only; never set under current). Presentation, on the unit
+//   records: unit.targetMarker (commander target badge, created lazily).
 //   (a) playerHand, reshuffleChargesRemaining: player economy
 //   (a) handRandom, handSeed: hand stream (position via getState)
 //   (a) pondTileKeys, hillTileKeys, treeTileKeys, hillTileLevels: terrain the core reads
@@ -6993,6 +7258,8 @@ function snapshotBattleUnit(id) {
     isHidden: Boolean(unit.isHidden),
     packObjective: unit.packObjective ? cloneRulesData(unit.packObjective) : null,
     queue: [...(unitActionQueues.get(unit) ?? [])],
+    // commander only, player wolves: the target (enemy id or null) and its source ("chosen" / "auto" / null)
+    ...(isCommanderRules() && unit.team === "player" ? { target: unit.targetId ?? null, targetSource: unit.targetSource ?? null } : {}),
   };
 }
 
@@ -7020,6 +7287,21 @@ function snapshotBattleState() {
   };
 }
 
+// Commander target fields on a unit record: absent, or (commander state, player record) a known enemy id or null with a
+// matching source ("chosen" / "auto" for an id, null for none).
+function isValidBattleStateTarget(state, record) {
+  if (!("target" in record) && !("targetSource" in record)) {
+    return true;
+  }
+
+  const enemyIds = state.units.filter((unit) => unit.team === "enemy").map((unit) => unit.id);
+
+  return state.rules.values.preset === "commander" && record.team === "player" && "target" in record && "targetSource" in record &&
+    (record.target === null
+      ? record.targetSource === null
+      : enemyIds.includes(record.target) && (record.targetSource === "chosen" || record.targetSource === "auto"));
+}
+
 // Structural check of a BattleState (throws BattleStateError; touches nothing).
 function validateBattleState(state) {
   const fail = (what) => {
@@ -7034,6 +7316,7 @@ function validateBattleState(state) {
   if (!Array.isArray(state.terrain.hillLevels)) fail("terrain.hillLevels");
   if (!Array.isArray(state.units) || state.units.map((unit) => unit && unit.id).join() !== BATTLE_STATE_UNIT_IDS.join()) fail("units");
   if (!state.units.every((unit) => isStringList(unit.queue) && Number.isFinite(unit.row) && Number.isFinite(unit.col))) fail("unit fields");
+  if (!state.units.every((unit) => isValidBattleStateTarget(state, unit))) fail("unit target");
   if (!state.enemyPack || !Array.isArray(state.enemyPack.queue)) fail("enemyPack");
   if (![...state.enemyPack.queue.map((entry) => entry && entry.unit), state.enemyPack.focus].every((id) => id === null || BATTLE_STATE_UNIT_IDS.includes(id))) fail("enemyPack unit ids");
   if (state.enemyPack.planFrozen !== undefined && typeof state.enemyPack.planFrozen !== "boolean") fail("enemyPack.planFrozen");
@@ -7061,6 +7344,14 @@ function writeBattleUnitFields(unit, record) {
   unit.isFleeing = record.isFleeing;
   unit.isHidden = record.isHidden;
   unit.packObjective = record.packObjective ? cloneRulesData(record.packObjective) : null;
+
+  if ("target" in record) {
+    unit.targetId = record.target; // commander only (see snapshotBattleUnit)
+    unit.targetSource = record.targetSource;
+  } else {
+    delete unit.targetId;
+    delete unit.targetSource;
+  }
 }
 
 // A rules-only stand-in for one unit of a copy: logical fields only; sprite-side fields throw when read.
@@ -7323,7 +7614,7 @@ function getTickMoveTargets(tickActions, startStates) {
       let plan = null;
 
       if (unit.team === "player") {
-        plan = getPlayerMovePlanFromSnapshot(unit, getFriendlyFocusTarget(unit), startStates, {
+        plan = getPlayerMovePlanFromSnapshot(unit, getPlayerMoveTargetUnit(unit), startStates, {
           ignoredBlockingUnits: movingUnits,
         });
       } else if (unit.team === "enemy") {
@@ -7354,7 +7645,8 @@ function getTickMoveTargets(tickActions, startStates) {
         otherPlan !== plan &&
         plan.isAttackIntent &&
         otherPlan.isAttackIntent &&
-        areOpposingUnits(plan.unit, otherPlan.unit)
+        areOpposingUnits(plan.unit, otherPlan.unit) &&
+        canAttackIntentPlansEngage(plan, otherPlan)
       );
     });
 
@@ -7617,7 +7909,7 @@ function getOpposingUnit(unit) {
   }
 
   if (unit.team === "player") {
-    return getFriendlyFocusTarget(unit);
+    return getPlayerMoveTargetUnit(unit); // commander: the committed target; current: the nearest enemy
   }
 
   return units.find((otherUnit) => {
@@ -7691,7 +7983,8 @@ function applyAttackIntentEngagementStops(movePlans, startStates) {
         engagedUnits.has(otherPlan.unit) ||
         !plan.isAttackIntent ||
         !otherPlan.isAttackIntent ||
-        !areOpposingUnits(plan.unit, otherPlan.unit)
+        !areOpposingUnits(plan.unit, otherPlan.unit) ||
+        !canAttackIntentPlansEngage(plan, otherPlan)
       ) {
         continue;
       }
@@ -8510,10 +8803,18 @@ function getBlockingUnitAtSnapshotPosition(row, col, startStates) {
 }
 
 function getAttackIntentTarget(attacker, startStates) {
+  if (isTargetSelectionActive() && attacker.team === "player") {
+    return getLivingTargetUnit(attacker); // commander: only the committed target, adjacent or not (then a Miss)
+  }
+
   return getAttackTargetFromSnapshot(attacker, startStates);
 }
 
 function getLiveAttackTarget(attacker, intendedTarget, startStates) {
+  if (isTargetSelectionActive() && attacker.team === "player") {
+    return intendedTarget; // commander: no fallback to another adjacent enemy
+  }
+
   if (
     intendedTarget &&
     isUnitAlive(intendedTarget) &&
@@ -8593,8 +8894,13 @@ function resolveTickDamageRules(context, tick, damageIntents) {
     damageByTarget.set(target, (damageByTarget.get(target) ?? 0) + damage);
   });
 
+  // Commander target selection: a player's miss carries its reason and committed target (current: no extra fields).
+  const missDetails = new Map(damageIntents
+    .filter(({ missReason }) => missReason)
+    .map(({ attacker, target, missReason }) => [attacker, { reason: missReason, target: attacker.targetId ?? (target ? getBattleDebugUnitId(target) : null) }]));
+
   missedAttackers.forEach((attacker) => {
-    emitTurnEvent(context, "miss", { tick, attacker: getBattleDebugUnitId(attacker) });
+    emitTurnEvent(context, "miss", { tick, attacker: getBattleDebugUnitId(attacker), ...(missDetails.get(attacker) ?? {}) });
   });
   validIntents.forEach(({ attacker, target, damage, defended }) => {
     emitTurnEvent(context, "hit", {
@@ -9121,6 +9427,7 @@ function resetDevTest(
   isExecutingActionQueue = false;
   clearEnemyPackActionQueue();
   enemyPackFocusTarget = null;
+  clearAllUnitTargets(); // commander target selection: a reset / restart / scenario load starts with no targets
   setPlayerSelected(null);
   resetUnitForDev(player, {
     ...getDefaultDevUnitSetup("player"),
@@ -10666,9 +10973,88 @@ function setDevToolsEnabled(enabled) {
   }
 }
 
+// ---- Commander target selection: input (presentation) -------------------------------------------------------------
+// A click on an enemy (its tile, or its sprite via the arena click handler) with a wolf selected sets that wolf's
+// target during planning. Returns true when the click was handled as a target choice (also when it was refused and
+// explained); always false under current, so the old input path runs unchanged.
+function getEnemyUnitAtTile(tile) {
+  if (!tile) {
+    return null;
+  }
+
+  const row = Number(tile.dataset.row);
+  const col = Number(tile.dataset.col);
+
+  const enemies = getUnitsAtPosition(row, col, { includeDefeated: true }).filter((unit) => unit.team === "enemy");
+
+  return enemies.find(isUnitAlive) ?? enemies[0] ?? null; // a living enemy first; else a defeated one (refused)
+}
+
+function getEnemyUnitFromPointerEvent(event) {
+  const point = getArenaPoint(event);
+
+  return getAliveUnitsByTeam("enemy")
+    .filter((unit) => isPointerInsideUnit(unit, event))
+    .sort((unit, otherUnit) => {
+      return (
+        Math.hypot(point.x - unit.x, point.y - unit.y) -
+        Math.hypot(point.x - otherUnit.x, point.y - otherUnit.y)
+      );
+    })[0] ?? null;
+}
+
+// The one-line status for target choices: appended to the small scenario label (bottom left); a restart resets it.
+function showTargetStatus(message) {
+  const base = getScenarioLabelText();
+
+  updateScenarioLabel(base ? `${base} · ${message}` : message);
+  scenarioLabelElement.classList.add("has-target-status"); // a little more visible (styles.css)
+}
+
+function handleEnemyTargetIntent(enemyUnit) {
+  if (!isTargetSelectionActive() || !enemyUnit || enemyUnit.team !== "enemy") {
+    return false;
+  }
+
+  const enemyId = getBattleDebugUnitId(enemyUnit);
+
+  if (isExecutingActionQueue) {
+    showTargetStatus("targets are locked while the turn plays");
+    return true;
+  }
+
+  if (!isUnitAlive(enemyUnit)) {
+    showTargetStatus(`${enemyId} is defeated: pick a living enemy`);
+    return true;
+  }
+
+  const selected = getSelectedPlayerUnit();
+
+  if (!selected) {
+    showTargetStatus(`select a wolf first, then click an enemy to target it`);
+    return true;
+  }
+
+  setUnitTarget(selected, enemyUnit, "chosen");
+  showTargetStatus(`target ${getBattleDebugUnitId(selected)} -> ${enemyId} (chosen)`);
+  renderTargetMarkers();
+  updatePlayerMovePreview();
+  return true;
+}
+
+// queueUnitAction's first-queue auto-pick, shown: status line + markers (pick null = nothing was picked).
+function presentAutoTargetPick(unit, pick) {
+  if (!pick) {
+    return;
+  }
+
+  showTargetStatus(`target ${getBattleDebugUnitId(unit)} -> ${getBattleDebugUnitId(pick)} (auto: nearest)`);
+  renderTargetMarkers();
+}
+
 function handleTileIntent(tile) {
   if (isExecutingActionQueue) {
-    return;
+    return isTargetSelectionActive() ? handleEnemyTargetIntent(getEnemyUnitAtTile(tile)) : undefined; // commander: refused, explained
   }
 
   if (!tile) {
@@ -10687,7 +11073,11 @@ function handleTileIntent(tile) {
   }
 
   if (isEnemyTile(tile)) {
-    return;
+    return isTargetSelectionActive() ? handleEnemyTargetIntent(getEnemyUnitAtTile(tile)) : undefined;
+  }
+
+  if (isTargetSelectionActive() && getEnemyUnitAtTile(tile)) {
+    return handleEnemyTargetIntent(getEnemyUnitAtTile(tile)); // commander: a defeated enemy's tile (refused, explained)
   }
 
   if (!isDevToolsEnabled) {
@@ -10773,10 +11163,17 @@ function updateScenarioLabel(text = null) {
     }
   }
 
-  scenarioLabelElement.textContent =
-    text ?? (activeScenario
-      ? `${activeScenario.id} · seed ${activeScenarioSeed}${isDefaultSettings(getRulesState().active) ? "" : ` · custom rules ${activeRules.hash.slice(0, 6)}`}${getActivePreset() === "commander" ? " · commander (experimental)" : ""}`
-      : "");
+  scenarioLabelElement.textContent = text ?? getScenarioLabelText();
+
+  if (scenarioLabelElement.classList.contains("has-target-status")) {
+    scenarioLabelElement.classList.remove("has-target-status"); // commander target status replaced (never set under current)
+  }
+}
+
+function getScenarioLabelText() {
+  return activeScenario
+    ? `${activeScenario.id} · seed ${activeScenarioSeed}${isDefaultSettings(getRulesState().active) ? "" : ` · custom rules ${activeRules.hash.slice(0, 6)}`}${getActivePreset() === "commander" ? " · commander (experimental)" : ""}`
+    : "";
 }
 
 function clearActiveScenario() {
@@ -11153,7 +11550,7 @@ function refreshRulesPanel() {
     notice.textContent = "Applying settings restarts the battle and changes gameplay (not balanced). "
       + "Restart / R / Play Again keep the ACTIVE settings; pending values are not applied until you click Apply."
       + (presetStore.active === "commander" || presetStore.pending === "commander"
-        ? ` Commander ruleset (${window.COMMANDER_RULES.scopeLabel}): only the enemy-action rules differ from the current ruleset.`
+        ? ` Commander ruleset (${window.COMMANDER_RULES.scopeLabel}): only the enemy-action and target-selection rules differ from the current ruleset.`
         : "");
   }
 
@@ -11701,7 +12098,16 @@ arena.addEventListener("click", (event) => {
     return;
   }
 
-  handleTileIntent(tile);
+  // Commander: an enemy sprite standing over another tile is still a target click.
+  if (isTargetSelectionActive() && !getEnemyUnitAtTile(tile) && handleEnemyTargetIntent(getEnemyUnitFromPointerEvent(event))) {
+    event.stopPropagation(); // keep the selection (the document click handler would deselect)
+    return;
+  }
+
+  if (handleTileIntent(tile) === true) {
+    event.stopPropagation(); // commander target click: keep the selection
+    return;
+  }
 
   if (isPlayerTile(tile)) {
     event.stopPropagation();
