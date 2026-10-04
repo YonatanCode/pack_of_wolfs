@@ -1,0 +1,321 @@
+{
+  "header": "REQUIREMENT — L1 player orders: headless = live (current preset)",
+  "hands": 15,
+  "twoTurns": {
+    "orders": [
+      [
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        },
+        {
+          "unit": "P3",
+          "action": "Defend"
+        }
+      ],
+      [
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P3",
+          "action": "Attack"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ]
+    ],
+    "liveUi": [
+      "P1 Attack: queued",
+      "P2 Move: queued",
+      "P3 Defend: queued"
+    ],
+    "turn1": {
+      "count": 19,
+      "types": {
+        "turnStart": 1,
+        "enemyPlan": 2,
+        "fighters": 1,
+        "tickStart": 1,
+        "consumed": 1,
+        "move": 3,
+        "attackSwing": 1,
+        "defendSwing": 2,
+        "miss": 1,
+        "tickEnd": 1,
+        "recovery": 1,
+        "debugNote": 1,
+        "handDraw": 1,
+        "turnEnd": 1,
+        "outcome": 1
+      },
+      "key": [
+        "recovery heals=[]",
+        "handDraw drawn=[Move,Attack,Defend] hand=[Move,Attack,Defend,Attack,Defend]",
+        "outcome winner=none doubleKO=false"
+      ],
+      "eventHash": "f769cd5f07236966a101d98e905f42fc693daa284dd3c919371fefc4703b3007",
+      "stateHash": "d898b5dca5ba7c339bd0b8ff0b6ebfc3389565d64089984af51aa833577de398",
+      "hand": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Attack",
+        "Defend"
+      ]
+    },
+    "turn2": {
+      "count": 34,
+      "types": {
+        "turnStart": 1,
+        "enemyPlan": 2,
+        "fighters": 1,
+        "tickStart": 4,
+        "consumed": 4,
+        "move": 3,
+        "attackSwing": 4,
+        "defendSwing": 2,
+        "miss": 4,
+        "tickEnd": 4,
+        "recovery": 1,
+        "debugNote": 1,
+        "handDraw": 1,
+        "turnEnd": 1,
+        "outcome": 1
+      },
+      "key": [
+        "recovery heals=[]",
+        "handDraw drawn=[Attack,Defend,Attack,Attack] hand=[Attack,Defend,Attack,Attack,Defend]",
+        "outcome winner=none doubleKO=false"
+      ],
+      "eventHash": "b03c59b90e961efc08572bbbd694788e38ceae325bee58c4e0c4bc6adebc05a9",
+      "stateHash": "568d1f48d14cce5b9b702d79d45342e49b44420befc6325abacd6c30e851a045",
+      "hand": [
+        "Attack",
+        "Defend",
+        "Attack",
+        "Attack",
+        "Defend"
+      ]
+    },
+    "outcome": "none"
+  },
+  "uiThenHeadless": {
+    "afterClick": {
+      "hand": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Defend"
+      ],
+      "queues": [
+        "P1:Attack",
+        "P2:",
+        "P3:"
+      ]
+    },
+    "planned": {
+      "P1": [
+        "Attack"
+      ],
+      "P2": [
+        "Move"
+      ],
+      "P3": [
+        "Defend"
+      ]
+    },
+    "drawn": [
+      "Move",
+      "Attack",
+      "Defend"
+    ],
+    "turn": {
+      "count": 19,
+      "types": {
+        "turnStart": 1,
+        "enemyPlan": 2,
+        "fighters": 1,
+        "tickStart": 1,
+        "consumed": 1,
+        "move": 3,
+        "attackSwing": 1,
+        "defendSwing": 2,
+        "miss": 1,
+        "tickEnd": 1,
+        "recovery": 1,
+        "debugNote": 1,
+        "handDraw": 1,
+        "turnEnd": 1,
+        "outcome": 1
+      },
+      "key": [
+        "recovery heals=[]",
+        "handDraw drawn=[Move,Attack,Defend] hand=[Move,Attack,Defend,Attack,Defend]",
+        "outcome winner=none doubleKO=false"
+      ],
+      "eventHash": "f769cd5f07236966a101d98e905f42fc693daa284dd3c919371fefc4703b3007",
+      "stateHash": "d898b5dca5ba7c339bd0b8ff0b6ebfc3389565d64089984af51aa833577de398",
+      "hand": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Attack",
+        "Defend"
+      ]
+    }
+  },
+  "headlessThenUi": {
+    "afterDoor": {
+      "hand": [
+        "Attack",
+        "Defend",
+        "Defend"
+      ],
+      "queues": [
+        "P1:Attack",
+        "P2:Move",
+        "P3:"
+      ],
+      "handView": [
+        "Attack",
+        "Move",
+        "Attack",
+        "Defend",
+        "Defend"
+      ]
+    },
+    "turn": {
+      "count": 19,
+      "types": {
+        "turnStart": 1,
+        "enemyPlan": 2,
+        "fighters": 1,
+        "tickStart": 1,
+        "consumed": 1,
+        "move": 3,
+        "attackSwing": 1,
+        "defendSwing": 2,
+        "miss": 1,
+        "tickEnd": 1,
+        "recovery": 1,
+        "debugNote": 1,
+        "handDraw": 1,
+        "turnEnd": 1,
+        "outcome": 1
+      },
+      "key": [
+        "recovery heals=[]",
+        "handDraw drawn=[Move,Attack,Defend] hand=[Move,Attack,Defend,Attack,Defend]",
+        "outcome winner=none doubleKO=false"
+      ],
+      "eventHash": "f769cd5f07236966a101d98e905f42fc693daa284dd3c919371fefc4703b3007",
+      "stateHash": "d898b5dca5ba7c339bd0b8ff0b6ebfc3389565d64089984af51aa833577de398",
+      "hand": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Attack",
+        "Defend"
+      ]
+    },
+    "unqueue": {
+      "afterDoor": [
+        "Attack",
+        "Attack",
+        "Defend",
+        "Defend"
+      ],
+      "afterRemove": [
+        "Move",
+        "Attack",
+        "Attack",
+        "Defend",
+        "Defend"
+      ],
+      "queues": [
+        "P1:",
+        "P2:",
+        "P3:"
+      ]
+    }
+  },
+  "lethal": {
+    "orders": [
+      {
+        "unit": "P1",
+        "action": "Attack"
+      },
+      {
+        "unit": "P2",
+        "action": "Attack"
+      },
+      {
+        "unit": "P2",
+        "action": "Defend"
+      },
+      {
+        "unit": "P3",
+        "action": "Move"
+      }
+    ],
+    "turn": {
+      "count": 38,
+      "types": {
+        "turnStart": 1,
+        "enemyPlan": 2,
+        "fighters": 1,
+        "tickStart": 3,
+        "consumed": 3,
+        "move": 5,
+        "attackSwing": 3,
+        "hit": 3,
+        "damage": 2,
+        "death": 2,
+        "queueCleared": 2,
+        "replan": 1,
+        "tickEnd": 3,
+        "defendSwing": 2,
+        "recovery": 1,
+        "debugNote": 1,
+        "handDraw": 1,
+        "turnEnd": 1,
+        "outcome": 1
+      },
+      "key": [
+        "death tick=1 unit=E1",
+        "death tick=1 unit=P1",
+        "replan tick=1 queue=[{unit:E2,action:Move},{unit:E3,action:Move},{unit:E2,action:Defend}] focus=P3 renderUnits=[E1,E2,E3]",
+        "recovery heals=[{unit:P3,amount:1,healthBefore:7,healthAfter:8}]",
+        "handDraw drawn=[Move,Attack,Defend,Attack] hand=[Move,Attack,Defend,Attack,Defend]",
+        "outcome winner=none doubleKO=false"
+      ],
+      "eventHash": "9e1d5907c421061512093c830c2ed8ed28e21b423d9122522d9476ef04b78212",
+      "stateHash": "92546856c5c790d0511605859a053344a9774923fb6c0d725193953df074bbc3",
+      "hand": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Attack",
+        "Defend"
+      ]
+    }
+  },
+  "usage": {
+    "contexts": 7,
+    "maxSteps": 211,
+    "totalSteps": 413,
+    "cap": 4000
+  }
+}
