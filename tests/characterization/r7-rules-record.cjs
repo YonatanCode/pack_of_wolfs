@@ -5,7 +5,9 @@
 // R7c: hash changes when ANY single leaf changes; unchanged by key-insertion order; array order matters.
 // R7d: per-battle semantics: activeRules is a frozen snapshot re-taken from RULES at load/restart;
 //      point-of-use reads proven by swapping the context binding (no override API exists).
-// R7e: draw weights exist (all 1), are hashed, and are NOT consulted by the draw algorithm.
+// R7e: draw weights exist (all 1) and are hashed. P2a DECLARED CHANGE: they are now CONSULTED by the draw (weighted
+// drawing is the approved P2a change); the P1c assertion that they were NOT consulted no longer holds. Identity under
+// EQUAL weights is proven by r20; here we only assert that a skewed weight changes the hands.
 // R7f: moved literals are no longer stand-alone definitions in script.js.
 const fs = require("node:fs");
 const path = require("node:path");
@@ -208,7 +210,8 @@ async function run() {
   };
   const eq = handsPatched({ drawWeights: Object.freeze({ Move: 1, Attack: 1, Defend: 1 }) });
   const skew = handsPatched({ drawWeights: Object.freeze({ Move: 5, Attack: 1, Defend: 1 }) });
-  same(skew, eq, "hands for seeds 0..499 identical with weights {1,1,1} vs {5,1,1}");
+  const differing = skew.filter((h, i) => h.join(",") !== eq[i].join(",")).length;
+  check(differing > 0, "P2a: draw weights are consulted: {5,1,1} changes hands relative to {1,1,1}");
   check(eq.length === 500 && eq.every((h) => h.length === 5), "500 hands of 5");
   check(new Set(eq.map((h) => h.join(","))).size > 20, "hands vary across seeds");
 
@@ -247,7 +250,7 @@ async function run() {
     tamper: tampered.strict.map(([e, r]) => `${e} -> ${r}`), sloppyTamperIgnored: true,
     retakeOn: Object.keys(retake),
     pointOfUseEvidence: evidence,
-    drawWeightsNotConsulted: { seeds: 500, identical: true, sampleHands: eq.slice(0, 3) },
+    drawWeightsConsulted: { seeds: 500, handsDifferingUnderSkew: differing, sampleHands: eq.slice(0, 3) },
     aliasReferenceContexts: leftover,
   };
 }

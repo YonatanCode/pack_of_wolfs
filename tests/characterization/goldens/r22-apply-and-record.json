@@ -1,0 +1,51 @@
+{
+  "header": "REQUIREMENT — P2a acceptance",
+  "handsGenerated": 13,
+  "defaultRecord": {
+    "hash": "0d3ce2ec6fa6de",
+    "version": "0.1.0-current"
+  },
+  "customHash": "059cbb14c7b086",
+  "customSettings": {
+    "playerActionBudget": 3,
+    "handSize": 7,
+    "reshuffleCharges": 4,
+    "maxSameAction": 4,
+    "weightMove": 6,
+    "weightAttack": 1,
+    "weightDefend": 1,
+    "enemyActionBudget": 2,
+    "poolMove": 0,
+    "poolDefend": 0,
+    "poolAttack": 2
+  },
+  "effectiveEnemyPool": [
+    "Attack",
+    "Attack"
+  ],
+  "refusals": {
+    "invalidApply": [
+      {
+        "field": "handSize",
+        "message": "handSize must be a whole number from 1 to 8"
+      }
+    ],
+    "crossField": [
+      "at least one draw weight must be greater than 0",
+      "the hand cannot be filled: 0 drawable action(s) x maxSameAction 3 = 0, but handSize is 7"
+    ],
+    "executing": "DryRunRejected:turn-executing",
+    "swap": "DryRunRejected:swap-active"
+  },
+  "copiedLink": "?scenario=intro&seed=3&preset=current&rules=pab:3,hs:7,rc:4,cap:4,wm:6,eab:2,epm:0,epd:0",
+  "devScenarioUnderDefaults": {
+    "id": "player-shared-action-cap",
+    "passed": true
+  },
+  "usage": {
+    "contexts": 8,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

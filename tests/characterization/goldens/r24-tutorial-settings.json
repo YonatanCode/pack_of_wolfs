@@ -1,0 +1,31 @@
+{
+  "header": "REQUIREMENT — P2a acceptance",
+  "handsGenerated": 8,
+  "tutorialHand": [
+    "Move",
+    "Attack",
+    "Defend",
+    "Move",
+    "Attack"
+  ],
+  "activeDuringTutorial": {
+    "playerActionBudget": 5,
+    "handSize": 5,
+    "reshuffleCharges": 2,
+    "maxSameAction": 3,
+    "weightMove": 1,
+    "weightAttack": 1,
+    "weightDefend": 1,
+    "enemyActionBudget": 5,
+    "poolMove": 2,
+    "poolDefend": 1,
+    "poolAttack": 2
+  },
+  "pendingFlag": "pending differs from active: not applied (the tutorial reset the active settings)",
+  "usage": {
+    "contexts": 5,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

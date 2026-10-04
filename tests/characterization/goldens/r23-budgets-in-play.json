@@ -1,0 +1,92 @@
+{
+  "header": "REQUIREMENT — P2a acceptance",
+  "handsGenerated": 17,
+  "turnsPlayed": 2,
+  "playerBudget3": {
+    "queued": 3,
+    "handLeft": 2
+  },
+  "playerBudget8": {
+    "queued": 8
+  },
+  "handAndCharges": {
+    "hand7": 7,
+    "charges1": true,
+    "charges0": true
+  },
+  "zeroEnemyBudget": {
+    "control": {
+      "p1Health": 4,
+      "e1Health": 7,
+      "enemyAt": [
+        [
+          5,
+          6
+        ],
+        [
+          3,
+          7
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "packQueueAfter": 5,
+      "enemyActed": 5,
+      "hand": 5
+    },
+    "zero": {
+      "p1Health": 10,
+      "e1Health": 7,
+      "enemyAt": [
+        [
+          5,
+          6
+        ],
+        [
+          0,
+          7
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "packQueueAfter": 0,
+      "enemyActed": 0,
+      "hand": 5
+    }
+  },
+  "plans": {
+    "attack2": [
+      "Attack",
+      "Attack"
+    ],
+    "defend1": [
+      "Defend"
+    ],
+    "budget5Pool2": [
+      "Attack",
+      "Attack"
+    ],
+    "emptyPool": [],
+    "defaultPlan": [
+      "Attack",
+      "Attack",
+      "Move",
+      "Defend"
+    ],
+    "mixed111": [
+      "Attack",
+      "Move",
+      "Defend"
+    ]
+  },
+  "usage": {
+    "contexts": 12,
+    "maxSteps": 93,
+    "totalSteps": 127,
+    "cap": 4000
+  }
+}

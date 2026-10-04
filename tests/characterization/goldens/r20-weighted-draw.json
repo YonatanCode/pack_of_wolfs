@@ -1,0 +1,95 @@
+{
+  "header": "REQUIREMENT — P2a acceptance",
+  "handsGenerated": 352,
+  "c8Golden": {
+    "seeds": "1..8 (default and 2/2/2)",
+    "identical": true,
+    "handsDefaultPart": 24
+  },
+  "c1Golden": {
+    "seeds": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "identical": true
+  },
+  "oldFormula": {
+    "default": "seeds 2000..2059",
+    "equal3cap2": "seeds 3000..3029",
+    "identical": true
+  },
+  "oneStreamValuePerDraw": {
+    "picks": [
+      "Move",
+      "Attack",
+      "Move",
+      "Move",
+      "Move"
+    ],
+    "fullHandUsesHandSizeValues": true
+  },
+  "weightZero": {
+    "hands": 30,
+    "defendDrawn": 0,
+    "sample": [
+      [
+        "Move",
+        "Attack",
+        "Attack",
+        "Attack",
+        "Move"
+      ],
+      [
+        "Attack",
+        "Move",
+        "Attack",
+        "Attack",
+        "Move"
+      ]
+    ]
+  },
+  "skew": {
+    "hands": 80,
+    "weights": "Move 6, Attack 1, Defend 1",
+    "moveEqual": 125,
+    "moveSkewed": 227,
+    "attackEqual": 140,
+    "attackSkewed": 92,
+    "maxSameInAHand": 3
+  },
+  "carryOver": {
+    "first": [
+      "Move",
+      "Move",
+      "Attack",
+      "Attack",
+      "Defend"
+    ],
+    "kept": [
+      "Move",
+      "Attack",
+      "Defend"
+    ],
+    "after": [
+      "Move",
+      "Attack",
+      "Move",
+      "Attack",
+      "Defend"
+    ]
+  },
+  "capOne": [
+    "Defend",
+    "Move",
+    "Attack"
+  ],
+  "usage": {
+    "contexts": 26,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

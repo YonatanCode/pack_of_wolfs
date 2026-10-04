@@ -120,9 +120,9 @@
     },
     "reshuffleCharges": 2
   },
-  "drawWeightsNotConsulted": {
+  "drawWeightsConsulted": {
     "seeds": 500,
-    "identical": true,
+    "handsDifferingUnderSkew": 456,
     "sampleHands": [
       [
         "Move",

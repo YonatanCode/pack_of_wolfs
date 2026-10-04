@@ -1,0 +1,531 @@
+{
+  "header": "REQUIREMENT — P2a acceptance",
+  "handsGenerated": 8,
+  "bounds": {
+    "playerActionBudget": [
+      1,
+      8
+    ],
+    "handSize": [
+      1,
+      8
+    ],
+    "reshuffleCharges": [
+      0,
+      9
+    ],
+    "maxSameAction": [
+      1,
+      8
+    ],
+    "weightMove": [
+      0,
+      20
+    ],
+    "weightAttack": [
+      0,
+      20
+    ],
+    "weightDefend": [
+      0,
+      20
+    ],
+    "enemyActionBudget": [
+      0,
+      10
+    ],
+    "poolMove": [
+      0,
+      10
+    ],
+    "poolDefend": [
+      0,
+      10
+    ],
+    "poolAttack": [
+      0,
+      10
+    ]
+  },
+  "defaults": {
+    "playerActionBudget": 5,
+    "handSize": 5,
+    "reshuffleCharges": 2,
+    "maxSameAction": 3,
+    "weightMove": 1,
+    "weightAttack": 1,
+    "weightDefend": 1,
+    "enemyActionBudget": 5,
+    "poolMove": 2,
+    "poolDefend": 1,
+    "poolAttack": 2
+  },
+  "perField": {
+    "playerActionBudget": {
+      "message": "playerActionBudget must be a whole number from 1 to 8",
+      "accepted": [
+        1,
+        8
+      ],
+      "rejected": [
+        "0",
+        "9",
+        "1.5",
+        "\"5\"",
+        "\"5abc\"",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "null",
+        "undefined",
+        "true",
+        "[]",
+        "\"\""
+      ]
+    },
+    "handSize": {
+      "message": "handSize must be a whole number from 1 to 8",
+      "accepted": [
+        1,
+        8
+      ],
+      "rejected": [
+        "0",
+        "9",
+        "1.5",
+        "\"5\"",
+        "\"5abc\"",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "null",
+        "undefined",
+        "true",
+        "[]",
+        "\"\""
+      ]
+    },
+    "reshuffleCharges": {
+      "message": "reshuffleCharges must be a whole number from 0 to 9",
+      "accepted": [
+        0,
+        9
+      ],
+      "rejected": [
+        "-1",
+        "10",
+        "1.5",
+        "\"5\"",
+        "\"5abc\"",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "null",
+        "undefined",
+        "true",
+        "[]",
+        "\"\""
+      ]
+    },
+    "maxSameAction": {
+      "message": "maxSameAction must be a whole number from 1 to 8",
+      "accepted": [
+        1,
+        8
+      ],
+      "rejected": [
+        "0",
+        "9",
+        "1.5",
+        "\"5\"",
+        "\"5abc\"",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "null",
+        "undefined",
+        "true",
+        "[]",
+        "\"\""
+      ]
+    },
+    "weightMove": {
+      "message": "weightMove must be a whole number from 0 to 20",
+      "accepted": [
+        0,
+        20
+      ],
+      "rejected": [
+        "-1",
+        "21",
+        "1.5",
+        "\"5\"",
+        "\"5abc\"",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "null",
+        "undefined",
+        "true",
+        "[]",
+        "\"\""
+      ]
+    },
+    "weightAttack": {
+      "message": "weightAttack must be a whole number from 0 to 20",
+      "accepted": [
+        0,
+        20
+      ],
+      "rejected": [
+        "-1",
+        "21",
+        "1.5",
+        "\"5\"",
+        "\"5abc\"",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "null",
+        "undefined",
+        "true",
+        "[]",
+        "\"\""
+      ]
+    },
+    "weightDefend": {
+      "message": "weightDefend must be a whole number from 0 to 20",
+      "accepted": [
+        0,
+        20
+      ],
+      "rejected": [
+        "-1",
+        "21",
+        "1.5",
+        "\"5\"",
+        "\"5abc\"",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "null",
+        "undefined",
+        "true",
+        "[]",
+        "\"\""
+      ]
+    },
+    "enemyActionBudget": {
+      "message": "enemyActionBudget must be a whole number from 0 to 10",
+      "accepted": [
+        0,
+        10
+      ],
+      "rejected": [
+        "-1",
+        "11",
+        "1.5",
+        "\"5\"",
+        "\"5abc\"",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "null",
+        "undefined",
+        "true",
+        "[]",
+        "\"\""
+      ]
+    },
+    "poolMove": {
+      "message": "poolMove must be a whole number from 0 to 10",
+      "accepted": [
+        0,
+        10
+      ],
+      "rejected": [
+        "-1",
+        "11",
+        "1.5",
+        "\"5\"",
+        "\"5abc\"",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "null",
+        "undefined",
+        "true",
+        "[]",
+        "\"\""
+      ]
+    },
+    "poolDefend": {
+      "message": "poolDefend must be a whole number from 0 to 10",
+      "accepted": [
+        0,
+        10
+      ],
+      "rejected": [
+        "-1",
+        "11",
+        "1.5",
+        "\"5\"",
+        "\"5abc\"",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "null",
+        "undefined",
+        "true",
+        "[]",
+        "\"\""
+      ]
+    },
+    "poolAttack": {
+      "message": "poolAttack must be a whole number from 0 to 10",
+      "accepted": [
+        0,
+        10
+      ],
+      "rejected": [
+        "-1",
+        "11",
+        "1.5",
+        "\"5\"",
+        "\"5abc\"",
+        "NaN",
+        "Infinity",
+        "-Infinity",
+        "null",
+        "undefined",
+        "true",
+        "[]",
+        "\"\""
+      ]
+    }
+  },
+  "crossField": {
+    "allZero": {
+      "valid": false,
+      "errors": [
+        {
+          "field": "drawWeights",
+          "message": "at least one draw weight must be greater than 0"
+        },
+        {
+          "field": "handSize",
+          "message": "the hand cannot be filled: 0 drawable action(s) x maxSameAction 3 = 0, but handSize is 5"
+        }
+      ],
+      "warnings": []
+    },
+    "oneDrawable": {
+      "valid": false,
+      "errors": [
+        {
+          "field": "handSize",
+          "message": "the hand cannot be filled: 1 drawable action(s) x maxSameAction 3 = 3, but handSize is 5"
+        }
+      ],
+      "warnings": []
+    },
+    "capLow": {
+      "valid": false,
+      "errors": [
+        {
+          "field": "handSize",
+          "message": "the hand cannot be filled: 3 drawable action(s) x maxSameAction 1 = 3, but handSize is 5"
+        }
+      ],
+      "warnings": []
+    },
+    "budgetAboveHand": {
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        {
+          "field": "playerActionBudget",
+          "message": "at most 5 cards can be queued per turn; the budget is not resized"
+        }
+      ]
+    },
+    "enemyBudgetAbovePool": {
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        {
+          "field": "enemyActionBudget",
+          "message": "the enemy can plan at most 2 actions (pool size); neither budget nor pool is resized"
+        }
+      ]
+    },
+    "emptyPool": {
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        {
+          "field": "enemyActionBudget",
+          "message": "the enemy has nothing to plan"
+        }
+      ]
+    },
+    "zeroBudget": {
+      "valid": true,
+      "errors": [],
+      "warnings": []
+    },
+    "zeroBudgetEmptyPool": {
+      "valid": true,
+      "errors": [],
+      "warnings": []
+    },
+    "together": {
+      "valid": false,
+      "errors": [
+        {
+          "field": "playerActionBudget",
+          "message": "playerActionBudget must be a whole number from 1 to 8"
+        },
+        {
+          "field": "handSize",
+          "message": "handSize must be a whole number from 1 to 8"
+        },
+        {
+          "field": "reshuffleCharges",
+          "message": "reshuffleCharges must be a whole number from 0 to 9"
+        },
+        {
+          "field": "drawWeights",
+          "message": "at least one draw weight must be greater than 0"
+        }
+      ],
+      "warnings": [
+        {
+          "field": "enemyActionBudget",
+          "message": "the enemy has nothing to plan"
+        }
+      ]
+    },
+    "empty": {
+      "valid": false,
+      "errors": [
+        {
+          "field": "playerActionBudget",
+          "message": "playerActionBudget must be a whole number from 1 to 8"
+        },
+        {
+          "field": "handSize",
+          "message": "handSize must be a whole number from 1 to 8"
+        },
+        {
+          "field": "reshuffleCharges",
+          "message": "reshuffleCharges must be a whole number from 0 to 9"
+        },
+        {
+          "field": "maxSameAction",
+          "message": "maxSameAction must be a whole number from 1 to 8"
+        },
+        {
+          "field": "weightMove",
+          "message": "weightMove must be a whole number from 0 to 20"
+        },
+        {
+          "field": "weightAttack",
+          "message": "weightAttack must be a whole number from 0 to 20"
+        },
+        {
+          "field": "weightDefend",
+          "message": "weightDefend must be a whole number from 0 to 20"
+        },
+        {
+          "field": "enemyActionBudget",
+          "message": "enemyActionBudget must be a whole number from 0 to 10"
+        },
+        {
+          "field": "poolMove",
+          "message": "poolMove must be a whole number from 0 to 10"
+        },
+        {
+          "field": "poolDefend",
+          "message": "poolDefend must be a whole number from 0 to 10"
+        },
+        {
+          "field": "poolAttack",
+          "message": "poolAttack must be a whole number from 0 to 10"
+        }
+      ],
+      "warnings": []
+    },
+    "unknown": {
+      "valid": false,
+      "errors": [
+        {
+          "field": "bogus",
+          "message": "bogus is not a known setting"
+        }
+      ],
+      "warnings": []
+    }
+  },
+  "links": {
+    "roundTrips": [
+      "?scenario=intro&seed=7&preset=current&rules=pab:3,hs:7",
+      "?scenario=intro&seed=7&preset=current&rules=eab:0",
+      "?scenario=intro&seed=7&preset=current&rules=cap:4,wm:6,wa:0,wd:2",
+      "?scenario=intro&seed=7&preset=current&rules=eab:4,epm:0,epd:3,epa:1",
+      "?scenario=intro&seed=7&preset=current&rules=pab:8,hs:8,rc:0,cap:8",
+      "?scenario=intro&seed=7&preset=current&rules=pab:1,hs:1,rc:9,cap:1,wm:20,wa:20,wd:20,eab:10,epm:10,epd:10,epa:10"
+    ],
+    "rejections": {
+      "unknownKey": "rules link rejected (unknown key \"zz\"); default settings are used",
+      "duplicateKey": "rules link rejected (duplicate key \"hs\"); default settings are used",
+      "malformedNoColon": "rules link rejected (malformed pair \"hs5\"); default settings are used",
+      "malformedEmptyValue": "rules link rejected (hs must be a whole number, got \"\"); default settings are used",
+      "emptyRules": "rules link rejected (malformed pair \"\"); default settings are used",
+      "trailingComma": "rules link rejected (malformed pair \"\"); default settings are used",
+      "fraction": "rules link rejected (hs must be a whole number, got \"1.5\"); default settings are used",
+      "trailingJunk": "rules link rejected (hs must be a whole number, got \"5abc\"); default settings are used",
+      "negative": "rules link rejected (hs must be a whole number, got \"-1\"); default settings are used",
+      "spaced": "rules link rejected (hs must be a whole number, got \" 5\"); default settings are used",
+      "leadingZero": "rules link rejected (hs must be a whole number, got \"05\"); default settings are used",
+      "upperKey": "rules link rejected (malformed pair \"HS:5\"); default settings are used",
+      "overMax": "rules link rejected (handSize must be a whole number from 1 to 8); default settings are used",
+      "underMin": "rules link rejected (playerActionBudget must be a whole number from 1 to 8); default settings are used",
+      "weightOverMax": "rules link rejected (weightMove must be a whole number from 0 to 20); default settings are used",
+      "crossField": "rules link rejected (at least one draw weight must be greater than 0; the hand cannot be filled: 0 drawable action(s) x maxSameAction 3 = 0, but handSize is 5); default settings are used",
+      "commander": "rules link rejected (commander ruleset arrives in P2b); default settings are used",
+      "commanderAlone": "rules link rejected (commander ruleset arrives in P2b); default settings are used",
+      "bogusPreset": "rules link rejected (unknown preset \"bogus\"); default settings are used",
+      "duplicatePreset": "rules link rejected (duplicate preset parameter); default settings are used",
+      "duplicateRules": "rules link rejected (duplicate rules parameter); default settings are used"
+    },
+    "bootStatus": {
+      "rejected0": "rules link rejected (duplicate key \"hs\"); default settings are used",
+      "rejected1": "rules link rejected (commander ruleset arrives in P2b); default settings are used",
+      "rejected2": "rules link rejected (handSize must be a whole number from 1 to 8); default settings are used"
+    }
+  },
+  "presets": [
+    "current (available)",
+    "commander (rejected: commander ruleset arrives in P2b)"
+  ],
+  "panelInputParsing": {
+    "0": 0,
+    "5": 5,
+    "9999999": 9999999,
+    "-1": -1,
+    "5abc": "5abc",
+    "": "",
+    " 5": " 5",
+    "1.5": "1.5",
+    "05": "05",
+    "5 ": "5 ",
+    "1e1": "1e1"
+  },
+  "usage": {
+    "contexts": 8,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
