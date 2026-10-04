@@ -135,15 +135,16 @@
     }
   },
   "dryRunEqualsPlay": {
-    "eventHash": "1add507c415dbb",
+    "eventHash": "0879f9a11ff695",
     "outcome": {
       "winner": "none",
       "doubleKO": false
     },
     "events": {
-      "count": 22,
+      "count": 23,
       "types": {
         "turnStart": 1,
+        "targetsCommitted": 1,
         "enemyPlan": 2,
         "enemyBudget": 1,
         "unassigned": 1,

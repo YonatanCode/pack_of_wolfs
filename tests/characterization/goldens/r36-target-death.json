@@ -1,0 +1,31 @@
+{
+  "header": "REQUIREMENT — target selection",
+  "hands": 1,
+  "summary": [
+    "targetsCommitted targets=[{unit:P1,target:E1,source:chosen,targetAlive:true},{unit:P2,target:E1,source:chosen,targetAlive:true}] autoPicked=[]",
+    "attackSwing tick=1 unit=P1 action=Attack animation=bite cycles=1 direction=topLeft faced=true target=E1",
+    "hit tick=1 attacker=P1 target=E1 damage=3 defended=false",
+    "death tick=1 unit=E1",
+    "targetSkipped tick=2 unit=P2 action=Move target=E1 reason=target-defeated",
+    "attackSwing tick=2 unit=E2 action=Attack animation=bite cycles=1 direction=topLeft faced=true target=P2",
+    "hit tick=2 attacker=E2 target=P2 damage=3 defended=false",
+    "attackSwing tick=3 unit=E2 action=Attack animation=bite cycles=1 direction=topLeft faced=true target=P2",
+    "hit tick=3 attacker=E2 target=P2 damage=1 defended=true",
+    "targetSkipped tick=4 unit=P2 action=Attack target=E1 reason=target-defeated"
+  ],
+  "noteTargets": "Targets: P1 -> E1 (chosen), P2 -> E1 (chosen)",
+  "noteTicks": [
+    "Tick 1: P1 lead wolf Attack 6,6 -> 6,6 hit E1 enemy wolf for 3 | P2 support wolf Defend 9,9 -> 9,9 | E2 enemy support wolf Defend 9,10 -> 9,10",
+    "Tick 2: P2 support wolf Move skipped: E1 defeated | E2 enemy support wolf Attack 9,10 -> 9,10 hit P2 support wolf for 3",
+    "Tick 3: P2 support wolf Defend 9,9 -> 9,9 | E2 enemy support wolf Attack 9,10 -> 9,10 hit P2 support wolf for 1",
+    "Tick 4: P2 support wolf Attack skipped: E1 defeated"
+  ],
+  "afterTurn": "P1:E1/chosen P2:E1/chosen P3:-",
+  "afterNextFirstQueue": "P1:E1/chosen P2:E2/auto P3:-",
+  "usage": {
+    "contexts": 1,
+    "maxSteps": 130,
+    "totalSteps": 130,
+    "cap": 4000
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "header": "REQUIREMENT — target selection",
+  "hands": 4,
+  "firstQueue": {
+    "targets": "P1:E1/auto P2:- P3:-",
+    "status": "intro · seed 1 · commander (experimental) · target P1 -> E1 (auto: nearest)",
+    "markers": {
+      "E1": {
+        "chips": [
+          "P1~"
+        ],
+        "autoChips": [
+          "P1~"
+        ],
+        "ring": true
+      }
+    }
+  },
+  "noSilentRetarget": [
+    "add a second card: P1:E1/auto P2:E3/auto P3:-",
+    "remove every card: P1:E1/auto P2:E3/auto P3:-",
+    "re-add (queue empty -> non-empty): P1:E1/auto P2:E3/auto P3:-",
+    "reshuffle: P1:E1/auto P2:E3/auto P3:-",
+    "re-add after the reshuffle: P1:E1/auto P2:E3/auto P3:-",
+    "intent preview refresh: P1:E1/auto P2:E3/auto P3:-"
+  ],
+  "deadTarget": {
+    "before": "P1:E1/chosen P2:E3/auto P3:-",
+    "afterNextFirstQueue": "P1:E2/auto P2:E3/auto P3:-"
+  },
+  "tie": {
+    "distancesP1": [
+      3,
+      3,
+      3
+    ],
+    "distancesP2": [
+      13,
+      6,
+      6
+    ],
+    "picks": "P1:E1/auto P2:E2/auto P3:-"
+  },
+  "playTime": {
+    "targetsCommitted": {
+      "type": "targetsCommitted",
+      "targets": [
+        {
+          "unit": "P1",
+          "target": "E1",
+          "source": "auto",
+          "targetAlive": true
+        },
+        {
+          "unit": "P2",
+          "target": "E3",
+          "source": "auto",
+          "targetAlive": true
+        },
+        {
+          "unit": "P3",
+          "target": null,
+          "source": null,
+          "targetAlive": false
+        }
+      ],
+      "autoPicked": [
+        "P1",
+        "P2"
+      ]
+    },
+    "noteLine": "Targets: P1 -> E1 (auto), P2 -> E3 (auto), P3 -> -",
+    "summary": [
+      "targetsCommitted targets=[{unit:P1,target:E1,source:auto,targetAlive:true},{unit:P2,target:E3,source:auto,targetAlive:true},{unit:P3,target:null,source:null,targetAlive:false}] autoPicked=[P1,P2]",
+      "move tick=1 unit=P1 from={row:11,col:5} to={row:8,col:5} direction=topRight facing=topRight moved=true path=[{row:11,col:5},{row:10,col:5},{row:9,col:5},{row:8,col:5}]",
+      "move tick=1 unit=E2 from={row:0,col:7} to={row:2,col:9} direction=bottomRight facing=bottomRight moved=true path=[{row:0,col:7},{row:1,col:8},{row:2,col:9}]",
+      "move tick=1 unit=E3 from={row:0,col:2} to={row:3,col:2} direction=bottomLeft facing=bottomLeft moved=true path=[{row:0,col:2},{row:1,col:2},{row:2,col:2},{row:3,col:2}]",
+      "attackSwing tick=1 unit=P2 action=Attack animation=bite cycles=1 direction=topRight faced=true target=E3",
+      "miss tick=1 attacker=P2 reason=target-not-adjacent target=E3"
+    ]
+  },
+  "usage": {
+    "contexts": 3,
+    "maxSteps": 52,
+    "totalSteps": 52,
+    "cap": 4000
+  }
+}

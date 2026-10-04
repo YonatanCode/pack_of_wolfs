@@ -1,0 +1,152 @@
+{
+  "header": "REQUIREMENT — target selection",
+  "hands": 2,
+  "board": "P1 6,6; E1 6,3 (nearest); E2 2,9 (chosen)",
+  "commander": {
+    "Hunt": {
+      "to": {
+        "row": 3,
+        "col": 9
+      },
+      "path": [
+        {
+          "row": 6,
+          "col": 6
+        },
+        {
+          "row": 5,
+          "col": 7
+        },
+        {
+          "row": 4,
+          "col": 8
+        },
+        {
+          "row": 3,
+          "col": 9
+        }
+      ],
+      "nearestPlanWouldBe": {
+        "row": 6,
+        "col": 4
+      },
+      "noteLine": "P1 lead wolf Move 6,6 -> 3,9 toward E2 [target E2 at 2,9; planned 3,9]"
+    },
+    "Flank": {
+      "to": {
+        "row": 3,
+        "col": 6
+      },
+      "path": [
+        {
+          "row": 6,
+          "col": 6
+        },
+        {
+          "row": 5,
+          "col": 6
+        },
+        {
+          "row": 4,
+          "col": 6
+        },
+        {
+          "row": 3,
+          "col": 6
+        }
+      ],
+      "nearestPlanWouldBe": {
+        "row": 4,
+        "col": 4
+      },
+      "noteLine": "P1 lead wolf Move 6,6 -> 3,6 toward E2 [target E2 at 2,9; planned 3,6]"
+    },
+    "Dodge": {
+      "to": {
+        "row": 9,
+        "col": 3
+      },
+      "path": [
+        {
+          "row": 6,
+          "col": 6
+        },
+        {
+          "row": 7,
+          "col": 5
+        },
+        {
+          "row": 8,
+          "col": 4
+        },
+        {
+          "row": 9,
+          "col": 3
+        }
+      ],
+      "nearestPlanWouldBe": {
+        "row": 9,
+        "col": 9
+      },
+      "noteLine": "P1 lead wolf Move 6,6 -> 9,3 toward E2 [target E2 at 2,9; planned 9,3]"
+    }
+  },
+  "previewNoTarget": {
+    "row": 6,
+    "col": 4
+  },
+  "current": {
+    "Hunt": {
+      "to": {
+        "row": 6,
+        "col": 4
+      },
+      "path": [
+        {
+          "row": 6,
+          "col": 6
+        },
+        {
+          "row": 6,
+          "col": 5
+        },
+        {
+          "row": 6,
+          "col": 4
+        }
+      ],
+      "noteLine": "P1 lead wolf Move 6,6 -> 6,4 [target E1 at 6,3; planned 6,4]"
+    },
+    "Dodge": {
+      "to": {
+        "row": 9,
+        "col": 9
+      },
+      "path": [
+        {
+          "row": 6,
+          "col": 6
+        },
+        {
+          "row": 7,
+          "col": 7
+        },
+        {
+          "row": 8,
+          "col": 8
+        },
+        {
+          "row": 9,
+          "col": 9
+        }
+      ],
+      "noteLine": "P1 lead wolf Move 6,6 -> 9,9 [target E1 at 6,3; planned 9,9]"
+    }
+  },
+  "usage": {
+    "contexts": 2,
+    "maxSteps": 103,
+    "totalSteps": 138,
+    "cap": 4000
+  }
+}

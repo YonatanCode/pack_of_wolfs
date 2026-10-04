@@ -55,7 +55,7 @@
       "reasons": []
     },
     "enemyActionsNote": [
-      "Enemy actions (commander, experimental: enemy-action rules only):",
+      "Enemy actions (commander, experimental: enemy-action and target-selection rules):",
       "Budget 5 | pool 5: Move, Move, Defend, Attack, Attack",
       "Assigned 5: E1 Attack, E1 Attack, E2 Move, E3 Move, E2 Defend",
       "Spent 4: E1 Attack (tick 1), E2 Move (tick 1), E3 Move (tick 1), E2 Defend (tick 2)",
@@ -65,9 +65,10 @@
       "Check: assigned 5 = spent 4 + forfeited 1 + unplayed 0; budget 5 = assigned 5 + unassigned 0"
     ],
     "events": {
-      "count": 36,
+      "count": 37,
       "types": {
         "turnStart": 1,
+        "targetsCommitted": 1,
         "enemyPlan": 2,
         "enemyBudget": 1,
         "unassigned": 1,

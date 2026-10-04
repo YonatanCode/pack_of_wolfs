@@ -34,7 +34,7 @@ async function run() {
     ["Move", "Defend", "Defend", "Attack", "Attack", "Attack"], "pool order is canonical: Move, Defend, Attack");
   check(g.ev("computeRulesHash(computeEffectiveRules(getDefaultSettings()))") === DEFAULT_HASH && g.ev("RULES_HASH") === DEFAULT_HASH, "default effective hash is 0d3ce2ec6fa6de");
   same(J(g, "window.RULESET_PRESETS"), { current: { label: "Current rules", available: true },
-    commander: { label: "Commander ruleset (experimental: enemy-action rules only)", available: true } }, "preset registry");
+    commander: { label: "Commander ruleset (experimental: enemy-action and target-selection rules)", available: true } }, "preset registry");
 
   // ---- R21b
   const fieldReport = {};
@@ -172,6 +172,6 @@ async function run() {
 
   const handsGenerated = P.reportHands(ID, ctxs.reduce((n, c) => n + P.handsOf(c), 0)); // boot hands only (no other draws)
   return { header: P.REQ_HEADER_P2A, handsGenerated, bounds: BOUNDS, defaults: DEFAULTS, perField: fieldReport, crossField: cross, links: { roundTrips, rejections: rejectReport, bootStatus },
-    presets: ["current (available)", "commander (available: experimental, enemy-action rules only)"], panelInputParsing: inputs };
+    presets: ["current (available)", "commander (available: experimental, enemy-action and target-selection rules)"], panelInputParsing: inputs };
 }
 module.exports = { id: ID, run };

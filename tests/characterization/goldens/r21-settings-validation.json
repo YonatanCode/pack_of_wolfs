@@ -505,7 +505,7 @@
   },
   "presets": [
     "current (available)",
-    "commander (available: experimental, enemy-action rules only)"
+    "commander (available: experimental, enemy-action and target-selection rules)"
   ],
   "panelInputParsing": {
     "0": 0,

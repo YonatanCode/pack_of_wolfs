@@ -1,0 +1,158 @@
+{
+  "header": "REQUIREMENT — target selection",
+  "hands": 4,
+  "changes": [
+    {
+      "step": "P1 selected, E2 clicked (tile handler)",
+      "targets": "P1:E2/chosen P2:- P3:-",
+      "selected": "P1",
+      "markers": {
+        "E2": {
+          "chips": [
+            "P1"
+          ],
+          "autoChips": [],
+          "ring": true
+        }
+      },
+      "status": "intro · seed 1 · commander (experimental) · target P1 -> E2 (chosen)"
+    },
+    {
+      "step": "E3 clicked (arena listener)",
+      "targets": "P1:E3/chosen P2:- P3:-",
+      "selected": "P1",
+      "markers": {
+        "E3": {
+          "chips": [
+            "P1"
+          ],
+          "autoChips": [],
+          "ring": true
+        }
+      },
+      "status": "intro · seed 1 · commander (experimental) · target P1 -> E3 (chosen)"
+    },
+    {
+      "step": "E1 sprite clicked over tile 1,5 (arena listener)",
+      "targets": "P1:E1/chosen P2:- P3:-",
+      "selected": "P1",
+      "markers": {
+        "E1": {
+          "chips": [
+            "P1"
+          ],
+          "autoChips": [],
+          "ring": true
+        }
+      },
+      "status": "intro · seed 1 · commander (experimental) · target P1 -> E1 (chosen)"
+    },
+    {
+      "step": "E2 clicked again",
+      "targets": "P1:E2/chosen P2:- P3:-",
+      "selected": "P1",
+      "markers": {
+        "E2": {
+          "chips": [
+            "P1"
+          ],
+          "autoChips": [],
+          "ring": true
+        }
+      },
+      "status": "intro · seed 1 · commander (experimental) · target P1 -> E2 (chosen)"
+    },
+    {
+      "step": "P2 selected (ring moves off E2)",
+      "targets": "P1:E2/chosen P2:- P3:-",
+      "selected": "P2",
+      "markers": {
+        "E2": {
+          "chips": [
+            "P1"
+          ],
+          "autoChips": [],
+          "ring": false
+        }
+      },
+      "status": "intro · seed 1 · commander (experimental) · target P1 -> E2 (chosen)"
+    },
+    {
+      "step": "P2 clicks E2 (shared badge)",
+      "targets": "P1:E2/chosen P2:E2/chosen P3:-",
+      "selected": "P2",
+      "markers": {
+        "E2": {
+          "chips": [
+            "P1",
+            "P2"
+          ],
+          "autoChips": [],
+          "ring": true
+        }
+      },
+      "status": "intro · seed 1 · commander (experimental) · target P2 -> E2 (chosen)"
+    }
+  ],
+  "refusals": {
+    "noSelection": "intro · seed 1 · commander (experimental) · select a wolf first, then click an enemy to target it",
+    "defeatedEnemy": "intro · seed 1 · commander (experimental) · E3 is defeated: pick a living enemy",
+    "executing": "intro · seed 1 · commander (experimental) · targets are locked while the turn plays"
+  },
+  "commit": {
+    "targetsCommitted": {
+      "type": "targetsCommitted",
+      "targets": [
+        {
+          "unit": "P1",
+          "target": "E2",
+          "source": "chosen",
+          "targetAlive": true
+        },
+        {
+          "unit": "P2",
+          "target": "E2",
+          "source": "chosen",
+          "targetAlive": true
+        },
+        {
+          "unit": "P3",
+          "target": null,
+          "source": null,
+          "targetAlive": false
+        }
+      ],
+      "autoPicked": []
+    },
+    "midTurnClick": {
+      "result": true,
+      "targets": "E2,E2",
+      "executing": true,
+      "status": "intro · seed 1 · commander (experimental) · targets are locked while the turn plays"
+    },
+    "noteTargetsLine": "Targets: P1 -> E2 (chosen), P2 -> E2 (chosen), P3 -> -"
+  },
+  "markerPlacement": {
+    "siblingOfSprite": true,
+    "className": "unit-target-marker is-selected-target",
+    "left": true,
+    "top": true
+  },
+  "cssVariables": [
+    "--unit-target-marker-offset-x",
+    "--unit-target-marker-offset-y",
+    "--unit-target-marker-font-size",
+    "--unit-target-marker-ring"
+  ],
+  "currentControl": {
+    "tileHandlerResult": null,
+    "arenaStopped": false,
+    "label": "intro · seed 1"
+  },
+  "usage": {
+    "contexts": 3,
+    "maxSteps": 68,
+    "totalSteps": 68,
+    "cap": 4000
+  }
+}

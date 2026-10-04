@@ -1,0 +1,24 @@
+{
+  "header": "REQUIREMENT — target selection",
+  "hands": 8,
+  "boards": {
+    "plain": {
+      "eventHash": "08c7799eabd4c3",
+      "recordedByR15": "08c7799eabd4c3",
+      "events": 20,
+      "misses": 2
+    },
+    "lethal": {
+      "eventHash": "1733161013ed8e",
+      "recordedByR15": "1733161013ed8e",
+      "events": 38,
+      "misses": 0
+    }
+  },
+  "usage": {
+    "contexts": 4,
+    "maxSteps": 150,
+    "totalSteps": 402,
+    "cap": 4000
+  }
+}

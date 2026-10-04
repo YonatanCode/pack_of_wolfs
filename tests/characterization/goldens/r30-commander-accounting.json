@@ -46,7 +46,7 @@
         }
       ],
       "enemyActionsNote": [
-        "Enemy actions (commander, experimental: enemy-action rules only):",
+        "Enemy actions (commander, experimental: enemy-action and target-selection rules):",
         "Budget 5 | pool 5: Move, Move, Defend, Attack, Attack",
         "Assigned 3: E3 Move, E2 Move, E1 Defend",
         "Spent 3: E1 Defend (tick 1), E2 Move (tick 1), E3 Move (tick 1)",
@@ -92,7 +92,7 @@
         }
       ],
       "enemyActionsNote": [
-        "Enemy actions (commander, experimental: enemy-action rules only):",
+        "Enemy actions (commander, experimental: enemy-action and target-selection rules):",
         "Budget 5 | pool 2: Move, Move",
         "Assigned 2: E3 Move, E2 Move",
         "Spent 2: E2 Move (tick 1), E3 Move (tick 1)",
@@ -129,7 +129,7 @@
         }
       ],
       "enemyActionsNote": [
-        "Enemy actions (commander, experimental: enemy-action rules only):",
+        "Enemy actions (commander, experimental: enemy-action and target-selection rules):",
         "Budget 0 | pool 5: Move, Move, Defend, Attack, Attack",
         "Assigned 0: -",
         "Spent 0: -",
@@ -181,7 +181,7 @@
         }
       ],
       "enemyActionsNote": [
-        "Enemy actions (commander, experimental: enemy-action rules only):",
+        "Enemy actions (commander, experimental: enemy-action and target-selection rules):",
         "Budget 5 | pool 5: Move, Move, Defend, Attack, Attack",
         "Assigned 3: E1 Attack, E1 Attack, E1 Defend",
         "Spent 1: E1 Attack (tick 1)",

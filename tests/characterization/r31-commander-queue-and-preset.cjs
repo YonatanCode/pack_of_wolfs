@@ -10,7 +10,7 @@
 //     not parse index.html; the browser rendering of it is not tested by the current harness);
 //   - links: preset=commander alone and with rules= parse (round trip through buildRulesLink / Copy link, a booted
 //     copied link reproduces the record); preset=bogus and a duplicate preset are still rejected;
-//   - record / hash: commander reports preset commander, version 0.2.0-commander-enemy-actions and a hash that
+//   - record / hash: commander reports preset commander, version 0.3.0-commander-enemy-actions-targets and a hash that
 //     differs from current for identical numbers (default and custom); computeRulesHash(record.values) = record.hash
 //     for both presets; the current default hash stays 0d3ce2ec6fa6de; the scenario label is marked
 //     "commander (experimental)";
@@ -28,8 +28,8 @@ const { check, same, J, DEFAULTS, DEFAULT_HASH } = S;
 
 const ID = "r31-commander-queue-and-preset";
 const SIX = ["Move", "Attack", "Defend", "Move", "Attack", "Defend"];
-const OPTION = '<option value="commander">Commander ruleset (experimental: enemy-action rules only)</option>';
-const VERSION = "0.2.0-commander-enemy-actions";
+const OPTION = '<option value="commander">Commander ruleset (experimental: enemy-action and target-selection rules)</option>';
+const VERSION = "0.3.0-commander-enemy-actions-targets";
 const labels = (g, v) => J(g, `Array.from(${v}.intentTags.querySelectorAll(".unit-intent-label")).map((t) => t.textContent)`);
 const parse = (g, q) => J(g, `parseRulesParams(new URLSearchParams(${JSON.stringify(q)}))`);
 const currentHashOf = (g, settings) => g.ev(`computeRulesHash(computeEffectiveRules(${JSON.stringify(settings)}))`);
@@ -76,7 +76,7 @@ async function run() {
   check(x.ev("computeRulesHash(window.devTest.getEffectiveRulesRecord().values)") === DEFAULT_HASH, "current: hash = hash of the record values");
 
   const k = track(C.bootCommander("pab:3"));
-  same(J(k, "window.devTest.getRulesLinkStatus()"), { status: "applied", message: "preset commander (experimental: enemy-action rules only); rules link applied" }, "commander link status");
+  same(J(k, "window.devTest.getRulesLinkStatus()"), { status: "applied", message: "preset commander (experimental: enemy-action and target-selection rules); rules link applied" }, "commander link status");
   const rec = J(k, "window.devTest.getEffectiveRulesRecord()");
   check(rec.preset === "commander" && rec.version === VERSION && rec.customized === true, "commander record: preset, version, customized");
   check(rec.hash !== currentHashOf(k, rec.settings) && /^[0-9a-f]{14}$/.test(rec.hash), "commander hash differs from current for identical numbers (custom)");
@@ -111,10 +111,10 @@ async function run() {
   check(applied.ok === true && applied.record.preset === "commander" && applied.record.hash === dRec.hash, "Apply switches to commander (same record as a commander link boot)");
   same(S.fullState(a), S.fullState(d), "the applied battle equals a commander link boot");
   const summary = S.text(a, "rules-active-summary");
-  check(summary.startsWith("active: commander (experimental: enemy-action rules only) · "), `panel summary: ${summary}`);
+  check(summary.startsWith("active: commander (experimental: enemy-action and target-selection rules) · "), `panel summary: ${summary}`);
   const notice = S.text(a, "rules-notice");
-  check(notice.endsWith("Commander ruleset (experimental: enemy-action rules only): only the enemy-action rules differ from the current ruleset."), "panel notice names the experimental scope");
-  check(S.messages(a).some((m) => m.text === "Applied: commander ruleset (experimental: enemy-action rules only). The battle was restarted; custom settings change gameplay and are not balanced."), "apply message");
+  check(notice.endsWith("Commander ruleset (experimental: enemy-action and target-selection rules): only the enemy-action and target-selection rules differ from the current ruleset."), "panel notice names the experimental scope");
+  check(S.messages(a).some((m) => m.text === "Applied: commander ruleset (experimental: enemy-action and target-selection rules). The battle was restarted; custom settings change gameplay and are not balanced."), "apply message");
   check(a.ev("window.devTest.restartBattle()") === true && J(a, "window.devTest.getEffectiveRulesRecord()").hash === dRec.hash, "Restart keeps the active commander preset");
   a.ev("resetGame()");
   check(J(a, "window.devTest.getEffectiveRulesRecord()").preset === "commander" && a.ev("isCommanderRules()") === true, "Play Again keeps the active commander preset");

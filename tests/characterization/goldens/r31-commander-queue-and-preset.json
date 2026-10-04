@@ -24,7 +24,7 @@
       "playerTags": 2
     }
   },
-  "indexHtmlOption": "<option value=\"commander\">Commander ruleset (experimental: enemy-action rules only)</option>",
+  "indexHtmlOption": "<option value=\"commander\">Commander ruleset (experimental: enemy-action and target-selection rules)</option>",
   "links": {
     "commanderAlone": "?scenario=intro&seed=1&preset=commander",
     "commanderWithRules": "?scenario=intro&seed=1&preset=commander&rules=pab:3"
@@ -35,21 +35,21 @@
       "hash": "0d3ce2ec6fa6de"
     },
     "commanderDefault": {
-      "version": "0.2.0-commander-enemy-actions",
-      "hash": "0224eced47f0bf"
+      "version": "0.3.0-commander-enemy-actions-targets",
+      "hash": "1ef03d7c79476f"
     },
     "commanderPab3": {
-      "hash": "0eae1d4e4556ce",
+      "hash": "0b73a3335cc5d4",
       "currentHashSameNumbers": "1d4995c324af15"
     }
   },
   "labels": {
     "commanderDefault": "intro · seed 1 · commander (experimental)",
-    "commanderCustom": "intro · seed 1 · custom rules 0eae1d · commander (experimental)"
+    "commanderCustom": "intro · seed 1 · custom rules 0b73a3 · commander (experimental)"
   },
   "panel": {
-    "summary": "active: commander (experimental: enemy-action rules only) · pab 5 · hand 5 · charges 2 · cap 3 · weights M1 A1 D1 · enemy 5 (pool M2 D1 A2) · hash 0224ec",
-    "notice": "Applying settings restarts the battle and changes gameplay (not balanced). Restart / R / Play Again keep the ACTIVE settings; pending values are not applied until you click Apply. Commander ruleset (experimental: enemy-action rules only): only the enemy-action rules differ from the current ruleset."
+    "summary": "active: commander (experimental: enemy-action and target-selection rules) · pab 5 · hand 5 · charges 2 · cap 3 · weights M1 A1 D1 · enemy 5 (pool M2 D1 A2) · hash 1ef03d",
+    "notice": "Applying settings restarts the battle and changes gameplay (not balanced). Restart / R / Play Again keep the ACTIVE settings; pending values are not applied until you click Apply. Commander ruleset (experimental: enemy-action and target-selection rules): only the enemy-action and target-selection rules differ from the current ruleset."
   },
   "failedApplyWithPreset": {
     "error": "injected fault: restart",
