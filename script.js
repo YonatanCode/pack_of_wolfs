@@ -2505,7 +2505,9 @@ function updatePlayerActionControls() {
     button.setAttribute("aria-label", `${action} (${availableCount} available)`);
   });
 
-  if (selectedUnit && !hasAnyAvailableAction) {
+  // Commander (target selection): the wolf stays selected with an empty hand, so its target can still be changed or
+  // cleared; the action buttons above are already hidden / disabled. Under current the old auto-clear is unchanged.
+  if (selectedUnit && !hasAnyAvailableAction && !isTargetSelectionActive()) {
     clearPlayerSelection();
     renderActionQueue(null);
     playerActionMenu.hidden = true;
@@ -10990,6 +10992,48 @@ function getEnemyUnitAtTile(tile) {
   return enemies.find(isUnitAlive) ?? enemies[0] ?? null; // a living enemy first; else a defeated one (refused)
 }
 
+// Commander click resolution: the alive unit (wolf or enemy) whose sprite rect, grown by TARGET_CLICK_PADDING_PX,
+// holds the pointer and whose rect centre is nearest to it; a tie goes to the enemy when a wolf is selected, else to
+// the wolf. Null when no rect holds the pointer (the tile logic then runs unchanged).
+function getClosestUnitFromPointerEvent(event) {
+  const TARGET_CLICK_PADDING_PX = 8; // function-local: a new top-level declaration would move r19's pinned audit counts
+  const hasSelection = Boolean(getSelectedPlayerUnit());
+  let best = null;
+
+  units.filter(isUnitAlive).forEach((unit) => {
+    const rect = unit.element.getBoundingClientRect();
+
+    if (
+      event.clientX < rect.left - TARGET_CLICK_PADDING_PX ||
+      event.clientX > rect.right + TARGET_CLICK_PADDING_PX ||
+      event.clientY < rect.top - TARGET_CLICK_PADDING_PX ||
+      event.clientY > rect.bottom + TARGET_CLICK_PADDING_PX
+    ) {
+      return;
+    }
+
+    const distance = Math.hypot(event.clientX - (rect.left + rect.right) / 2, event.clientY - (rect.top + rect.bottom) / 2);
+    const preferred = hasSelection ? unit.team === "enemy" : unit.team === "player";
+
+    if (!best || distance < best.distance - 1e-9 || (Math.abs(distance - best.distance) <= 1e-9 && preferred && !best.preferred)) {
+      best = { unit, distance, preferred };
+    }
+  });
+
+  return best ? best.unit : null;
+}
+
+// Commander: selecting / deselecting a wolf by click shows the one-line hint for the new selection.
+function toggleWolfSelectionWithHint(wolf) {
+  setPlayerSelected(wolf === getSelectedPlayerUnit() ? null : wolf);
+
+  const selected = getSelectedPlayerUnit();
+
+  if (selected) {
+    showTargetStatus(`${getBattleDebugUnitId(selected)} selected: click an enemy to target it, click it again to clear`);
+  }
+}
+
 function getEnemyUnitFromPointerEvent(event) {
   const point = getArenaPoint(event);
 
@@ -11035,6 +11079,17 @@ function handleEnemyTargetIntent(enemyUnit) {
     return true;
   }
 
+  if (selected.targetId === enemyId) {
+    // Clicking the wolf's current target again unassigns it; Play (or the next first-queue) auto-picks as before.
+    const hasTargetedAction = getUnitActionQueue(selected).some((action) => action === "Move" || action === "Attack");
+
+    setUnitTarget(selected, null);
+    showTargetStatus(`target ${getBattleDebugUnitId(selected)} cleared${hasTargetedAction ? " (Play will auto-pick the nearest)" : ""}`);
+    renderTargetMarkers();
+    updatePlayerMovePreview();
+    return true;
+  }
+
   setUnitTarget(selected, enemyUnit, "chosen");
   showTargetStatus(`target ${getBattleDebugUnitId(selected)} -> ${enemyId} (chosen)`);
   renderTargetMarkers();
@@ -11062,6 +11117,11 @@ function handleTileIntent(tile) {
   }
 
   const friendlyUnit = getFriendlyUnitAtTile(tile);
+
+  if (friendlyUnit && isTargetSelectionActive()) {
+    toggleWolfSelectionWithHint(friendlyUnit);
+    return;
+  }
 
   if (friendlyUnit) {
     setPlayerSelected(friendlyUnit === getSelectedPlayerUnit() ? null : friendlyUnit);
@@ -12082,10 +12142,33 @@ arena.addEventListener("click", (event) => {
   }
 
   const tile = getTileFromPointerEvent(event);
+
+  // Commander: the closest unit under the pointer wins (forgiving padding), wolf or enemy; no unit -> the tile logic.
+  if (isTargetSelectionActive()) {
+    const closest = getClosestUnitFromPointerEvent(event);
+
+    if (closest && closest.team === "enemy") {
+      handleEnemyTargetIntent(closest);
+      event.stopPropagation();
+      return;
+    }
+
+    if (closest) {
+      toggleWolfSelectionWithHint(closest);
+      event.stopPropagation();
+      return;
+    }
+  }
+
   const clickedFriendlyUnit = getFriendlyUnitAtTile(tile) ?? getFriendlyUnitFromPointerEvent(event);
 
   if (clickedFriendlyUnit) {
-    setPlayerSelected(clickedFriendlyUnit === getSelectedPlayerUnit() ? null : clickedFriendlyUnit);
+    if (isTargetSelectionActive()) {
+      toggleWolfSelectionWithHint(clickedFriendlyUnit); // commander: same toggle, plus the hint (tile fall-through)
+    } else {
+      setPlayerSelected(clickedFriendlyUnit === getSelectedPlayerUnit() ? null : clickedFriendlyUnit);
+    }
+
     event.stopPropagation();
     return;
   }
