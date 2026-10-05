@@ -1,0 +1,268 @@
+{
+  "id": "b1-bots-decide",
+  "header": "REQUIREMENT — L2 bots",
+  "observations": [
+    "A_adjacent",
+    "B_far_current",
+    "C_empty_hand",
+    "D_budget_exhausted",
+    "E_targets",
+    "F_concealed"
+  ],
+  "result": {
+    "A_adjacent": {
+      "aggressive-pursuit": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P2",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        }
+      ],
+      "random-legal": {
+        "seed1": [
+          {
+            "unit": "P2",
+            "target": "E1"
+          },
+          {
+            "unit": "P2",
+            "action": "Move"
+          },
+          {
+            "unit": "P1",
+            "action": "Move"
+          }
+        ],
+        "seed2": [
+          {
+            "unit": "P2",
+            "target": "E1"
+          },
+          {
+            "unit": "P2",
+            "action": "Attack"
+          }
+        ],
+        "seed3": [
+          {
+            "unit": "P2",
+            "target": "E1"
+          },
+          {
+            "unit": "P2",
+            "action": "Attack"
+          },
+          {
+            "unit": "P2",
+            "action": "Attack"
+          },
+          {
+            "unit": "P1",
+            "action": "Move"
+          }
+        ]
+      }
+    },
+    "B_far_current": {
+      "aggressive-pursuit": [
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ],
+      "random-legal": {
+        "seed1": [
+          {
+            "unit": "P1",
+            "action": "Move"
+          }
+        ],
+        "seed2": [
+          {
+            "unit": "P1",
+            "action": "Move"
+          }
+        ],
+        "seed3": [
+          {
+            "unit": "P1",
+            "action": "Defend"
+          }
+        ]
+      }
+    },
+    "C_empty_hand": {
+      "aggressive-pursuit": [],
+      "random-legal": {
+        "seed1": [],
+        "seed2": [],
+        "seed3": []
+      }
+    },
+    "D_budget_exhausted": {
+      "aggressive-pursuit": [],
+      "random-legal": {
+        "seed1": [],
+        "seed2": [],
+        "seed3": []
+      }
+    },
+    "E_targets": {
+      "aggressive-pursuit": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P2",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        }
+      ],
+      "random-legal": {
+        "seed1": [
+          {
+            "unit": "P2",
+            "target": "E1"
+          },
+          {
+            "unit": "P2",
+            "action": "Attack"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          }
+        ],
+        "seed2": [
+          {
+            "unit": "P2",
+            "target": "E1"
+          },
+          {
+            "unit": "P2",
+            "action": "Defend"
+          }
+        ],
+        "seed3": [
+          {
+            "unit": "P2",
+            "target": "E1"
+          },
+          {
+            "unit": "P2",
+            "action": "Move"
+          },
+          {
+            "unit": "P2",
+            "action": "Defend"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          }
+        ]
+      }
+    },
+    "F_concealed": {
+      "aggressive-pursuit": [
+        {
+          "unit": "P1",
+          "target": "E2"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ],
+      "random-legal": {
+        "seed1": [
+          {
+            "unit": "P1",
+            "action": "Defend"
+          },
+          {
+            "unit": "P1",
+            "action": "Move"
+          }
+        ],
+        "seed2": [
+          {
+            "unit": "P1",
+            "action": "Defend"
+          },
+          {
+            "unit": "P1",
+            "action": "Move"
+          }
+        ],
+        "seed3": [
+          {
+            "unit": "P1",
+            "action": "Defend"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          }
+        ]
+      }
+    },
+    "legalOrderCheck": {
+      "cardNotInHand": "card-not-in-hand",
+      "budget": "action-budget",
+      "deadWolf": "unit-defeated",
+      "targetInactive": "target-selection-inactive",
+      "maxSameAction": "max-same-action",
+      "malformed": "malformed-order"
+    }
+  },
+  "usage": {
+    "contexts": 0,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 0
+  }
+}

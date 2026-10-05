@@ -58,6 +58,16 @@ async function main() {
     fixtureIds.add(m.id);
     jobs.push({ id: m.id, file: path.join(GOLDEN_DIR, `${m.id}.json`), run: m.run, withUsage: true, fixtureFile: f });
   });
+  // Battle Lab fixtures (tests/lab/<letter><n>-*.cjs, goldens in tests/lab/goldens): dev-only, hand-authored, no game load.
+  const LAB_DIR = path.join(__dirname, "lab");
+  const LAB_GOLDEN_DIR = path.join(LAB_DIR, "goldens");
+  if (fs.existsSync(LAB_DIR)) {
+    fs.mkdirSync(LAB_GOLDEN_DIR, { recursive: true });
+    fs.readdirSync(LAB_DIR).filter((f) => /^[a-z]\d.*\.cjs$/.test(f)).sort().forEach((f) => {
+      const m = require(path.join(LAB_DIR, f));
+      jobs.push({ id: m.id, file: path.join(LAB_GOLDEN_DIR, `${m.id}.json`), run: m.run, withUsage: true, fixtureFile: `lab/${f}` });
+    });
+  }
   fs.mkdirSync(GOLDEN_DIR, { recursive: true });
 
   const rows = [];
