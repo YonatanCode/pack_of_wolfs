@@ -85,6 +85,23 @@ function checkApprovals(data, buildId, manifestHash) {
  * -> { ok, reason }. Never creates records.
  */
 function consumeAuthorization(file, buildId, manifestHash, opts = {}) {
+  const lock = `${file}.lock`;
+  let fd;
+  try {
+    fd = fs.openSync(lock, "wx");
+  } catch (e) {
+    if (e && e.code === "EEXIST") return { ok: false, reason: `approvals lock exists (${path.basename(lock)}): another consume is in progress or a previous one crashed; remove the lock file by hand only after checking approvals.json` };
+    return { ok: false, reason: `cannot create approvals lock: ${e.message}` };
+  }
+  try {
+    return consumeLocked(file, buildId, manifestHash, opts);
+  } finally {
+    try { fs.closeSync(fd); } catch { /* best effort */ }
+    try { fs.rmSync(lock, { force: true }); } catch { /* best effort */ }
+  }
+}
+
+function consumeLocked(file, buildId, manifestHash, opts) {
   const now = opts.now ? opts.now() : new Date().toISOString();
   const loaded = loadApprovals(file);
   if (!loaded.ok) return { ok: false, reason: loaded.error };
