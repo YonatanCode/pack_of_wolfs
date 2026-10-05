@@ -1,0 +1,256 @@
+{
+  "header": "REQUIREMENT — L3 visual replay",
+  "battle": {
+    "query": "?scenario=intro&seed=1&preset=commander&rules=rc:3",
+    "turns": [
+      [
+        [
+          {
+            "reshuffle": true
+          }
+        ],
+        [
+          {
+            "unit": "P1",
+            "target": "E2"
+          },
+          {
+            "unit": "P1",
+            "action": "Move"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "unit": "P2",
+            "action": "Defend"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "unit": "P3",
+            "action": "Move"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "unit": "P2",
+            "target": "E3"
+          },
+          {
+            "unit": "P2",
+            "action": "Attack"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "unit": "P1",
+            "action": "Move"
+          },
+          {
+            "unit": "P1",
+            "action": "Move"
+          },
+          {
+            "unit": "P3",
+            "action": "Attack"
+          },
+          {
+            "unit": "P2",
+            "action": "Defend"
+          }
+        ]
+      ]
+    ],
+    "rules": {
+      "preset": "commander",
+      "version": "0.4.0-commander-enemy-actions-targets-fallback",
+      "hash": "1462d320309cd9",
+      "playerActionBudget": 5,
+      "enemyActionBudget": 5,
+      "handSize": 5,
+      "maxSameAction": 3
+    },
+    "recordedEventHashes": [
+      "19ec9259b33ae8",
+      "04d64c4b3a0447",
+      "0527b9a5e75764"
+    ],
+    "finalStateHash": "c747fa41586e4ce6135c9ffe970ab68ec09f8b2e571e8571260337f91c1ec46b"
+  },
+  "payloadKeys": [
+    "v",
+    "buildId",
+    "scenarioId",
+    "seed",
+    "preset",
+    "rulesQuery",
+    "rulesVersion",
+    "rulesHash",
+    "strategy",
+    "botSeed",
+    "result",
+    "turns"
+  ],
+  "hashTurnEvents": {
+    "hash": "19ec9259b33ae8",
+    "again": "19ec9259b33ae8",
+    "reorderedKeys": "19ec9259b33ae8",
+    "viaDevTest": "19ec9259b33ae8",
+    "formula": "19ec9259b33ae8",
+    "empty": "15202279b28c9e",
+    "nonArray": "TypeError: hashTurnEvents: events must be an array of turn events",
+    "undefinedMember": true
+  },
+  "replay": {
+    "readyPanel": {
+      "hidden": false,
+      "turn": "Turn 1 / 3 (next)",
+      "meta": "intro · seed 1 · preset commander · rules=rc:3 · strategy scripted-fixture (bot seed 0) · recorded result timeout · build 474747474747",
+      "warning": null,
+      "error": null,
+      "status": "Ready: 3 recorded turn(s). Play replays them with the game's own animations; Next turn plays one.",
+      "orders": [
+        "Step 1: reshuffle",
+        "Step 2: P1: Move, Attack -> target E2; P2: Defend"
+      ],
+      "play": {
+        "text": "Play",
+        "disabled": false
+      },
+      "next": {
+        "text": "",
+        "disabled": false
+      },
+      "restart": {
+        "text": "",
+        "disabled": false
+      },
+      "body": [
+        "is-replay"
+      ]
+    },
+    "playedSteps": 311,
+    "results": [
+      {
+        "turn": 1,
+        "recorded": "19ec9259b33ae8",
+        "replayed": "19ec9259b33ae8",
+        "match": true
+      },
+      {
+        "turn": 2,
+        "recorded": "04d64c4b3a0447",
+        "replayed": "04d64c4b3a0447",
+        "match": true
+      },
+      {
+        "turn": 3,
+        "recorded": "0527b9a5e75764",
+        "replayed": "0527b9a5e75764",
+        "match": true
+      }
+    ],
+    "donePanel": {
+      "hidden": false,
+      "turn": "Turn 3 / 3 (finished)",
+      "meta": "intro · seed 1 · preset commander · rules=rc:3 · strategy scripted-fixture (bot seed 0) · recorded result timeout · build 474747474747",
+      "warning": null,
+      "error": null,
+      "status": "Replay complete: all 3 turn(s) match the recorded event hashes. Recorded result: timeout; replayed: the battle is not over.",
+      "orders": [
+        "P1: Move, Move; P3: Attack; P2: Defend"
+      ],
+      "play": {
+        "text": "Play",
+        "disabled": true
+      },
+      "next": {
+        "text": "",
+        "disabled": true
+      },
+      "restart": {
+        "text": "",
+        "disabled": false
+      },
+      "body": [
+        "is-replay"
+      ]
+    }
+  },
+  "restart": {
+    "nextResults": [
+      "turn 1: true",
+      "turn 2: true",
+      "turn 3: true"
+    ],
+    "sameResults": true,
+    "sameFinalState": true
+  },
+  "inputLocked": {
+    "queuedByDevDoor": {
+      "ok": true,
+      "queuedTotal": 2
+    },
+    "attempts": {
+      "Play button": "ignored",
+      "card click": "ignored",
+      "Reshuffle button": "ignored",
+      "target click (tile)": "ignored",
+      "target click (sprite)": false,
+      "arena click handler": "ignored",
+      "arena key handler": "ignored",
+      "remove a queued card": "ignored",
+      "queue row click": "ignored",
+      "Restart button / R key": false,
+      "Play Again": "ignored",
+      "rules Apply": {
+        "kind": "error",
+        "text": "Not applied (replay-active). Nothing changed."
+      },
+      "tutorial settings switch": false
+    },
+    "blocker": {
+      "outsidePanel": 1,
+      "insidePanel": 0
+    }
+  },
+  "normalBoot": [
+    {
+      "store": "undefined",
+      "locked": false,
+      "route": {
+        "scenario": "intro",
+        "seed": "1"
+      },
+      "bodyClasses": "",
+      "panelListeners": "0,0,0",
+      "scenario": "intro"
+    },
+    {
+      "store": "undefined",
+      "locked": false,
+      "route": {
+        "scenario": "intro",
+        "seed": "1"
+      },
+      "bodyClasses": "",
+      "panelListeners": "0,0,0",
+      "scenario": "intro"
+    }
+  ],
+  "hands": 21,
+  "usage": {
+    "contexts": 5,
+    "maxSteps": 574,
+    "totalSteps": 625,
+    "cap": 4000
+  }
+}
