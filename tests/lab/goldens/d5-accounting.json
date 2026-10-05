@@ -1,0 +1,228 @@
+{
+  "header": "REQUIREMENT — L3 turn accounting",
+  "fixtureOnly": true,
+  "contexts": 2,
+  "hands": 4,
+  "engine": {
+    "botSaw": [
+      "P1:Defend"
+    ],
+    "turn": {
+      "turn": 1,
+      "status": "ran",
+      "steps": [
+        [
+          {
+            "unit": "P1",
+            "action": "Attack"
+          }
+        ]
+      ],
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Attack"
+        }
+      ],
+      "budget": 5,
+      "planned": 1,
+      "unspentBudget": 4,
+      "executed": 2,
+      "notExecuted": 0,
+      "wasted": 0,
+      "attacksHit": 1,
+      "attacksMissed": 0,
+      "missReasons": {},
+      "reshuffles": 0,
+      "reshuffleChargesBeforeTurn": 2,
+      "reshuffleChargesAfter": 2,
+      "byUnit": {
+        "P1": {
+          "planned": 1,
+          "executed": 2,
+          "attacksHit": 1,
+          "attacksMissed": 0,
+          "wasted": 0
+        }
+      },
+      "enemy": {
+        "budget": 5,
+        "executed": 0,
+        "attacksHit": 0,
+        "attacksMissed": 0
+      },
+      "accountingNote": "unplanned-actions-resolved: 1",
+      "refusal": null,
+      "error": null,
+      "eventHash": "19e772d7c5cc5e",
+      "observationHash": "45c126c7e0ab841c"
+    }
+  },
+  "helper": {
+    "balanced": {
+      "planned": 2,
+      "executed": 2,
+      "attacksHit": 1,
+      "attacksMissed": 0,
+      "missReasons": {},
+      "wasted": 0,
+      "notExecuted": 0,
+      "accountingNote": null,
+      "byUnit": {
+        "P1": {
+          "planned": 2,
+          "executed": 2,
+          "attacksHit": 1,
+          "attacksMissed": 0,
+          "wasted": 0
+        }
+      },
+      "enemy": {
+        "executed": 0,
+        "attacksHit": 0,
+        "attacksMissed": 0
+      }
+    },
+    "missSkipClearedUnplayed": {
+      "planned": 5,
+      "executed": 1,
+      "attacksHit": 0,
+      "attacksMissed": 1,
+      "missReasons": {
+        "target-not-adjacent": 1
+      },
+      "wasted": 3,
+      "notExecuted": 4,
+      "accountingNote": null,
+      "byUnit": {
+        "P1": {
+          "planned": 2,
+          "executed": 0,
+          "attacksHit": 0,
+          "attacksMissed": 1,
+          "wasted": 1
+        },
+        "P2": {
+          "planned": 3,
+          "executed": 1,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "wasted": 2
+        }
+      },
+      "enemy": {
+        "executed": 0,
+        "attacksHit": 0,
+        "attacksMissed": 0
+      }
+    },
+    "plannedUnaccounted": {
+      "planned": 2,
+      "executed": 1,
+      "attacksHit": 0,
+      "attacksMissed": 0,
+      "missReasons": {},
+      "wasted": 0,
+      "notExecuted": 1,
+      "accountingNote": "planned-actions-unaccounted: 1",
+      "byUnit": {
+        "P1": {
+          "planned": 2,
+          "executed": 1,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "wasted": 0
+        }
+      },
+      "enemy": {
+        "executed": 0,
+        "attacksHit": 0,
+        "attacksMissed": 0
+      }
+    },
+    "hitWithoutAttack": {
+      "planned": 1,
+      "executed": 1,
+      "attacksHit": 0,
+      "attacksMissed": 0,
+      "missReasons": {},
+      "wasted": 0,
+      "notExecuted": 0,
+      "accountingNote": "hits-without-attack: 1",
+      "byUnit": {
+        "P1": {
+          "planned": 1,
+          "executed": 1,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "wasted": 0
+        }
+      },
+      "enemy": {
+        "executed": 0,
+        "attacksHit": 0,
+        "attacksMissed": 0
+      }
+    },
+    "unplannedResolved": {
+      "planned": 0,
+      "executed": 1,
+      "attacksHit": 0,
+      "attacksMissed": 0,
+      "missReasons": {},
+      "wasted": 0,
+      "notExecuted": 0,
+      "accountingNote": "unplanned-actions-resolved: 1",
+      "byUnit": {
+        "P1": {
+          "planned": 0,
+          "executed": 1,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "wasted": 0
+        }
+      },
+      "enemy": {
+        "executed": 0,
+        "attacksHit": 0,
+        "attacksMissed": 0
+      }
+    },
+    "enemy": {
+      "planned": 1,
+      "executed": 1,
+      "attacksHit": 0,
+      "attacksMissed": 0,
+      "missReasons": {},
+      "wasted": 0,
+      "notExecuted": 0,
+      "accountingNote": null,
+      "byUnit": {
+        "P1": {
+          "planned": 1,
+          "executed": 1,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "wasted": 0
+        }
+      },
+      "enemy": {
+        "executed": 1,
+        "attacksHit": 1,
+        "attacksMissed": 1
+      }
+    }
+  },
+  "reportNotes": [
+    "FIXTURE ONLY: hand-authored scripted battles; these numbers say nothing about the game or any strategy.",
+    "small sample: scripted-carry n=1, win rate 95% interval [0, 0.793451]",
+    "accounting: 1 turn(s) do not balance planned = executed + attacksMissed + wasted (see perTurn[].accountingNote)",
+    "visual replay: 1 of 1 battle(s) have no replay payload (see replay.payloadNote)"
+  ],
+  "usage": {
+    "contexts": 2,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
