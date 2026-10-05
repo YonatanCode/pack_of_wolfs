@@ -172,7 +172,7 @@ async function workerMain() {
   const { loadGame } = require("../../tests/harness/load-game.cjs");
   const rec = driver.runBattle({
     load: loadGame, bot: BOTS[job.strategy], strategy: job.strategy, scenarioId: job.scenarioId, seed: job.seed, preset: job.preset,
-    limits: job.limits, botSeed: job.botSeed, fixtureOnly: false, turnsRemaining: job.turnsRemaining, deadlineMs: Date.now() + job.remainingMs, now: Date.now,
+    limits: job.limits, botSeed: job.botSeed, fixtureOnly: false, turnsRemaining: job.turnsRemaining, deadlineMs: Date.now() + job.remainingMs, now: Date.now, buildId: job.buildId,
   });
   process.stdout.write(JSON.stringify(rec));
 }
@@ -198,7 +198,7 @@ async function execute(manifest, v, mods, startedMs, now, currentBuild, iso) {
         let rec;
         if (iso.mode === "child") {
           const job = { scenarioId: sc.id, seed, preset: manifest.preset, strategy, limits: { ...L }, botSeed: manifest.botSeed,
-            turnsRemaining: L.maxTotalTurns - totalTurns, remainingMs: deadline - now() };
+            turnsRemaining: L.maxTotalTurns - totalTurns, remainingMs: deadline - now(), buildId: manifest.buildId };
           const r = await runInChild(job, { childEntry: iso.childEntry, remainingMs: job.remainingMs, onSpawn: iso.onSpawn });
           rec = r.record;
           if (r.killed) { records.push(rec); killedCount++; stopped = "runtime deadline"; break outer; }
@@ -206,7 +206,7 @@ async function execute(manifest, v, mods, startedMs, now, currentBuild, iso) {
           rec = await driver.runBattle({
             load: loadGame, bot: bots.BOTS[strategy], strategy, scenarioId: sc.id, seed, preset: manifest.preset,
             limits: { ...L }, botSeed: manifest.botSeed, fixtureOnly: false,
-            turnsRemaining: L.maxTotalTurns - totalTurns, deadlineMs: deadline, now,
+            turnsRemaining: L.maxTotalTurns - totalTurns, deadlineMs: deadline, now, buildId: manifest.buildId,
           });
         }
         records.push(rec);

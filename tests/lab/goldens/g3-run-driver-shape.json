@@ -39,6 +39,7 @@
         "keys": [
           "bot",
           "botSeed",
+          "buildId",
           "deadlineMs",
           "fixtureOnly",
           "limits",
@@ -72,6 +73,7 @@
         "keys": [
           "bot",
           "botSeed",
+          "buildId",
           "deadlineMs",
           "fixtureOnly",
           "limits",
