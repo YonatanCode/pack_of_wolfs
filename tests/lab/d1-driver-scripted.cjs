@@ -84,10 +84,10 @@ function view(record) {
   const { replay, ...rest } = record;
   return { ...rest, replayQuery: replay.query };
 }
-/** planned = executed + attacksMissed + wasted; notExecuted = planned - executed (every slot). */
+/** Every d1 slot balances (accountingNote null): planned = executed + attacksMissed + wasted, notExecuted = planned - executed. */
 function checkRelations(record) {
   record.perTurn.forEach((t) => {
-    check(t.planned === t.executed + t.attacksMissed + t.wasted && t.notExecuted === t.planned - t.executed, `${record.strategy} turn ${t.turn}: metric relations`);
+    check(t.accountingNote === null && t.planned === t.executed + t.attacksMissed + t.wasted && t.notExecuted === t.planned - t.executed, `${record.strategy} turn ${t.turn}: balanced, metric relations`);
   });
 }
 
@@ -174,6 +174,7 @@ function run() {
   const [l1, l2] = records.l.perTurn;
   same([l1.status, l1.steps, l1.orders, l1.reshuffles, l1.reshuffleChargesAfter, l1.executed], ["ran", [[R], [{ unit: "P1", action: "Defend" }]], [{ unit: "P1", action: "Defend" }], 1, 1, 1], "D1l: turn 1");
   same([l2.steps.length, l2.reshuffles, l2.reshuffleChargesAfter], [1, 0, 1], "D1l: turn 2 one round");
+  same([l1.reshuffleChargesBeforeTurn, l2.reshuffleChargesBeforeTurn], [1, 1], "D1l: charges the turn's orders were decided on (after the reshuffle)");
   out.l = { record: view(records.l), botSaw: logL };
 
   // D1m

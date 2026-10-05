@@ -142,25 +142,29 @@
         "target-not-adjacent": 1
       },
       "reshuffles": 1,
+      "reshuffleChargesBeforeTurn": 2,
       "reshuffleChargesAfter": 2,
       "byUnit": {
         "P1": {
           "planned": 2,
           "executed": 1,
           "attacksHit": 0,
-          "attacksMissed": 1
+          "attacksMissed": 1,
+          "wasted": 0
         },
         "P2": {
           "planned": 1,
           "executed": 1,
           "attacksHit": 0,
-          "attacksMissed": 0
+          "attacksMissed": 0,
+          "wasted": 0
         },
         "P3": {
           "planned": 0,
           "executed": 0,
           "attacksHit": 0,
-          "attacksMissed": 0
+          "attacksMissed": 0,
+          "wasted": 0
         }
       },
       "enemy": {
@@ -169,6 +173,7 @@
         "attacksHit": 0,
         "attacksMissed": 0
       },
+      "accountingNote": null,
       "refusal": null,
       "error": null,
       "eventHash": "19ec9259b33ae8",
@@ -227,25 +232,29 @@
         "target-not-adjacent": 2
       },
       "reshuffles": 0,
+      "reshuffleChargesBeforeTurn": 2,
       "reshuffleChargesAfter": 2,
       "byUnit": {
         "P1": {
           "planned": 1,
           "executed": 0,
           "attacksHit": 0,
-          "attacksMissed": 1
+          "attacksMissed": 1,
+          "wasted": 0
         },
         "P2": {
           "planned": 1,
           "executed": 0,
           "attacksHit": 0,
-          "attacksMissed": 1
+          "attacksMissed": 1,
+          "wasted": 0
         },
         "P3": {
           "planned": 1,
           "executed": 1,
           "attacksHit": 0,
-          "attacksMissed": 0
+          "attacksMissed": 0,
+          "wasted": 0
         }
       },
       "enemy": {
@@ -254,6 +263,7 @@
         "attacksHit": 0,
         "attacksMissed": 0
       },
+      "accountingNote": null,
       "refusal": null,
       "error": null,
       "eventHash": "04d64c4b3a0447",

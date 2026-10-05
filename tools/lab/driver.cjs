@@ -53,11 +53,16 @@
  *   attacksHit         player "hit" events; attacksMissed = Attacks resolved - attacksHit (never below 0)
  *   missReasons        { reason: count } for the missed Attacks: the miss event's reason ("unspecified" when the event
  *                      has none, as under the current preset); an Attack with neither a hit nor a miss event: "no-swing"
- *   wasted             (L2 meaning, unchanged) planned actions that never resolved: refused, target-defeated skips,
- *                      cleared by a death, unplayed at the battle end = planned - executed - attacksMissed
- *   notExecuted        planned - executed = wasted + attacksMissed
- *   reshuffles         reshuffles the game applied in this slot (0 or 1); reshuffleChargesAfter = charges at the slot end
- *   byUnit             { P1: { planned, executed, attacksHit, attacksMissed }, ... } (player wolves, same meanings)
+ *   wasted             actions that never resolved, counted INDEPENDENTLY: a refused list's planned actions; for a turn
+ *                      that ran, target-defeated skips + actions cleared by a death (event log) + actions still queued
+ *                      after the turn (unplayed at the battle end; observation). See accountTurn.
+ *   notExecuted        max(0, planned - executed); = wasted + attacksMissed when the turn balances
+ *   accountingNote     null when planned = executed + attacksMissed + wasted; otherwise the imbalance, e.g.
+ *                      "unplanned-actions-resolved: N" (see accountTurn). Nothing is forced to balance.
+ *   reshuffles         reshuffles the game applied in this slot (0 or 1)
+ *   reshuffleChargesBeforeTurn  charges in the observation the turn's orders were decided on (after the slot's
+ *                      reshuffle, if any); reshuffleChargesAfter = charges at the slot end (after the turn)
+ *   byUnit             { P1: { planned, executed, attacksHit, attacksMissed, wasted }, ... } (player wolves)
  *   enemy              { budget: enemyActionBudget, executed, attacksHit, attacksMissed } (same meanings, enemy units)
  *   refusal            null | { by: "driver" | "engine", step, index, reason, message }
  *   error, eventHash   eventHash = devTest.hashTurnEvents(that turn's events) (14 hex), null when no turn ran
@@ -126,18 +131,22 @@ function plannedByUnit(orders) {
 }
 
 /**
- * Per-unit action outcome from one turn's event log. -> { [unitId]: { resolved, attacks, hits, missEvents: {reason: n} } }
- * resolved = consumed by a tick - target-defeated skips; attacks = the Attacks among them.
+ * Per-unit counts from one turn's event log (independent of the orders).
+ * -> { [unitId]: { consumed, skipped, cleared, attacks, hits, missEvents: { reason: n } } }
+ * consumed = actions a tick took from the queue; skipped = commander target-defeated skips among them; cleared = actions
+ * removed from a dead unit's queue (queueCleared); attacks = consumed Attacks minus skipped Attacks.
  */
 function tallyEvents(events) {
   const units = {};
-  const u = (id) => (units[id] ??= { resolved: 0, attacks: 0, hits: 0, missEvents: {} });
+  const u = (id) => (units[id] ??= { consumed: 0, skipped: 0, cleared: 0, attacks: 0, hits: 0, missEvents: {} });
   events.forEach((e) => {
     if (e.type === "consumed") {
-      (e.actions ?? []).forEach((a) => { u(a.unit).resolved += 1; if (a.action === "Attack") u(a.unit).attacks += 1; });
+      (e.actions ?? []).forEach((a) => { u(a.unit).consumed += 1; if (a.action === "Attack") u(a.unit).attacks += 1; });
     } else if (e.type === "targetSkipped") {
-      u(e.unit).resolved -= 1;
+      u(e.unit).skipped += 1;
       if (e.action === "Attack") u(e.unit).attacks -= 1;
+    } else if (e.type === "queueCleared") {
+      u(e.unit).cleared += Array.isArray(e.cleared) ? e.cleared.length : Number(e.cleared) || 0;
     } else if (e.type === "hit") {
       u(e.attacker).hits += 1;
     } else if (e.type === "miss") {
@@ -148,14 +157,16 @@ function tallyEvents(events) {
   return units;
 }
 
-/** Outcome numbers of one unit (or a sum of units): executed excludes missed Attacks. */
-function outcomeOfUnits(tallies) {
-  let resolved = 0; let hits = 0; let missed = 0;
+/** Hit / miss / executed numbers over a list of unit tallies (missed = Attacks resolved without a hit event). */
+function attackOutcome(tallies) {
+  let resolved = 0; let hits = 0; let missed = 0; let excessHits = 0;
   const missReasons = {};
   tallies.forEach((t) => {
-    const m = Math.max(0, t.attacks - t.hits);
-    resolved += t.resolved;
-    hits += t.hits;
+    const attacks = Math.max(0, t.attacks);
+    const m = Math.max(0, attacks - t.hits);
+    resolved += t.consumed - t.skipped;
+    hits += Math.min(t.hits, attacks);
+    excessHits += Math.max(0, t.hits - attacks);
     missed += m;
     let left = m;
     Object.keys(t.missEvents).sort().forEach((reason) => {
@@ -164,7 +175,46 @@ function outcomeOfUnits(tallies) {
     });
     if (left > 0) missReasons["no-swing"] = (missReasons["no-swing"] ?? 0) + left;
   });
-  return { executed: resolved - missed, attacksHit: hits, attacksMissed: missed, missReasons: sortObject(missReasons) };
+  return { resolved, executed: resolved - missed, attacksHit: hits, attacksMissed: missed, excessHits, missReasons: sortObject(missReasons) };
+}
+
+/**
+ * Pure accounting of one turn that ran. Counts come from independent sources:
+ *   planned   the action orders (per unit)            executed / attacksHit / attacksMissed  the event log
+ *   wasted    skipped + cleared (event log) + unplayed (player queues left after the turn, from the observation)
+ * Identity when everything balances: planned = executed + attacksMissed + wasted. When it does not (e.g. cards queued
+ * before the slot that also resolved, or log entries without a matching order), nothing is forced: notExecuted is
+ * clamped at 0 and accountingNote names the imbalance:
+ *   "unplanned-actions-resolved: N"   N = (resolved + wasted) - planned > 0
+ *   "planned-actions-unaccounted: N"  N = planned - (resolved + wasted) > 0
+ *   "hits-without-attack: N"          hit events beyond the unit's resolved Attacks (not counted as attacksHit)
+ * accountTurn({ planned: { P1: n }, events, queuesAfter: { P1: n } }) -> { planned, executed, attacksHit, attacksMissed,
+ *   missReasons, wasted, notExecuted, accountingNote, byUnit, enemy: { executed, attacksHit, attacksMissed } }
+ */
+function accountTurn({ planned = {}, events = [], queuesAfter = {} } = {}) {
+  const tallies = tallyEvents(events);
+  const empty = { consumed: 0, skipped: 0, cleared: 0, attacks: 0, hits: 0, missEvents: {} };
+  const playerIds = [...new Set([...Object.keys(planned), ...Object.keys(queuesAfter), ...Object.keys(tallies).filter((id) => PLAYER_IDS.includes(id))])].sort();
+  const wastedOf = (id) => (tallies[id] ? tallies[id].skipped + tallies[id].cleared : 0) + (queuesAfter[id] ?? 0);
+  const byUnit = {};
+  playerIds.forEach((id) => {
+    const o = attackOutcome([tallies[id] ?? empty]);
+    byUnit[id] = { planned: planned[id] ?? 0, executed: o.executed, attacksHit: o.attacksHit, attacksMissed: o.attacksMissed, wasted: wastedOf(id) };
+  });
+  const pack = attackOutcome(playerIds.map((id) => tallies[id] ?? empty));
+  const foes = attackOutcome(Object.keys(tallies).filter((id) => !PLAYER_IDS.includes(id)).sort().map((id) => tallies[id]));
+  const plannedTotal = Object.values(planned).reduce((a, b) => a + b, 0);
+  const wasted = playerIds.reduce((n, id) => n + wastedOf(id), 0);
+  const balance = pack.resolved + wasted - plannedTotal;
+  const notes = [];
+  if (balance > 0) notes.push(`unplanned-actions-resolved: ${balance}`);
+  if (balance < 0) notes.push(`planned-actions-unaccounted: ${-balance}`);
+  if (pack.excessHits > 0) notes.push(`hits-without-attack: ${pack.excessHits}`);
+  return {
+    planned: plannedTotal, executed: pack.executed, attacksHit: pack.attacksHit, attacksMissed: pack.attacksMissed, missReasons: pack.missReasons,
+    wasted, notExecuted: Math.max(0, plannedTotal - pack.executed), accountingNote: notes.length ? notes.join("; ") : null, byUnit,
+    enemy: { executed: foes.executed, attacksHit: foes.attacksHit, attacksMissed: foes.attacksMissed },
+  };
 }
 const sortObject = (o) => Object.fromEntries(Object.keys(o).sort().map((k) => [k, o[k]]));
 
@@ -183,9 +233,10 @@ function newEntry(turn, before) {
     turn, status: "ran", steps: [], orders: null,
     budget: before.rules.playerActionBudget, planned: 0, unspentBudget: before.rules.playerActionBudget,
     executed: 0, notExecuted: 0, wasted: 0, attacksHit: 0, attacksMissed: 0, missReasons: {},
-    reshuffles: 0, reshuffleChargesAfter: before.hand ? before.hand.reshuffleChargesRemaining ?? null : null,
+    reshuffles: 0, reshuffleChargesBeforeTurn: before.hand ? before.hand.reshuffleChargesRemaining ?? null : null,
+    reshuffleChargesAfter: before.hand ? before.hand.reshuffleChargesRemaining ?? null : null,
     byUnit: {}, enemy: { budget: before.rules.enemyActionBudget, executed: 0, attacksHit: 0, attacksMissed: 0 },
-    refusal: null, error: null, eventHash: null, observationHash: null,
+    accountingNote: null, refusal: null, error: null, eventHash: null, observationHash: null,
   };
 }
 
@@ -197,7 +248,7 @@ function notRun(entry, unitIds) {
   entry.wasted = entry.planned;
   entry.notExecuted = entry.planned;
   [...new Set([...unitIds, ...Object.keys(planned)])].sort().forEach((id) => {
-    entry.byUnit[id] = { planned: planned[id] ?? 0, executed: 0, attacksHit: 0, attacksMissed: 0 };
+    entry.byUnit[id] = { planned: planned[id] ?? 0, executed: 0, attacksHit: 0, attacksMissed: 0, wasted: planned[id] ?? 0 };
   });
 }
 
@@ -248,7 +299,8 @@ function playSlot(game, turn, before, nextStep) {
         entry.status = "engine-error"; entry.error = errText(e); notRun(entry, unitIds);
         return { entry, stop: "error", observation };
       }
-      entry.reshuffleChargesAfter = observation.hand.reshuffleChargesRemaining ?? null;
+      entry.reshuffleChargesBeforeTurn = observation.hand.reshuffleChargesRemaining ?? null;
+      entry.reshuffleChargesAfter = entry.reshuffleChargesBeforeTurn;
       continue;
     }
 
@@ -289,25 +341,23 @@ function playSlot(game, turn, before, nextStep) {
       return { entry, stop: "error", observation: result.observation ?? observation };
     }
 
+    const queuesAfter = {};
+    (result.observation && Array.isArray(result.observation.units) ? result.observation.units : [])
+      .filter((u) => u.team === "player" && Array.isArray(u.queue) && u.queue.length > 0).forEach((u) => { queuesAfter[u.id] = u.queue.length; });
     const planned = plannedByUnit(orders);
-    const tallies = tallyEvents(result.events);
-    const empty = { resolved: 0, attacks: 0, hits: 0, missEvents: {} };
-    const playerIds = [...new Set([...unitIds, ...Object.keys(planned), ...Object.keys(tallies).filter((id) => PLAYER_IDS.includes(id))])].sort();
-    playerIds.forEach((id) => {
-      const o = outcomeOfUnits([tallies[id] ?? empty]);
-      entry.byUnit[id] = { planned: planned[id] ?? 0, executed: o.executed, attacksHit: o.attacksHit, attacksMissed: o.attacksMissed };
-    });
-    const pack = outcomeOfUnits(Object.keys(tallies).filter((id) => PLAYER_IDS.includes(id)).sort().map((id) => tallies[id]));
-    const foes = outcomeOfUnits(Object.keys(tallies).filter((id) => !PLAYER_IDS.includes(id)).sort().map((id) => tallies[id]));
-    entry.planned = Object.values(planned).reduce((a, b) => a + b, 0);
+    unitIds.forEach((id) => { planned[id] ??= 0; });
+    const acc = accountTurn({ planned, events: result.events, queuesAfter });
+    entry.planned = acc.planned;
     entry.unspentBudget = entry.budget - entry.planned;
-    entry.executed = pack.executed;
-    entry.attacksHit = pack.attacksHit;
-    entry.attacksMissed = pack.attacksMissed;
-    entry.missReasons = pack.missReasons;
-    entry.notExecuted = entry.planned - entry.executed;
-    entry.wasted = entry.notExecuted - entry.attacksMissed;
-    entry.enemy = { budget: before.rules.enemyActionBudget, executed: foes.executed, attacksHit: foes.attacksHit, attacksMissed: foes.attacksMissed };
+    entry.executed = acc.executed;
+    entry.attacksHit = acc.attacksHit;
+    entry.attacksMissed = acc.attacksMissed;
+    entry.missReasons = acc.missReasons;
+    entry.notExecuted = acc.notExecuted;
+    entry.wasted = acc.wasted;
+    entry.accountingNote = acc.accountingNote;
+    entry.byUnit = acc.byUnit;
+    entry.enemy = { budget: before.rules.enemyActionBudget, ...acc.enemy };
     entry.reshuffleChargesAfter = result.observation && result.observation.hand ? result.observation.hand.reshuffleChargesRemaining ?? null : entry.reshuffleChargesAfter;
     entry.eventHash = typeof result.eventHash === "string" ? result.eventHash : null;
     entry.observationHash = sha(JSON.stringify(result.observation));
@@ -547,6 +597,6 @@ function diffRecords(a, b, path = "$", out = [], limit = 10) {
 const encodePayload = (payload) => Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
 
 module.exports = {
-  runBattle, replayBattle, diffRecords, playSlot, tallyEvents, outcomeOf, normaliseOrders, queryOf, payloadProblem, encodePayload,
+  runBattle, replayBattle, diffRecords, playSlot, tallyEvents, accountTurn, outcomeOf, normaliseOrders, queryOf, payloadProblem, encodePayload,
   isReshuffleOnly, MAX_ROUNDS, MAX_ORDERS_PER_TURN, PAYLOAD_LIMITS, BOT_REFUSAL_REASONS,
 };

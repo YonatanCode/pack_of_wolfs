@@ -54,13 +54,15 @@
             "attacksMissed": 0,
             "missReasons": {},
             "reshuffles": 0,
+            "reshuffleChargesBeforeTurn": 2,
             "reshuffleChargesAfter": 2,
             "byUnit": {
               "P1": {
                 "planned": 1,
                 "executed": 1,
                 "attacksHit": 1,
-                "attacksMissed": 0
+                "attacksMissed": 0,
+                "wasted": 0
               }
             },
             "enemy": {
@@ -69,6 +71,7 @@
               "attacksHit": 0,
               "attacksMissed": 0
             },
+            "accountingNote": null,
             "refusal": null,
             "error": null,
             "eventHash": "084e3017e86478",
@@ -101,13 +104,15 @@
             "attacksMissed": 0,
             "missReasons": {},
             "reshuffles": 0,
+            "reshuffleChargesBeforeTurn": 2,
             "reshuffleChargesAfter": 2,
             "byUnit": {
               "P1": {
                 "planned": 1,
                 "executed": 1,
                 "attacksHit": 1,
-                "attacksMissed": 0
+                "attacksMissed": 0,
+                "wasted": 0
               }
             },
             "enemy": {
@@ -116,6 +121,7 @@
               "attacksHit": 0,
               "attacksMissed": 0
             },
+            "accountingNote": null,
             "refusal": null,
             "error": null,
             "eventHash": "00cea0bb38605f",
@@ -203,13 +209,15 @@
           "attacksMissed": 0,
           "missReasons": {},
           "reshuffles": 0,
+          "reshuffleChargesBeforeTurn": 2,
           "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 1,
               "executed": 1,
               "attacksHit": 0,
-              "attacksMissed": 0
+              "attacksMissed": 0,
+              "wasted": 0
             }
           },
           "enemy": {
@@ -218,6 +226,7 @@
             "attacksHit": 0,
             "attacksMissed": 0
           },
+          "accountingNote": null,
           "refusal": null,
           "error": null,
           "eventHash": "14e6c3675fb074",
@@ -291,13 +300,15 @@
           "attacksMissed": 0,
           "missReasons": {},
           "reshuffles": 0,
+          "reshuffleChargesBeforeTurn": 2,
           "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 3,
               "executed": 0,
               "attacksHit": 0,
-              "attacksMissed": 0
+              "attacksMissed": 0,
+              "wasted": 3
             }
           },
           "enemy": {
@@ -306,6 +317,7 @@
             "attacksHit": 0,
             "attacksMissed": 0
           },
+          "accountingNote": null,
           "refusal": {
             "by": "engine",
             "step": 0,
@@ -344,13 +356,15 @@
           "attacksMissed": 0,
           "missReasons": {},
           "reshuffles": 0,
+          "reshuffleChargesBeforeTurn": 2,
           "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 1,
               "executed": 1,
               "attacksHit": 1,
-              "attacksMissed": 0
+              "attacksMissed": 0,
+              "wasted": 0
             }
           },
           "enemy": {
@@ -359,6 +373,7 @@
             "attacksHit": 0,
             "attacksMissed": 0
           },
+          "accountingNote": null,
           "refusal": null,
           "error": null,
           "eventHash": "0868fb7837a785",
@@ -416,13 +431,15 @@
           "attacksMissed": 0,
           "missReasons": {},
           "reshuffles": 0,
+          "reshuffleChargesBeforeTurn": 2,
           "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 0,
               "executed": 0,
               "attacksHit": 0,
-              "attacksMissed": 0
+              "attacksMissed": 0,
+              "wasted": 0
             }
           },
           "enemy": {
@@ -431,6 +448,7 @@
             "attacksHit": 0,
             "attacksMissed": 0
           },
+          "accountingNote": null,
           "refusal": {
             "by": "driver",
             "step": 0,
@@ -460,13 +478,15 @@
           "attacksMissed": 0,
           "missReasons": {},
           "reshuffles": 0,
+          "reshuffleChargesBeforeTurn": 2,
           "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 65,
               "executed": 0,
               "attacksHit": 0,
-              "attacksMissed": 0
+              "attacksMissed": 0,
+              "wasted": 65
             }
           },
           "enemy": {
@@ -475,6 +495,7 @@
             "attacksHit": 0,
             "attacksMissed": 0
           },
+          "accountingNote": null,
           "refusal": {
             "by": "driver",
             "step": 0,
@@ -539,13 +560,15 @@
           "attacksMissed": 0,
           "missReasons": {},
           "reshuffles": 0,
+          "reshuffleChargesBeforeTurn": 2,
           "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 1,
               "executed": 0,
               "attacksHit": 0,
-              "attacksMissed": 0
+              "attacksMissed": 0,
+              "wasted": 1
             }
           },
           "enemy": {
@@ -554,6 +577,7 @@
             "attacksHit": 0,
             "attacksMissed": 0
           },
+          "accountingNote": null,
           "refusal": null,
           "error": "injected fault (d1e)",
           "eventHash": null,
@@ -599,13 +623,15 @@
           "attacksMissed": 0,
           "missReasons": {},
           "reshuffles": 0,
+          "reshuffleChargesBeforeTurn": 2,
           "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 0,
               "executed": 0,
               "attacksHit": 0,
-              "attacksMissed": 0
+              "attacksMissed": 0,
+              "wasted": 0
             }
           },
           "enemy": {
@@ -614,6 +640,7 @@
             "attacksHit": 0,
             "attacksMissed": 0
           },
+          "accountingNote": null,
           "refusal": null,
           "error": "bot bug (d1f)",
           "eventHash": null,
@@ -702,13 +729,15 @@
             "target-not-adjacent": 1
           },
           "reshuffles": 0,
+          "reshuffleChargesBeforeTurn": 2,
           "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 1,
               "executed": 0,
               "attacksHit": 0,
-              "attacksMissed": 1
+              "attacksMissed": 1,
+              "wasted": 0
             }
           },
           "enemy": {
@@ -717,6 +746,7 @@
             "attacksHit": 0,
             "attacksMissed": 0
           },
+          "accountingNote": null,
           "refusal": null,
           "error": null,
           "eventHash": "1f89a2f63a1f03",
@@ -780,13 +810,15 @@
             "attacksMissed": 0,
             "missReasons": {},
             "reshuffles": 1,
+            "reshuffleChargesBeforeTurn": 1,
             "reshuffleChargesAfter": 1,
             "byUnit": {
               "P1": {
                 "planned": 1,
                 "executed": 1,
                 "attacksHit": 0,
-                "attacksMissed": 0
+                "attacksMissed": 0,
+                "wasted": 0
               }
             },
             "enemy": {
@@ -795,6 +827,7 @@
               "attacksHit": 0,
               "attacksMissed": 0
             },
+            "accountingNote": null,
             "refusal": null,
             "error": null,
             "eventHash": "0af05372c3d4e4",
@@ -827,13 +860,15 @@
             "attacksMissed": 0,
             "missReasons": {},
             "reshuffles": 0,
+            "reshuffleChargesBeforeTurn": 1,
             "reshuffleChargesAfter": 1,
             "byUnit": {
               "P1": {
                 "planned": 1,
                 "executed": 1,
                 "attacksHit": 0,
-                "attacksMissed": 0
+                "attacksMissed": 0,
+                "wasted": 0
               }
             },
             "enemy": {
@@ -842,6 +877,7 @@
               "attacksHit": 2,
               "attacksMissed": 0
             },
+            "accountingNote": null,
             "refusal": null,
             "error": null,
             "eventHash": "0a1d024bd21387",
@@ -926,13 +962,15 @@
           "attacksMissed": 0,
           "missReasons": {},
           "reshuffles": 0,
+          "reshuffleChargesBeforeTurn": 0,
           "reshuffleChargesAfter": 0,
           "byUnit": {
             "P1": {
               "planned": 0,
               "executed": 0,
               "attacksHit": 0,
-              "attacksMissed": 0
+              "attacksMissed": 0,
+              "wasted": 0
             }
           },
           "enemy": {
@@ -941,6 +979,7 @@
             "attacksHit": 0,
             "attacksMissed": 0
           },
+          "accountingNote": null,
           "refusal": {
             "by": "engine",
             "step": 0,
@@ -1002,13 +1041,15 @@
           "attacksMissed": 0,
           "missReasons": {},
           "reshuffles": 1,
+          "reshuffleChargesBeforeTurn": 1,
           "reshuffleChargesAfter": 1,
           "byUnit": {
             "P1": {
               "planned": 0,
               "executed": 0,
               "attacksHit": 0,
-              "attacksMissed": 0
+              "attacksMissed": 0,
+              "wasted": 0
             }
           },
           "enemy": {
@@ -1017,6 +1058,7 @@
             "attacksHit": 0,
             "attacksMissed": 0
           },
+          "accountingNote": null,
           "refusal": {
             "by": "driver",
             "step": 1,
@@ -1085,13 +1127,15 @@
           "attacksMissed": 0,
           "missReasons": {},
           "reshuffles": 0,
+          "reshuffleChargesBeforeTurn": 2,
           "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 1,
               "executed": 0,
               "attacksHit": 0,
-              "attacksMissed": 0
+              "attacksMissed": 0,
+              "wasted": 1
             }
           },
           "enemy": {
@@ -1100,6 +1144,7 @@
             "attacksHit": 0,
             "attacksMissed": 0
           },
+          "accountingNote": null,
           "refusal": {
             "by": "engine",
             "step": 0,
