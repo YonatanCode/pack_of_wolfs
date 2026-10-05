@@ -11,7 +11,8 @@
  */
 const fs = require("node:fs");
 const path = require("node:path");
-const { execFileSync } = require("node:child_process");
+const crypto = require("node:crypto");
+const { execFileSync, spawn } = require("node:child_process");
 const { validateManifest } = require("./manifest.cjs");
 const { loadApprovals, checkApprovals, consumeAuthorization } = require("./approvals.cjs");
 
@@ -23,6 +24,20 @@ function defaultCurrentBuild() {
   const text = execFileSync(process.execPath, [path.join(ROOT, "tools", "build-id.mjs")], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
   const j = JSON.parse(text);
   return { buildId: j.buildId, dirty: j.gameplayPathsDirty };
+}
+
+const LAB_FILES = ["driver", "bots", "manifest", "approvals", "run", "report", "metrics"].map((n) => `${n}.cjs`);
+
+/** labVersion: sha256 over (name, bytes) of the Lab tooling files, sorted. A missing file hashes as "missing" (so adding it changes the version). */
+function computeLabVersion(dir = __dirname) {
+  const h = crypto.createHash("sha256");
+  for (const name of [...LAB_FILES].sort()) {
+    let bytes = null;
+    try { bytes = fs.readFileSync(path.join(dir, name)); } catch (e) { if (!e || e.code !== "ENOENT") throw e; }
+    h.update(`${name.length}:${name}\0${bytes ? bytes.length : "missing"}\0`);
+    if (bytes) h.update(bytes);
+  }
+  return h.digest("hex");
 }
 
 /** Lazy: only called on the --run path after every gate passed. */
@@ -60,7 +75,10 @@ function evaluateGates(args, deps) {
   let v = { valid: false, errors: [], battles: 0, limits: null, manifestHash: null };
   try {
     manifest = JSON.parse(fs.readFileSync(args.manifest, "utf8"));
-    v = validateManifest(manifest, deps.botIds !== undefined ? { botIds: deps.botIds } : {});
+    const vo = {};
+    if (deps.botIds !== undefined) vo.botIds = deps.botIds;
+    if (deps.gameValues !== undefined) vo.gameValues = deps.gameValues;
+    v = validateManifest(manifest, vo);
   } catch (e) {
     v.errors = [`cannot read manifest: ${e.message}`];
   }
@@ -79,6 +97,8 @@ function evaluateGates(args, deps) {
     add("clean-tree", false, "not evaluated (build ID unavailable)");
   }
 
+  let labVersion = null;
+  try { labVersion = deps.labVersion(); } catch (e) { labVersion = null; }
   const file = args.approvals || DEFAULT_APPROVALS;
   const loaded = loadApprovals(file);
   if (!loaded.ok) {
@@ -89,14 +109,74 @@ function evaluateGates(args, deps) {
     add("authorization", false, "not evaluated (manifest or build ID unavailable)");
   } else {
     // Approvals are matched against the CURRENT build and the manifest hash, never against a build the manifest merely claims.
-    const st = checkApprovals(loaded.data, build.buildId, v.manifestHash);
+    const st = checkApprovals(loaded.data, build.buildId, v.manifestHash, labVersion);
     add("playcheck", st.playcheck.ok, st.playcheck.reason);
     add("authorization", st.authorization.ok, st.authorization.reason);
   }
-  return { manifest, v, gates, build, approvalsFile: file };
+  return { manifest, v, gates, build, labVersion, approvalsFile: file };
 }
 
-async function execute(manifest, v, mods, startedMs, now, currentBuild) {
+const MAX_CHILD_OUTPUT = 64 * 1024 * 1024;
+const DEFAULT_CHILD_ENTRY = [__filename, "--worker"];
+
+/** A BattleRecord-shaped record for a battle the runner could not complete (killed child, crash, bad output). */
+function syntheticRecord(job, result, stopReason, error) {
+  return {
+    scenarioId: job.scenarioId, seed: job.seed, preset: job.preset, rulesVersion: null, rulesHash: null,
+    strategy: job.strategy, botSeed: job.botSeed, fixtureOnly: false,
+    result, stopReason, error, turns: 0, perTurn: [], orders: [],
+    replay: { query: `?scenario=${encodeURIComponent(job.scenarioId)}&seed=${job.seed}&preset=${encodeURIComponent(job.preset)}`, orders: [] },
+  };
+}
+
+/**
+ * Run one battle in a child process (node built-ins only). Job JSON goes in on stdin, the BattleRecord JSON comes out on stdout.
+ * The child is SIGKILLed at `remainingMs`. Never throws. -> { record, killed }
+ */
+function runInChild(job, { childEntry, remainingMs, onSpawn }) {
+  return new Promise((resolve) => {
+    let done = false;
+    let killed = false;
+    const chunks = []; let size = 0; let stderrText = "";
+    const finish = (record) => { if (!done) { done = true; clearTimeout(timer); resolve({ record, killed }); } };
+    let child;
+    try {
+      child = spawn(process.execPath, childEntry, { stdio: ["pipe", "pipe", "pipe"] });
+    } catch (e) { resolve({ record: syntheticRecord(job, "error", "child-spawn-failed", String(e && e.message || e)), killed: false }); return; }
+    if (onSpawn) onSpawn(child.pid);
+    const timer = setTimeout(() => { killed = true; try { child.kill("SIGKILL"); } catch { /* already gone */ } }, Math.max(0, remainingMs));
+    child.stdout.on("data", (c) => { size += c.length; if (size <= MAX_CHILD_OUTPUT) chunks.push(c); else { try { child.kill("SIGKILL"); } catch { /* gone */ } } });
+    child.stderr.on("data", (c) => { if (stderrText.length < 2000) stderrText += c.toString("utf8"); });
+    child.on("error", (e) => finish(syntheticRecord(job, "error", "child-spawn-failed", String(e && e.message || e))));
+    child.stdin.on("error", () => { /* child died before reading the job */ });
+    child.on("close", (code, signal) => {
+      if (killed) return finish(syntheticRecord(job, "timeout", "runtime-deadline-killed", null));
+      if (code !== 0) return finish(syntheticRecord(job, "error", "child-crash", `child exited with ${signal ? `signal ${signal}` : `code ${code}`}${stderrText ? `: ${stderrText.trim().split("\n")[0].slice(0, 200)}` : ""}`));
+      let rec;
+      try { rec = JSON.parse(Buffer.concat(chunks).toString("utf8")); } catch { rec = null; }
+      if (!rec || typeof rec !== "object" || Array.isArray(rec) || typeof rec.result !== "string") return finish(syntheticRecord(job, "error", "child-bad-output", "child produced no valid BattleRecord JSON"));
+      finish(rec);
+    });
+    child.stdin.end(JSON.stringify(job));
+  });
+}
+
+/** Child entry for real runs: `node run.cjs --worker`. Reads the job from stdin, runs the driver, prints the record. */
+async function workerMain() {
+  let text = "";
+  for await (const c of process.stdin) text += c;
+  const job = JSON.parse(text);
+  const driver = require("./driver.cjs");
+  const { BOTS } = require("./bots.cjs");
+  const { loadGame } = require("../../tests/harness/load-game.cjs");
+  const rec = driver.runBattle({
+    load: loadGame, bot: BOTS[job.strategy], strategy: job.strategy, scenarioId: job.scenarioId, seed: job.seed, preset: job.preset,
+    limits: job.limits, botSeed: job.botSeed, fixtureOnly: false, turnsRemaining: job.turnsRemaining, deadlineMs: Date.now() + job.remainingMs, now: Date.now,
+  });
+  process.stdout.write(JSON.stringify(rec));
+}
+
+async function execute(manifest, v, mods, startedMs, now, currentBuild, iso) {
   const { driver, bots, report, loadGame } = mods;
   const L = manifest.limits;
   const deadline = startedMs + L.maxRuntimeSeconds * 1000;
@@ -104,6 +184,7 @@ async function execute(manifest, v, mods, startedMs, now, currentBuild) {
   const notes = [];
   let totalTurns = 0;
   let stopped = null;
+  let killedCount = 0;
   outer:
   for (const sc of manifest.scenarios) {
     for (const seed of sc.seeds) {
@@ -111,19 +192,28 @@ async function execute(manifest, v, mods, startedMs, now, currentBuild) {
         let b = null;
         try { b = currentBuild(); } catch { /* treated as changed */ }
         if (!b || b.buildId !== manifest.buildId || b.dirty !== false) { stopped = "aborted: gameplay build changed after authorization"; break outer; }
-        if (now() >= deadline) { stopped = `maxRuntimeSeconds ${L.maxRuntimeSeconds} reached`; break outer; }
+        if (now() >= deadline) { stopped = "runtime deadline"; break outer; }
         if (totalTurns >= L.maxTotalTurns) { stopped = `maxTotalTurns ${L.maxTotalTurns} reached`; break outer; }
-        const rec = await driver.runBattle({
-          load: loadGame, bot: bots.BOTS[strategy], strategy, scenarioId: sc.id, seed, preset: manifest.preset,
-          limits: { ...L }, botSeed: manifest.botSeed, fixtureOnly: false,
-          turnsRemaining: L.maxTotalTurns - totalTurns, deadlineMs: deadline, now,
-        });
+        let rec;
+        if (iso.mode === "child") {
+          const job = { scenarioId: sc.id, seed, preset: manifest.preset, strategy, limits: { ...L }, botSeed: manifest.botSeed,
+            turnsRemaining: L.maxTotalTurns - totalTurns, remainingMs: deadline - now() };
+          const r = await runInChild(job, { childEntry: iso.childEntry, remainingMs: job.remainingMs, onSpawn: iso.onSpawn });
+          rec = r.record;
+          if (r.killed) { records.push(rec); killedCount++; stopped = "runtime deadline"; break outer; }
+        } else {
+          rec = await driver.runBattle({
+            load: loadGame, bot: bots.BOTS[strategy], strategy, scenarioId: sc.id, seed, preset: manifest.preset,
+            limits: { ...L }, botSeed: manifest.botSeed, fixtureOnly: false,
+            turnsRemaining: L.maxTotalTurns - totalTurns, deadlineMs: deadline, now,
+          });
+        }
         records.push(rec);
         totalTurns += rec.turns || 0;
       }
     }
   }
-  if (stopped) notes.push(`${stopped.startsWith("aborted:") ? stopped : `stopped early: ${stopped}`}; ${records.length} of ${v.battles} battles completed`);
+  if (stopped) notes.push(`${stopped.startsWith("aborted:") ? stopped : `stopped early: ${stopped}`}; ${records.length - killedCount} of ${v.battles} battles completed`);
   return report.buildReport({ manifestHash: v.manifestHash, buildId: manifest.buildId, battles: records, notes, fixtureOnly: false });
 }
 
@@ -131,7 +221,7 @@ async function execute(manifest, v, mods, startedMs, now, currentBuild) {
 async function main(argv, deps = {}) {
   const out = deps.out || ((s) => process.stdout.write(s + "\n"));
   const err = deps.err || ((s) => process.stderr.write(s + "\n"));
-  const d = { currentBuild: deps.currentBuild || defaultCurrentBuild, loadModules: deps.loadModules || defaultLoadModules, botIds: deps.botIds, now: deps.now || Date.now };
+  const d = { labVersion: deps.labVersion || (() => computeLabVersion()), currentBuild: deps.currentBuild || defaultCurrentBuild, loadModules: deps.loadModules || defaultLoadModules, botIds: deps.botIds, now: deps.now || Date.now };
   const args = parseArgs(argv);
   if (args.errors.length) { err(`usage error: ${args.errors.join("; ")}`); return 2; }
 
@@ -150,6 +240,7 @@ async function main(argv, deps = {}) {
     out(`battles: ${ev.v.battles}`);
     out(`limits: ${ev.v.limits ? JSON.stringify(ev.v.limits) : "n/a"}`);
     out(`manifestHash: ${ev.v.manifestHash || "n/a"}`);
+    out(`labVersion: ${ev.labVersion || "unavailable"}`);
     out(`current build ID: ${ev.build ? ev.build.buildId : "unavailable"}`);
     ev.gates.forEach((g) => out(`gate ${g.name}: ${g.ok ? "PASS" : "FAIL"} - ${g.reason}`));
     out("check-only: nothing was run");
@@ -165,12 +256,13 @@ async function main(argv, deps = {}) {
   let mods;
   try { mods = d.loadModules(); } catch (e) { err(`REFUSED (runner modules): cannot load driver/bots/report: ${e.message}`); return 2; }
 
-  const consumed = consumeAuthorization(ev.approvalsFile, ev.build.buildId, ev.v.manifestHash);
+  const consumed = consumeAuthorization(ev.approvalsFile, ev.build.buildId, ev.v.manifestHash, ev.labVersion);
   if (!consumed.ok) { err(`REFUSED (authorization): ${consumed.reason}`); return 2; }
   out(`authorization consumed at ${consumed.consumedAt}; starting ${ev.v.battles} battles (maxRuntimeSeconds ${ev.manifest.limits.maxRuntimeSeconds})`);
 
   try {
-    const result = await execute(ev.manifest, ev.v, mods, d.now(), d.now, d.currentBuild);
+    const iso = { mode: deps.isolation || (deps.loadModules ? "inprocess" : "child"), childEntry: deps.childEntry || DEFAULT_CHILD_ENTRY, onSpawn: deps.onSpawn };
+    const result = await execute(ev.manifest, ev.v, mods, d.now(), d.now, d.currentBuild, iso);
     out(JSON.stringify(result, null, 2));
     return 0;
   } catch (e) {
@@ -179,6 +271,9 @@ async function main(argv, deps = {}) {
   }
 }
 
-module.exports = { main, evaluateGates, parseArgs, DEFAULT_APPROVALS };
+module.exports = { main, evaluateGates, parseArgs, DEFAULT_APPROVALS, computeLabVersion, runInChild, workerMain };
 
-if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c));
+if (require.main === module) {
+  if (process.argv[2] === "--worker") workerMain().then(() => process.exit(0), (e) => { process.stderr.write(String(e && e.stack || e) + "\n"); process.exit(1); });
+  else main(process.argv.slice(2)).then((c) => process.exit(c));
+}

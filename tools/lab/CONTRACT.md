@@ -31,9 +31,9 @@ Every limit is REQUIRED (positive integers, with hard upper caps defined in mani
 ## Approvals (`lab/approvals.json`, gitignored)
 ```
 { "playchecks": [ { "buildId", "quote", "recordedAt" } ],
-  "authorizations": [ { "buildId", "manifestHash", "quote", "recordedAt", "consumedAt": null } ] }
+  "authorizations": [ { "buildId", "manifestHash", "labVersion", "quote", "recordedAt", "consumedAt": null } ] }
 ```
-`run.cjs --run` refuses unless: current gameplay build ID (tools/build-id.mjs logic) equals manifest.buildId; gameplay tree not dirty; a playcheck exists for that exact buildId; an unconsumed authorization exists for that exact buildId + manifestHash. It marks the authorization consumed (atomically, before starting) so it is single-use. `--check-only` validates the manifest, prints battle count/limits/hash and the gate status, and never runs anything. Refusal messages state the specific reason.
+`run.cjs --run` refuses unless: current gameplay build ID (tools/build-id.mjs logic) equals manifest.buildId; gameplay tree not dirty; a playcheck exists for that exact buildId; an unconsumed authorization exists for that exact buildId + manifestHash + labVersion (labVersion = sha256 over the contents of tools/lab/{driver,bots,manifest,approvals,run,report,metrics}.cjs, sorted; playchecks stay bound to the gameplay build only). Scenario ids and preset names in the manifest must exist in the game (read statically from scenarios/*.js and script.js RULESET_PRESETS) or the manifest is invalid. Each battle runs in a child process that is SIGKILLed at the remaining maxRuntimeSeconds. It marks the authorization consumed (atomically, before starting) so it is single-use. `--check-only` validates the manifest, prints battle count/limits/hash and the gate status, and never runs anything. Refusal messages state the specific reason.
 
 ## Bot interface (`bots.cjs`)
 `module.exports = { BOTS: { "<id>": { description, decide(observation, ctx) -> orders } } }`

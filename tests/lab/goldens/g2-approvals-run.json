@@ -9,6 +9,7 @@
         "battles: 6",
         "limits: {\"maxBattles\":10,\"maxTurnsPerBattle\":20,\"maxTotalTurns\":200,\"maxRuntimeSeconds\":60}",
         "manifestHash: 534844791f9e1c770ef2185be6239a10e5977296cc35b96e9de36e7832fc8789",
+        "labVersion: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         "current build ID: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "gate manifest: PASS - manifest valid",
         "gate build-id: PASS - manifest.buildId equals current gameplay build ID",
@@ -28,6 +29,7 @@
         "battles: 6",
         "limits: {\"maxBattles\":10,\"maxTurnsPerBattle\":20,\"maxTotalTurns\":200,\"maxRuntimeSeconds\":60}",
         "manifestHash: 534844791f9e1c770ef2185be6239a10e5977296cc35b96e9de36e7832fc8789",
+        "labVersion: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         "current build ID: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "gate manifest: PASS - manifest valid",
         "gate build-id: PASS - manifest.buildId equals current gameplay build ID",
@@ -48,6 +50,7 @@
         "battles: 6",
         "limits: {\"maxBattles\":10,\"maxTurnsPerBattle\":20,\"maxTotalTurns\":200,\"maxRuntimeSeconds\":60}",
         "manifestHash: n/a",
+        "labVersion: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         "current build ID: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "gate manifest: FAIL - manifest invalid: unknown key: extra",
         "gate build-id: FAIL - not evaluated (manifest invalid)",
@@ -168,6 +171,37 @@
       "moduleLoads": 0,
       "consumedAfter": [
         "2000-01-02T00:00:00Z"
+      ]
+    },
+    "run-authorization-missing-labVersion": {
+      "code": 2,
+      "err": [
+        "REFUSED (authorization): authorization has no labVersion (it predates Lab version binding); a new authorization for the current labVersion is needed"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        null
+      ]
+    },
+    "run-authorization-other-labVersion": {
+      "code": 2,
+      "err": [
+        "REFUSED (authorization): authorization is bound to a different Lab version (current labVersion eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee); the Lab tooling changed after it was given"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        null
+      ]
+    },
+    "run-malformed-labVersion": {
+      "code": 2,
+      "err": [
+        "REFUSED (playcheck): approvals file malformed: authorizations[0].labVersion must be 64 hex chars when present",
+        "REFUSED (authorization): approvals file malformed: authorizations[0].labVersion must be 64 hex chars when present"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        null
       ]
     },
     "run-malformed-not-json": {

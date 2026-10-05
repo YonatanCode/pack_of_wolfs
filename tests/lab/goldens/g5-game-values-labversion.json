@@ -1,0 +1,66 @@
+{
+  "id": "g5-game-values-labversion",
+  "gameValues": {
+    "scenarioIds": [
+      "intro"
+    ],
+    "presetIds": [
+      "commander",
+      "current"
+    ]
+  },
+  "typoScenario": {
+    "code": 2,
+    "errs": [
+      "REFUSED (manifest): manifest invalid: unknown scenario: intr0 (supported: intro)"
+    ],
+    "moduleLoads": 0,
+    "authorizationUntouched": true,
+    "checkOnlyCode": 2,
+    "checkOnlyValidation": [
+      "validation: INVALID",
+      "  error: unknown scenario: intr0 (supported: intro)"
+    ]
+  },
+  "typoPreset": {
+    "code": 2,
+    "errs": [
+      "REFUSED (manifest): manifest invalid: unknown preset: comander (supported: commander, current)"
+    ],
+    "moduleLoads": 0,
+    "authorizationUntouched": true,
+    "checkOnlyCode": 2,
+    "checkOnlyValidation": [
+      "validation: INVALID",
+      "  error: unknown preset: comander (supported: commander, current)"
+    ]
+  },
+  "both": {
+    "code": 2,
+    "errs": [
+      "REFUSED (manifest): manifest invalid: unknown preset: comander (supported: commander, current); unknown scenario: intr0 (supported: intro)"
+    ],
+    "moduleLoads": 0,
+    "authorizationUntouched": true,
+    "checkOnlyCode": 2,
+    "checkOnlyValidation": [
+      "validation: INVALID",
+      "  error: unknown preset: comander (supported: commander, current)",
+      "  error: unknown scenario: intr0 (supported: intro)"
+    ]
+  },
+  "realValuesAccepted": true,
+  "labVersion": {
+    "hex64": true,
+    "stable": true,
+    "changesWithContent": true,
+    "changesWhenFileMissing": true
+  },
+  "realLabVersionIsHex64": true,
+  "usage": {
+    "contexts": 0,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 0
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "id": "g4-run-child-isolation",
+  "hangKilled": {
+    "code": 0,
+    "errs": [],
+    "children": 2,
+    "orphanChildren": 0,
+    "elapsedUnder3s": true,
+    "battles": [
+      {
+        "seed": 1,
+        "strategy": "random-legal",
+        "scenarioId": "intro",
+        "result": "win",
+        "stopReason": "battle-end",
+        "turns": 2,
+        "error": null
+      },
+      {
+        "seed": 2,
+        "strategy": "random-legal",
+        "scenarioId": "intro",
+        "result": "timeout",
+        "stopReason": "runtime-deadline-killed",
+        "turns": 0,
+        "error": null
+      }
+    ],
+    "notes": [
+      "small sample: random-legal n=2, win rate 95% interval [0.094531, 0.905469]",
+      "stopped early: runtime deadline; 1 of 3 battles completed"
+    ]
+  },
+  "crashAndGarbage": {
+    "code": 0,
+    "errs": [],
+    "children": 3,
+    "orphanChildren": 0,
+    "elapsedUnder3s": true,
+    "battles": [
+      {
+        "seed": 1,
+        "strategy": "random-legal",
+        "scenarioId": "intro",
+        "result": "error",
+        "stopReason": "child-crash",
+        "turns": 0,
+        "error": "child exited with code 3"
+      },
+      {
+        "seed": 2,
+        "strategy": "random-legal",
+        "scenarioId": "intro",
+        "result": "error",
+        "stopReason": "child-bad-output",
+        "turns": 0,
+        "error": "child produced no valid BattleRecord JSON"
+      },
+      {
+        "seed": 3,
+        "strategy": "random-legal",
+        "scenarioId": "intro",
+        "result": "win",
+        "stopReason": "battle-end",
+        "turns": 2,
+        "error": null
+      }
+    ],
+    "notes": [
+      "small sample: random-legal n=3, win rate 95% interval [0.061492, 0.79234]"
+    ]
+  },
+  "allOk": {
+    "code": 0,
+    "errs": [],
+    "children": 3,
+    "orphanChildren": 0,
+    "elapsedUnder3s": true,
+    "battles": [
+      {
+        "seed": 1,
+        "strategy": "random-legal",
+        "scenarioId": "intro",
+        "result": "win",
+        "stopReason": "battle-end",
+        "turns": 2,
+        "error": null
+      },
+      {
+        "seed": 2,
+        "strategy": "random-legal",
+        "scenarioId": "intro",
+        "result": "win",
+        "stopReason": "battle-end",
+        "turns": 2,
+        "error": null
+      },
+      {
+        "seed": 3,
+        "strategy": "random-legal",
+        "scenarioId": "intro",
+        "result": "win",
+        "stopReason": "battle-end",
+        "turns": 2,
+        "error": null
+      }
+    ],
+    "notes": [
+      "small sample: random-legal n=3, win rate 95% interval [0.438503, 1]"
+    ]
+  },
+  "usage": {
+    "contexts": 0,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 0
+  }
+}

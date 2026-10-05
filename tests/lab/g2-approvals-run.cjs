@@ -11,8 +11,10 @@ const { BUILD, OTHER_BUILD, BOT_IDS, baseManifest, tmpDir, writeJson, cleanup } 
 const ID = "g2-approvals-run";
 const MH = manifestHash(baseManifest());
 const OTHER_MH = "c".repeat(64);
+const LAB = "e".repeat(64);
+const OTHER_LAB = "9".repeat(64);
 const pc = (buildId = BUILD) => ({ buildId, quote: "fake playcheck", recordedAt: "2000-01-01T00:00:00Z" });
-const au = (o = {}) => ({ buildId: BUILD, manifestHash: MH, quote: "fake authorization", recordedAt: "2000-01-01T00:00:00Z", consumedAt: null, ...o });
+const au = (o = {}) => ({ buildId: BUILD, manifestHash: MH, labVersion: LAB, quote: "fake authorization", recordedAt: "2000-01-01T00:00:00Z", consumedAt: null, ...o });
 const good = () => ({ playchecks: [pc()], authorizations: [au()] });
 
 async function cli(args, { approvals, manifest = baseManifest(), build = { buildId: BUILD, dirty: false } } = {}) {
@@ -26,7 +28,7 @@ async function cli(args, { approvals, manifest = baseManifest(), build = { build
     let moduleLoads = 0; let buildCalls = 0;
     const cliFlag = args.includes("--check-only") ? ["--approvals", ap] : [];
     const code = await main(["--manifest", mf, ...args, ...cliFlag], {
-      approvalsFile: ap, botIds: BOT_IDS,
+      approvalsFile: ap, labVersion: () => LAB, botIds: BOT_IDS,
       currentBuild: () => { buildCalls++; return build; },
       loadModules: () => { moduleLoads++; throw new Error("fixture must never reach the driver"); },
       out: (s) => lines.push(s.split(dir).join("<tmp>")), err: (s) => errs.push(s.split(dir).join("<tmp>").replace(/(not valid JSON): .*$/, "$1")),
@@ -63,6 +65,9 @@ async function exec() {
   await refuse("run-authorization-other-manifest", { playchecks: [pc()], authorizations: [au({ manifestHash: OTHER_MH })] });
   await refuse("run-authorization-other-build", { playchecks: [pc()], authorizations: [au({ buildId: OTHER_BUILD })] });
   await refuse("run-authorization-consumed", { playchecks: [pc()], authorizations: [au({ consumedAt: "2000-01-02T00:00:00Z" })] });
+  { const noLab = au(); delete noLab.labVersion; await refuse("run-authorization-missing-labVersion", { playchecks: [pc()], authorizations: [noLab] }); }
+  await refuse("run-authorization-other-labVersion", { playchecks: [pc()], authorizations: [au({ labVersion: OTHER_LAB })] });
+  await refuse("run-malformed-labVersion", { playchecks: [pc()], authorizations: [au({ labVersion: "xyz" })] });
   await refuse("run-malformed-not-json", "{ not json");
   await refuse("run-malformed-shape", { playchecks: "x", authorizations: [] });
   await refuse("run-malformed-record", { playchecks: [pc()], authorizations: [{ buildId: BUILD }] });
@@ -77,7 +82,7 @@ async function exec() {
       const mf = path.join(dir2, "m.json"); writeJson(mf, baseManifest());
       const ap = path.join(dir2, "a.json"); writeJson(ap, good());
       const errs = []; let loads = 0;
-      const code = await main(["--manifest", mf, "--run", "--approvals", ap], { botIds: BOT_IDS, currentBuild: () => ({ buildId: BUILD, dirty: false }), loadModules: () => { loads++; throw new Error("no"); }, out: () => {}, err: (s) => errs.push(s) });
+      const code = await main(["--manifest", mf, "--run", "--approvals", ap], { botIds: BOT_IDS, labVersion: () => LAB, currentBuild: () => ({ buildId: BUILD, dirty: false }), loadModules: () => { loads++; throw new Error("no"); }, out: () => {}, err: (s) => errs.push(s) });
       cases["run-approvals-flag-refused"] = { code, errs, moduleLoads: loads, consumed: JSON.parse(fs.readFileSync(ap, "utf8")).authorizations[0].consumedAt };
     } finally { cleanup(dir2); }
   }
@@ -93,8 +98,8 @@ async function exec() {
   try {
     const f = path.join(dir, "approvals.json");
     writeJson(f, { playchecks: [pc()], authorizations: [au(), au({ manifestHash: OTHER_MH })] });
-    const first = consumeAuthorization(f, BUILD, MH, { now: () => "2001-01-01T00:00:00Z" });
-    const second = consumeAuthorization(f, BUILD, MH, { now: () => "2002-01-01T00:00:00Z" });
+    const first = consumeAuthorization(f, BUILD, MH, LAB, { now: () => "2001-01-01T00:00:00Z" });
+    const second = consumeAuthorization(f, BUILD, MH, LAB, { now: () => "2002-01-01T00:00:00Z" });
     const after = loadApprovals(f).data;
     const leftovers = fs.readdirSync(dir).filter((n) => n.endsWith(".tmp"));
     cases["consume-single-use"] = { first, second, consumed: after.authorizations.map((a) => a.consumedAt), otherManifestUntouched: after.authorizations[1].consumedAt === null, tmpLeftovers: leftovers.length };
@@ -102,16 +107,16 @@ async function exec() {
     const lockFile = `${f}.lock`;
     const beforeLock = fs.readFileSync(f, "utf8");
     fs.writeFileSync(lockFile, "");
-    const locked = consumeAuthorization(f, BUILD, OTHER_MH);
+    const locked = consumeAuthorization(f, BUILD, OTHER_MH, LAB);
     cases["consume-lock-held"] = { ok: locked.ok, reason: locked.reason, lockStillThere: fs.existsSync(lockFile), approvalsUntouched: fs.readFileSync(f, "utf8") === beforeLock };
     fs.rmSync(lockFile);
-    const unlocked = consumeAuthorization(f, BUILD, OTHER_MH, { now: () => "2003-01-01T00:00:00Z" });
+    const unlocked = consumeAuthorization(f, BUILD, OTHER_MH, LAB, { now: () => "2003-01-01T00:00:00Z" });
     cases["consume-releases-lock"] = { ok: unlocked.ok, lockGone: !fs.existsSync(lockFile) };
-    cases["consume-wrong-manifest"] = consumeAuthorization(f, BUILD, "d".repeat(64));
-    cases["consume-wrong-build"] = consumeAuthorization(f, OTHER_BUILD, OTHER_MH);
-    cases["consume-missing-file"] = (({ ok, reason }) => ({ ok, reason: reason.split(dir).join("<tmp>") }))(consumeAuthorization(path.join(dir, "nope.json"), BUILD, MH));
+    cases["consume-wrong-manifest"] = consumeAuthorization(f, BUILD, "d".repeat(64), LAB);
+    cases["consume-wrong-build"] = consumeAuthorization(f, OTHER_BUILD, OTHER_MH, LAB);
+    cases["consume-missing-file"] = (({ ok, reason }) => ({ ok, reason: reason.split(dir).join("<tmp>") }))(consumeAuthorization(path.join(dir, "nope.json"), BUILD, MH, LAB));
     writeJson(path.join(dir, "bad.json"), "][");
-    cases["consume-malformed"] = (({ ok, reason }) => ({ ok, reason: reason.replace(/:.*$/, "") }))(consumeAuthorization(path.join(dir, "bad.json"), BUILD, MH));
+    cases["consume-malformed"] = (({ ok, reason }) => ({ ok, reason: reason.replace(/:.*$/, "") }))(consumeAuthorization(path.join(dir, "bad.json"), BUILD, MH, LAB));
     cases["load-missing-is-empty"] = (({ ok, data, missing }) => ({ ok, data, missing }))(loadApprovals(path.join(dir, "nope.json")));
   } finally { cleanup(dir); }
   return cases;
