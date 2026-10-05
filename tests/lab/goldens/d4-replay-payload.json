@@ -1,0 +1,302 @@
+{
+  "header": "REQUIREMENT — L3 replay payload",
+  "fixtureOnly": true,
+  "contexts": 7,
+  "hands": 26,
+  "botSaw": {
+    "a": [
+      "0:Attack,Move,Attack,Defend,Defend",
+      "1:Move,Attack,Defend,Attack,Defend",
+      "0:Attack,Attack,Move,Attack,Defend"
+    ],
+    "c": [
+      "0:Attack,Move,Attack,Defend,Defend",
+      "1:Move,Attack,Defend,Attack,Defend",
+      "0:Attack,Attack,Move,Attack,Defend"
+    ]
+  },
+  "payload": {
+    "v": 1,
+    "buildId": "4747474747474747474747474747474747474747474747474747474747474747",
+    "scenarioId": "intro",
+    "seed": 1,
+    "preset": "commander",
+    "rulesQuery": "rules=rc:3",
+    "rulesVersion": "0.4.0-commander-enemy-actions-targets-fallback",
+    "rulesHash": "1462d320309cd9",
+    "strategy": "scripted-two-round",
+    "botSeed": 3,
+    "result": "timeout",
+    "turns": [
+      {
+        "turn": 1,
+        "steps": [
+          [
+            {
+              "reshuffle": true
+            }
+          ],
+          [
+            {
+              "unit": "P1",
+              "target": "E2"
+            },
+            {
+              "unit": "P1",
+              "action": "Move"
+            },
+            {
+              "unit": "P1",
+              "action": "Attack"
+            },
+            {
+              "unit": "P2",
+              "action": "Defend"
+            }
+          ]
+        ],
+        "eventHash": "19ec9259b33ae8"
+      },
+      {
+        "turn": 2,
+        "steps": [
+          [
+            {
+              "unit": "P3",
+              "action": "Move"
+            },
+            {
+              "unit": "P1",
+              "action": "Attack"
+            },
+            {
+              "unit": "P2",
+              "target": "E3"
+            },
+            {
+              "unit": "P2",
+              "action": "Attack"
+            }
+          ]
+        ],
+        "eventHash": "04d64c4b3a0447"
+      }
+    ]
+  },
+  "perTurn": [
+    {
+      "turn": 1,
+      "status": "ran",
+      "steps": [
+        [
+          {
+            "reshuffle": true
+          }
+        ],
+        [
+          {
+            "unit": "P1",
+            "target": "E2"
+          },
+          {
+            "unit": "P1",
+            "action": "Move"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "unit": "P2",
+            "action": "Defend"
+          }
+        ]
+      ],
+      "orders": [
+        {
+          "unit": "P1",
+          "target": "E2"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Defend"
+        }
+      ],
+      "budget": 5,
+      "planned": 3,
+      "unspentBudget": 2,
+      "executed": 2,
+      "notExecuted": 1,
+      "wasted": 0,
+      "attacksHit": 0,
+      "attacksMissed": 1,
+      "missReasons": {
+        "target-not-adjacent": 1
+      },
+      "reshuffles": 1,
+      "reshuffleChargesAfter": 2,
+      "byUnit": {
+        "P1": {
+          "planned": 2,
+          "executed": 1,
+          "attacksHit": 0,
+          "attacksMissed": 1
+        },
+        "P2": {
+          "planned": 1,
+          "executed": 1,
+          "attacksHit": 0,
+          "attacksMissed": 0
+        },
+        "P3": {
+          "planned": 0,
+          "executed": 0,
+          "attacksHit": 0,
+          "attacksMissed": 0
+        }
+      },
+      "enemy": {
+        "budget": 5,
+        "executed": 3,
+        "attacksHit": 0,
+        "attacksMissed": 0
+      },
+      "refusal": null,
+      "error": null,
+      "eventHash": "19ec9259b33ae8",
+      "observationHash": "6693201ee2a1452c"
+    },
+    {
+      "turn": 2,
+      "status": "ran",
+      "steps": [
+        [
+          {
+            "unit": "P3",
+            "action": "Move"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "unit": "P2",
+            "target": "E3"
+          },
+          {
+            "unit": "P2",
+            "action": "Attack"
+          }
+        ]
+      ],
+      "orders": [
+        {
+          "unit": "P3",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "target": "E3"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        }
+      ],
+      "budget": 5,
+      "planned": 3,
+      "unspentBudget": 2,
+      "executed": 1,
+      "notExecuted": 2,
+      "wasted": 0,
+      "attacksHit": 0,
+      "attacksMissed": 2,
+      "missReasons": {
+        "target-not-adjacent": 2
+      },
+      "reshuffles": 0,
+      "reshuffleChargesAfter": 2,
+      "byUnit": {
+        "P1": {
+          "planned": 1,
+          "executed": 0,
+          "attacksHit": 0,
+          "attacksMissed": 1
+        },
+        "P2": {
+          "planned": 1,
+          "executed": 0,
+          "attacksHit": 0,
+          "attacksMissed": 1
+        },
+        "P3": {
+          "planned": 1,
+          "executed": 1,
+          "attacksHit": 0,
+          "attacksMissed": 0
+        }
+      },
+      "enemy": {
+        "budget": 5,
+        "executed": 3,
+        "attacksHit": 0,
+        "attacksMissed": 0
+      },
+      "refusal": null,
+      "error": null,
+      "eventHash": "04d64c4b3a0447",
+      "observationHash": "c4da64c4963094b9"
+    }
+  ],
+  "pageResults": [
+    {
+      "turn": 1,
+      "recorded": "19ec9259b33ae8",
+      "replayed": "19ec9259b33ae8",
+      "match": true
+    },
+    {
+      "turn": 2,
+      "recorded": "04d64c4b3a0447",
+      "replayed": "04d64c4b3a0447",
+      "match": true
+    }
+  ],
+  "refusedVariants": {
+    "cardInReshuffleStep": {
+      "page": "payload field \"turns[0].steps[0]\" must be exactly [{ \"reshuffle\": true }]: only the last step of a turn runs the turn",
+      "driver": "turn 1 step 0: only the last step may hold orders other than one reshuffle"
+    },
+    "threeSteps": {
+      "page": "payload field \"turns[0].steps\" must be a list of 1 to 2 order lists",
+      "driver": "turn 1: 1 to 2 steps"
+    },
+    "shortHash": {
+      "page": "payload field \"turns[1].eventHash\" must be the 14-hex hashTurnEvents value",
+      "driver": "turn 2: eventHash is not 14 hex"
+    }
+  },
+  "truncated": {
+    "payloadTurns": 1,
+    "note": "payload covers turns 1-1 of 2: turn 2 did not run (refused); the page cannot replay it"
+  },
+  "noBuildId": "no buildId was passed to runBattle",
+  "usage": {
+    "contexts": 7,
+    "maxSteps": 205,
+    "totalSteps": 205,
+    "cap": 4000
+  }
+}
