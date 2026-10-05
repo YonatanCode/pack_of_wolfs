@@ -1,0 +1,276 @@
+{
+  "id": "g2-approvals-run",
+  "cases": {
+    "check-only-all-pass": {
+      "code": 0,
+      "out": [
+        "manifest: <tmp>/m.json",
+        "validation: VALID",
+        "battles: 6",
+        "limits: {\"maxBattles\":10,\"maxTurnsPerBattle\":20,\"maxTotalTurns\":200,\"maxRuntimeSeconds\":60}",
+        "manifestHash: 534844791f9e1c770ef2185be6239a10e5977296cc35b96e9de36e7832fc8789",
+        "current build ID: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "gate manifest: PASS - manifest valid",
+        "gate build-id: PASS - manifest.buildId equals current gameplay build ID",
+        "gate clean-tree: PASS - gameplay tree clean",
+        "gate playcheck: PASS - playcheck recorded for this exact build",
+        "gate authorization: PASS - unconsumed authorization for this exact build and manifest hash",
+        "check-only: nothing was run"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": null
+    },
+    "check-only-no-approvals": {
+      "code": 0,
+      "out": [
+        "manifest: <tmp>/m.json",
+        "validation: VALID",
+        "battles: 6",
+        "limits: {\"maxBattles\":10,\"maxTurnsPerBattle\":20,\"maxTotalTurns\":200,\"maxRuntimeSeconds\":60}",
+        "manifestHash: 534844791f9e1c770ef2185be6239a10e5977296cc35b96e9de36e7832fc8789",
+        "current build ID: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "gate manifest: PASS - manifest valid",
+        "gate build-id: PASS - manifest.buildId equals current gameplay build ID",
+        "gate clean-tree: PASS - gameplay tree clean",
+        "gate playcheck: FAIL - no playcheck for build aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "gate authorization: FAIL - no authorization for build aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and manifest hash 534844791f9e1c770ef2185be6239a10e5977296cc35b96e9de36e7832fc8789",
+        "check-only: nothing was run"
+      ],
+      "moduleLoads": 0,
+      "approvalsFileCreated": false
+    },
+    "check-only-invalid-manifest": {
+      "code": 2,
+      "out": [
+        "manifest: <tmp>/m.json",
+        "validation: INVALID",
+        "  error: unknown key: extra",
+        "battles: 6",
+        "limits: {\"maxBattles\":10,\"maxTurnsPerBattle\":20,\"maxTotalTurns\":200,\"maxRuntimeSeconds\":60}",
+        "manifestHash: n/a",
+        "current build ID: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "gate manifest: FAIL - manifest invalid: unknown key: extra",
+        "gate build-id: FAIL - not evaluated (manifest invalid)",
+        "gate clean-tree: PASS - gameplay tree clean",
+        "gate playcheck: FAIL - not evaluated (manifest or build ID unavailable)",
+        "gate authorization: FAIL - not evaluated (manifest or build ID unavailable)",
+        "check-only: nothing was run"
+      ],
+      "moduleLoads": 0
+    },
+    "run-invalid-manifest": {
+      "code": 2,
+      "err": [
+        "REFUSED (manifest): manifest invalid: missing required limit: limits.maxTurnsPerBattle; missing required limit: limits.maxTotalTurns; missing required limit: limits.maxRuntimeSeconds",
+        "REFUSED (build-id): not evaluated (manifest invalid)",
+        "REFUSED (playcheck): not evaluated (manifest or build ID unavailable)",
+        "REFUSED (authorization): not evaluated (manifest or build ID unavailable)"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        null
+      ]
+    },
+    "run-stale-build": {
+      "code": 2,
+      "err": [
+        "REFUSED (build-id): stale build: manifest.buildId aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa != current bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "REFUSED (playcheck): no playcheck for build bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb (playchecks exist only for other builds)",
+        "REFUSED (authorization): no authorization for build bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb and manifest hash 534844791f9e1c770ef2185be6239a10e5977296cc35b96e9de36e7832fc8789"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        null
+      ]
+    },
+    "run-dirty-tree": {
+      "code": 2,
+      "err": [
+        "REFUSED (clean-tree): gameplay tree is dirty (uncommitted changes in gameplay paths)"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        null
+      ]
+    },
+    "run-unknown-dirty-state": {
+      "code": 2,
+      "err": [
+        "REFUSED (clean-tree): gameplay tree state unknown (not a git checkout?)"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        null
+      ]
+    },
+    "run-no-approvals-file": {
+      "code": 2,
+      "err": [
+        "REFUSED (playcheck): no playcheck for build aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "REFUSED (authorization): no authorization for build aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and manifest hash 534844791f9e1c770ef2185be6239a10e5977296cc35b96e9de36e7832fc8789"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": null
+    },
+    "run-no-playcheck": {
+      "code": 2,
+      "err": [
+        "REFUSED (playcheck): no playcheck for build aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        null
+      ]
+    },
+    "run-playcheck-other-build": {
+      "code": 2,
+      "err": [
+        "REFUSED (playcheck): no playcheck for build aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (playchecks exist only for other builds)"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        null
+      ]
+    },
+    "run-no-authorization": {
+      "code": 2,
+      "err": [
+        "REFUSED (authorization): no authorization for build aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and manifest hash 534844791f9e1c770ef2185be6239a10e5977296cc35b96e9de36e7832fc8789"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": []
+    },
+    "run-authorization-other-manifest": {
+      "code": 2,
+      "err": [
+        "REFUSED (authorization): no authorization for manifest hash 534844791f9e1c770ef2185be6239a10e5977296cc35b96e9de36e7832fc8789 (authorizations exist only for other manifests)"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        null
+      ]
+    },
+    "run-authorization-other-build": {
+      "code": 2,
+      "err": [
+        "REFUSED (authorization): no authorization for build aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and manifest hash 534844791f9e1c770ef2185be6239a10e5977296cc35b96e9de36e7832fc8789"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        null
+      ]
+    },
+    "run-authorization-consumed": {
+      "code": 2,
+      "err": [
+        "REFUSED (authorization): authorization for this build and manifest hash was already consumed (single-use)"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        "2000-01-02T00:00:00Z"
+      ]
+    },
+    "run-malformed-not-json": {
+      "code": 2,
+      "err": [
+        "REFUSED (playcheck): approvals file is not valid JSON",
+        "REFUSED (authorization): approvals file is not valid JSON"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": null
+    },
+    "run-malformed-shape": {
+      "code": 2,
+      "err": [
+        "REFUSED (playcheck): approvals file malformed: playchecks must be an array",
+        "REFUSED (authorization): approvals file malformed: playchecks must be an array"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": []
+    },
+    "run-malformed-record": {
+      "code": 2,
+      "err": [
+        "REFUSED (playcheck): approvals file malformed: authorizations[0].manifestHash must be 64 hex chars; authorizations[0].quote must be a non-empty string; authorizations[0].recordedAt must be a non-empty string; authorizations[0].consumedAt must be null or a timestamp string",
+        "REFUSED (authorization): approvals file malformed: authorizations[0].manifestHash must be 64 hex chars; authorizations[0].quote must be a non-empty string; authorizations[0].recordedAt must be a non-empty string; authorizations[0].consumedAt must be null or a timestamp string"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        null
+      ]
+    },
+    "run-malformed-unknown-key": {
+      "code": 2,
+      "err": [
+        "REFUSED (playcheck): approvals file malformed: unknown key: extra",
+        "REFUSED (authorization): approvals file malformed: unknown key: extra"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": []
+    },
+    "run-manifest-claims-old-build-with-old-approvals": {
+      "code": 2,
+      "err": [
+        "REFUSED (build-id): stale build: manifest.buildId bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb != current aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "REFUSED (playcheck): no playcheck for build aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (playchecks exist only for other builds)",
+        "REFUSED (authorization): no authorization for build aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa and manifest hash 88046f797a813b74283b16e7f0d26efee9f3140ba70e9350a239d1ed762fff4d"
+      ],
+      "moduleLoads": 0,
+      "consumedAfter": [
+        null
+      ]
+    },
+    "usage-errors": {
+      "both": 2,
+      "noManifest": 2,
+      "unknownArg": 2
+    },
+    "consume-single-use": {
+      "first": {
+        "ok": true,
+        "reason": "authorization consumed",
+        "consumedAt": "2001-01-01T00:00:00Z"
+      },
+      "second": {
+        "ok": false,
+        "reason": "authorization for this build and manifest hash was already consumed (single-use)"
+      },
+      "consumed": [
+        "2001-01-01T00:00:00Z",
+        null
+      ],
+      "otherManifestUntouched": true,
+      "tmpLeftovers": 0
+    },
+    "consume-wrong-manifest": {
+      "ok": false,
+      "reason": "no authorization for manifest hash dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd (authorizations exist only for other manifests)"
+    },
+    "consume-wrong-build": {
+      "ok": false,
+      "reason": "no authorization for build bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb and manifest hash cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "consume-missing-file": {
+      "ok": false,
+      "reason": "approvals file not found: <tmp>/nope.json"
+    },
+    "consume-malformed": {
+      "ok": false,
+      "reason": "approvals file is not valid JSON"
+    },
+    "load-missing-is-empty": {
+      "ok": true,
+      "data": {
+        "playchecks": [],
+        "authorizations": []
+      },
+      "missing": true
+    }
+  },
+  "usage": {
+    "contexts": 0,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 0
+  }
+}

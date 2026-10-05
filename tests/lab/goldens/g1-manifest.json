@@ -1,0 +1,214 @@
+{
+  "id": "g1-manifest",
+  "caps": {
+    "maxBattles": 200,
+    "maxTurnsPerBattle": 60,
+    "maxTotalTurns": 5000,
+    "maxRuntimeSeconds": 1800
+  },
+  "cases": {
+    "valid": {
+      "valid": true,
+      "battles": 6,
+      "errors": [],
+      "hasHash": true
+    },
+    "missing-maxBattles": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "missing required limit: limits.maxBattles"
+      ],
+      "hasHash": false
+    },
+    "missing-maxTurnsPerBattle": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "missing required limit: limits.maxTurnsPerBattle"
+      ],
+      "hasHash": false
+    },
+    "missing-maxTotalTurns": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "missing required limit: limits.maxTotalTurns"
+      ],
+      "hasHash": false
+    },
+    "missing-maxRuntimeSeconds": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "missing required limit: limits.maxRuntimeSeconds"
+      ],
+      "hasHash": false
+    },
+    "cap-exceeded-maxBattles": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "limits.maxBattles=201 exceeds hard cap 200"
+      ],
+      "hasHash": false
+    },
+    "cap-exceeded-maxTurnsPerBattle": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "limits.maxTurnsPerBattle=61 exceeds hard cap 60"
+      ],
+      "hasHash": false
+    },
+    "cap-exceeded-maxTotalTurns": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "limits.maxTotalTurns=5001 exceeds hard cap 5000"
+      ],
+      "hasHash": false
+    },
+    "cap-exceeded-maxRuntimeSeconds": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "limits.maxRuntimeSeconds=1801 exceeds hard cap 1800"
+      ],
+      "hasHash": false
+    },
+    "at-cap-maxTurnsPerBattle": {
+      "valid": true,
+      "battles": 6,
+      "errors": [],
+      "hasHash": true
+    },
+    "zero-limit": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "limits.maxTotalTurns must be a positive integer"
+      ],
+      "hasHash": false
+    },
+    "fractional-limit": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "limits.maxTotalTurns must be a positive integer"
+      ],
+      "hasHash": false
+    },
+    "unknown-top-key": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "unknown key: extra"
+      ],
+      "hasHash": false
+    },
+    "unknown-limit-key": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "unknown key: limits.maxFoo"
+      ],
+      "hasHash": false
+    },
+    "unknown-scenario-key": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "unknown key: scenarios[0].extra"
+      ],
+      "hasHash": false
+    },
+    "missing-limits-object": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "missing required key: limits"
+      ],
+      "hasHash": false
+    },
+    "battles-over-maxBattles": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "battle count 6 (scenario seeds x strategies) exceeds limits.maxBattles 5"
+      ],
+      "hasHash": false
+    },
+    "battles-exactly-maxBattles": {
+      "valid": true,
+      "battles": 6,
+      "errors": [],
+      "hasHash": true
+    },
+    "unknown-strategy": {
+      "valid": false,
+      "battles": 9,
+      "errors": [
+        "unknown strategy: nope (known: random-legal, aggressive-pursuit)"
+      ],
+      "hasHash": false
+    },
+    "duplicate-strategy": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "strategies must be unique"
+      ],
+      "hasHash": false
+    },
+    "empty-seeds": {
+      "valid": false,
+      "battles": 0,
+      "errors": [
+        "scenarios[0].seeds must be a non-empty array"
+      ],
+      "hasHash": false
+    },
+    "bad-buildId": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "buildId must be a 64-character lowercase hex string"
+      ],
+      "hasHash": false
+    },
+    "bad-schemaVersion": {
+      "valid": false,
+      "battles": 6,
+      "errors": [
+        "schemaVersion must be 1"
+      ],
+      "hasHash": false
+    },
+    "not-an-object": {
+      "valid": false,
+      "battles": 0,
+      "errors": [
+        "manifest must be a JSON object"
+      ],
+      "hasHash": false
+    },
+    "no-bot-registry": {
+      "valid": false,
+      "errors": [
+        "cannot verify strategies: no bot registry available (bots.cjs missing)"
+      ]
+    },
+    "hash": {
+      "keyOrderIndependent": true,
+      "changesWithContent": true,
+      "length": 64
+    }
+  },
+  "usage": {
+    "contexts": 0,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 0
+  }
+}
