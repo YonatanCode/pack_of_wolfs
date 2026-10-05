@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "label": "smoke-1: pipeline smoke test, commander, intro, seeds 1-5, both bots (not a balance test)",
+  "buildId": "c82d07fef15add9e182bc0dd7e3c50bda1c28ed72b89161f62e3599c030d3874",
+  "preset": "commander",
+  "scenarios": [{ "id": "intro", "seeds": [1, 2, 3, 4, 5] }],
+  "strategies": ["random-legal", "aggressive-pursuit"],
+  "limits": { "maxBattles": 10, "maxTurnsPerBattle": 30, "maxTotalTurns": 300, "maxRuntimeSeconds": 60 },
+  "botSeed": 1
+}
