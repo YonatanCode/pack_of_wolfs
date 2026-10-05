@@ -17,6 +17,7 @@ const { validateManifest } = require("./manifest.cjs");
 const { loadApprovals, checkApprovals, consumeAuthorization } = require("./approvals.cjs");
 
 const ROOT = path.resolve(__dirname, "..", "..");
+const DEFAULT_REPORTS_DIR = path.join(ROOT, "lab", "reports");
 const DEFAULT_APPROVALS = path.join(ROOT, "lab", "approvals.json");
 
 /** Current gameplay build via tools/build-id.mjs (same logic as the recorded build IDs). -> { buildId, dirty } */
@@ -263,7 +264,22 @@ async function main(argv, deps = {}) {
   try {
     const iso = { mode: deps.isolation || (deps.loadModules ? "inprocess" : "child"), childEntry: deps.childEntry || DEFAULT_CHILD_ENTRY, onSpawn: deps.onSpawn };
     const result = await execute(ev.manifest, ev.v, mods, d.now(), d.now, d.currentBuild, iso);
+    let savedTo = null;
+    try {
+      const dir = deps.reportsDir || DEFAULT_REPORTS_DIR;
+      const stamp = new Date(d.now()).toISOString().replace(/\.\d+Z$/, "Z").replace(/[-:]/g, "");
+      const file = path.join(dir, `${ev.v.manifestHash.slice(0, 12)}-${stamp}.json`);
+      fs.mkdirSync(dir, { recursive: true });
+      const tmp = `${file}.${process.pid}.tmp`;
+      try { fs.writeFileSync(tmp, mods.report.serializeReport(result), { flag: "wx" }); fs.renameSync(tmp, file); }
+      catch (e) { try { fs.rmSync(tmp, { force: true }); } catch { /* best effort */ } throw e; }
+      savedTo = file;
+    } catch (e) {
+      if (Array.isArray(result.notes)) result.notes.push(`report file NOT written: ${e && e.message ? e.message : e}`);
+      err(`report file NOT written: ${e && e.message ? e.message : e}`);
+    }
     out(JSON.stringify(result, null, 2));
+    if (savedTo) out(`report written: ${savedTo}`);
     return 0;
   } catch (e) {
     err(`run failed after authorization was consumed: ${e && e.stack ? e.stack : e}`);

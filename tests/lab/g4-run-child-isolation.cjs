@@ -39,15 +39,16 @@ async function scenario(modes) {
     const pids = []; const lines = []; const errs = [];
     const t0 = Date.now();
     const code = await main(["--manifest", mf, "--run"], {
-      approvalsFile: ap, labVersion: () => LAB, botIds: BOT_IDS, currentBuild: () => ({ buildId: BUILD, dirty: false }),
+      approvalsFile: ap, reportsDir: path.join(dir, "reports"), labVersion: () => LAB, botIds: BOT_IDS, currentBuild: () => ({ buildId: BUILD, dirty: false }),
       isolation: "child", childEntry: [entry], onSpawn: (pid) => pids.push(pid),
       loadModules: () => ({ driver: null, bots: { BOTS: {} }, report, loadGame: null }),
       out: (s) => lines.push(s), err: (s) => errs.push(s),
     });
     const elapsed = Date.now() - t0;
     const alive = pids.filter((pid) => { try { process.kill(pid, 0); return true; } catch { return false; } });
-    const rep = JSON.parse(lines[lines.length - 1]);
-    return { code, errs, children: pids.length, orphanChildren: alive.length, elapsedUnder3s: elapsed < 3000,
+    const rep = JSON.parse(lines.find((l) => l.startsWith("{")));
+    const written = fs.readdirSync(path.join(dir, "reports")).length;
+    return { code, errs, children: pids.length, reportFilesWritten: written, orphanChildren: alive.length, elapsedUnder3s: elapsed < 3000,
       battles: rep.battles.map((b) => ({ seed: b.seed, strategy: b.strategy, scenarioId: b.scenarioId, result: b.result, stopReason: b.stopReason, turns: b.turns, error: b.error })),
       notes: rep.notes };
   } finally { delete process.env.G4_MODES; cleanup(dir); }

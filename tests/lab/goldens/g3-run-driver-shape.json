@@ -1,6 +1,23 @@
 {
   "id": "g3-run-driver-shape",
   "case": {
+    "reportFile": {
+      "names": [
+        "<hash12>-19700101T000001Z.json"
+      ],
+      "prefixIsHash12": true,
+      "content": "SERIALIZED {\"fakeReport\":true,\"notes\":[]}\n",
+      "noTmpLeft": true,
+      "printedPath": true
+    },
+    "writeFailure": {
+      "code": 0,
+      "stdoutHasReportWithNote": true,
+      "errs": [
+        "report file NOT written"
+      ],
+      "noPathPrinted": true
+    },
     "buildChange": {
       "code": 0,
       "battlesRun": 1,
@@ -94,7 +111,8 @@
       "fixtureOnly": false
     },
     "firstOut": "authorization consumed at <ts> starting 2 battles (maxRuntimeSeconds 60)",
-    "stdoutLast": "{\n  \"fakeReport\": true\n}",
+    "stdoutLast": "{\n  \"fakeReport\": true,\n  \"notes\": []\n}",
+    "pathLine": "report written: <tmp>/reports/<hash12>-<ts>.json",
     "authorizationAfter": true
   },
   "usage": {

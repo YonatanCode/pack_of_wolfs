@@ -51,6 +51,8 @@ Approvals live in `lab/approvals.json` (gitignored). No tool in this repo create
 - Each battle runs in a child process (`node run.cjs --worker`), SIGKILLed at the remaining `maxRuntimeSeconds`. The killed battle is kept as a `timeout` record with stopReason `runtime-deadline-killed`, completed records are kept, no further battles start, the report note is `stopped early: runtime deadline; N of M battles completed`, and the report is still emitted.
 - Child crash, non-zero exit or unparseable output becomes an `error` record (stopReason `child-crash` / `child-bad-output`); the run continues.
 
+- `--run` also writes the report (report.serializeReport, temp file + rename) to `lab/reports/<manifestHash first 12>-<UTC timestamp>.json` (gitignored), including partial runs and abort notes, and prints the path. If the write fails the stdout report is still printed with a note "report file NOT written".
+
 ## Known limits (PoC)
 - The gates are a process control, not a security boundary: anyone with disk access can edit `lab/approvals.json`.
 - `--approvals <path>` is refused with `--run` (always `lab/approvals.json`); the gameplay build ID and clean tree are re-verified before EACH battle, and a change stops the run with the note "aborted: gameplay build changed after authorization".

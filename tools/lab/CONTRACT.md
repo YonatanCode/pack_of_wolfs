@@ -54,3 +54,5 @@ Every limit is REQUIRED (positive integers, with hard upper caps defined in mani
 
 ## Report (`report.cjs`, `metrics.cjs`)
 `{ schemaVersion:1, manifestHash, buildId, rulesHash, fixtureOnly, battles:[BattleRecord], summary: { <strategy>: { n, wins, losses, draws, timeouts, errors, winRate, winRateWilson95:[lo,hi], meanTurns, meanBudget, meanPlanned, meanExecuted, meanWasted } }, notes:[] }`. Deterministic (no wall-clock timestamps inside the hashed body). Reports with fixtureOnly true are labelled as fixtures; small-n results always show n and the interval.
+
+`run.cjs --run` also writes the serialized report (report.serializeReport) to `lab/reports/<manifestHash first 12>-<UTC timestamp>.json` (gitignored) and prints the path; a write failure is noted but never loses the stdout report.

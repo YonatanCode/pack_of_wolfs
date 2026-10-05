@@ -4,6 +4,7 @@
     "code": 0,
     "errs": [],
     "children": 2,
+    "reportFilesWritten": 1,
     "orphanChildren": 0,
     "elapsedUnder3s": true,
     "battles": [
@@ -35,6 +36,7 @@
     "code": 0,
     "errs": [],
     "children": 3,
+    "reportFilesWritten": 1,
     "orphanChildren": 0,
     "elapsedUnder3s": true,
     "battles": [
@@ -74,6 +76,7 @@
     "code": 0,
     "errs": [],
     "children": 3,
+    "reportFilesWritten": 1,
     "orphanChildren": 0,
     "elapsedUnder3s": true,
     "battles": [
