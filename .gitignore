@@ -30,3 +30,4 @@ dist-ssr
 lab/approvals.json
 lab/.approvals.json.*.tmp
 lab/*.lock
+lab/reports/
