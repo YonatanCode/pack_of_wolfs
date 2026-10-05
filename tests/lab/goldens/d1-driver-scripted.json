@@ -1,8 +1,8 @@
 {
-  "header": "REQUIREMENT — L2 driver",
+  "header": "REQUIREMENT — L2/L3 driver",
   "fixtureOnly": true,
-  "contexts": 14,
-  "hands": 22,
+  "contexts": 25,
+  "hands": 43,
   "result": {
     "a": {
       "record": {
@@ -22,10 +22,18 @@
           {
             "turn": 1,
             "status": "ran",
-            "budget": 5,
-            "planned": 1,
-            "executed": 1,
-            "wasted": 0,
+            "steps": [
+              [
+                {
+                  "unit": "P1",
+                  "target": "E1"
+                },
+                {
+                  "unit": "P1",
+                  "action": "Attack"
+                }
+              ]
+            ],
             "orders": [
               {
                 "unit": "P1",
@@ -36,47 +44,81 @@
                 "action": "Attack"
               }
             ],
+            "budget": 5,
+            "planned": 1,
+            "unspentBudget": 4,
+            "executed": 1,
+            "notExecuted": 0,
+            "wasted": 0,
+            "attacksHit": 1,
+            "attacksMissed": 0,
+            "missReasons": {},
+            "reshuffles": 0,
+            "reshuffleChargesAfter": 2,
             "byUnit": {
               "P1": {
                 "planned": 1,
-                "executed": 1
+                "executed": 1,
+                "attacksHit": 1,
+                "attacksMissed": 0
               }
             },
             "enemy": {
               "budget": 0,
-              "executed": 0
+              "executed": 0,
+              "attacksHit": 0,
+              "attacksMissed": 0
             },
             "refusal": null,
             "error": null,
-            "eventHash": "fc7b7ab9f9db4356",
+            "eventHash": "084e3017e86478",
             "observationHash": "8def40e44fe449e8"
           },
           {
             "turn": 2,
             "status": "ran",
-            "budget": 5,
-            "planned": 1,
-            "executed": 1,
-            "wasted": 0,
+            "steps": [
+              [
+                {
+                  "unit": "P1",
+                  "action": "Attack"
+                }
+              ]
+            ],
             "orders": [
               {
                 "unit": "P1",
                 "action": "Attack"
               }
             ],
+            "budget": 5,
+            "planned": 1,
+            "unspentBudget": 4,
+            "executed": 1,
+            "notExecuted": 0,
+            "wasted": 0,
+            "attacksHit": 1,
+            "attacksMissed": 0,
+            "missReasons": {},
+            "reshuffles": 0,
+            "reshuffleChargesAfter": 2,
             "byUnit": {
               "P1": {
                 "planned": 1,
-                "executed": 1
+                "executed": 1,
+                "attacksHit": 1,
+                "attacksMissed": 0
               }
             },
             "enemy": {
               "budget": 0,
-              "executed": 0
+              "executed": 0,
+              "attacksHit": 0,
+              "attacksMissed": 0
             },
             "refusal": null,
             "error": null,
-            "eventHash": "3ad3105b45d54ccf",
+            "eventHash": "00cea0bb38605f",
             "observationHash": "570c16f3ecb404af"
           }
         ],
@@ -98,20 +140,24 @@
             }
           ]
         ],
-        "replayQuery": "?scenario=intro&seed=1&preset=commander"
+        "replayQuery": "?scenario=intro&seed=1&preset=commander&rules=eab:0"
       },
       "botSaw": [
         {
-          "turn": 1,
+          "call": 1,
+          "round": 0,
           "hand": "Attack,Move,Attack,Defend,Defend",
+          "charges": 2,
           "units": "P1:10 E1:4",
-          "keys": "rng"
+          "keys": "rng,round,maxRounds"
         },
         {
-          "turn": 2,
+          "call": 2,
+          "round": 0,
           "hand": "Move,Move,Attack,Defend,Defend",
+          "charges": 2,
           "units": "P1:10 E1:1",
-          "keys": "rng"
+          "keys": "rng,round,maxRounds"
         }
       ],
       "rngFirst": 0.011704753153026104
@@ -133,29 +179,48 @@
         {
           "turn": 1,
           "status": "ran",
-          "budget": 5,
-          "planned": 1,
-          "executed": 1,
-          "wasted": 0,
+          "steps": [
+            [
+              {
+                "unit": "P1",
+                "action": "Defend"
+              }
+            ]
+          ],
           "orders": [
             {
               "unit": "P1",
               "action": "Defend"
             }
           ],
+          "budget": 5,
+          "planned": 1,
+          "unspentBudget": 4,
+          "executed": 1,
+          "notExecuted": 0,
+          "wasted": 0,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "missReasons": {},
+          "reshuffles": 0,
+          "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 1,
-              "executed": 1
+              "executed": 1,
+              "attacksHit": 0,
+              "attacksMissed": 0
             }
           },
           "enemy": {
             "budget": 5,
-            "executed": 0
+            "executed": 0,
+            "attacksHit": 0,
+            "attacksMissed": 0
           },
           "refusal": null,
           "error": null,
-          "eventHash": "20738bac7cce7e30",
+          "eventHash": "14e6c3675fb074",
           "observationHash": "54db928207173db8"
         }
       ],
@@ -186,10 +251,22 @@
         {
           "turn": 1,
           "status": "refused",
-          "budget": 5,
-          "planned": 3,
-          "executed": 0,
-          "wasted": 3,
+          "steps": [
+            [
+              {
+                "unit": "P1",
+                "action": "Attack"
+              },
+              {
+                "unit": "P1",
+                "action": "Attack"
+              },
+              {
+                "unit": "P1",
+                "action": "Attack"
+              }
+            ]
+          ],
           "orders": [
             {
               "unit": "P1",
@@ -204,18 +281,34 @@
               "action": "Attack"
             }
           ],
+          "budget": 5,
+          "planned": 3,
+          "unspentBudget": 5,
+          "executed": 0,
+          "notExecuted": 3,
+          "wasted": 3,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "missReasons": {},
+          "reshuffles": 0,
+          "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 3,
-              "executed": 0
+              "executed": 0,
+              "attacksHit": 0,
+              "attacksMissed": 0
             }
           },
           "enemy": {
             "budget": 5,
-            "executed": 0
+            "executed": 0,
+            "attacksHit": 0,
+            "attacksMissed": 0
           },
           "refusal": {
             "by": "engine",
+            "step": 0,
             "index": 2,
             "reason": "card-not-in-hand",
             "message": "no Attack card in the hand"
@@ -227,29 +320,48 @@
         {
           "turn": 2,
           "status": "ran",
-          "budget": 5,
-          "planned": 1,
-          "executed": 1,
-          "wasted": 0,
+          "steps": [
+            [
+              {
+                "unit": "P1",
+                "action": "Attack"
+              }
+            ]
+          ],
           "orders": [
             {
               "unit": "P1",
               "action": "Attack"
             }
           ],
+          "budget": 5,
+          "planned": 1,
+          "unspentBudget": 4,
+          "executed": 1,
+          "notExecuted": 0,
+          "wasted": 0,
+          "attacksHit": 1,
+          "attacksMissed": 0,
+          "missReasons": {},
+          "reshuffles": 0,
+          "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 1,
-              "executed": 1
+              "executed": 1,
+              "attacksHit": 1,
+              "attacksMissed": 0
             }
           },
           "enemy": {
             "budget": 5,
-            "executed": 0
+            "executed": 0,
+            "attacksHit": 0,
+            "attacksMissed": 0
           },
           "refusal": null,
           "error": null,
-          "eventHash": "0c1f1ba297416cc7",
+          "eventHash": "0868fb7837a785",
           "observationHash": "5363e9d8f99c474e"
         }
       ],
@@ -296,54 +408,86 @@
           "status": "refused",
           "budget": 5,
           "planned": 0,
+          "unspentBudget": 5,
           "executed": 0,
+          "notExecuted": 0,
           "wasted": 0,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "missReasons": {},
+          "reshuffles": 0,
+          "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 0,
-              "executed": 0
+              "executed": 0,
+              "attacksHit": 0,
+              "attacksMissed": 0
             }
           },
           "enemy": {
             "budget": 5,
-            "executed": 0
+            "executed": 0,
+            "attacksHit": 0,
+            "attacksMissed": 0
           },
           "refusal": {
             "by": "driver",
+            "step": 0,
             "index": -1,
             "reason": "malformed-orders",
             "message": "the bot did not return an array of JSON orders"
           },
           "error": null,
           "eventHash": null,
-          "observationHash": null
+          "observationHash": null,
+          "steps": [
+            {
+              "not": "an array"
+            }
+          ]
         },
         {
           "turn": 2,
           "status": "refused",
           "budget": 5,
           "planned": 65,
+          "unspentBudget": 5,
           "executed": 0,
+          "notExecuted": 65,
           "wasted": 65,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "missReasons": {},
+          "reshuffles": 0,
+          "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 65,
-              "executed": 0
+              "executed": 0,
+              "attacksHit": 0,
+              "attacksMissed": 0
             }
           },
           "enemy": {
             "budget": 5,
-            "executed": 0
+            "executed": 0,
+            "attacksHit": 0,
+            "attacksMissed": 0
           },
           "refusal": {
             "by": "driver",
+            "step": 0,
             "index": -1,
             "reason": "too-many-orders",
             "message": "more than 64 orders in one turn"
           },
           "error": null,
           "eventHash": null,
-          "observationHash": null
+          "observationHash": null,
+          "steps": [
+            "65 orders"
+          ]
         }
       ],
       "orders": [
@@ -371,25 +515,44 @@
         {
           "turn": 1,
           "status": "engine-error",
-          "budget": 5,
-          "planned": 1,
-          "executed": 0,
-          "wasted": 1,
+          "steps": [
+            [
+              {
+                "unit": "P1",
+                "action": "Attack"
+              }
+            ]
+          ],
           "orders": [
             {
               "unit": "P1",
               "action": "Attack"
             }
           ],
+          "budget": 5,
+          "planned": 1,
+          "unspentBudget": 5,
+          "executed": 0,
+          "notExecuted": 1,
+          "wasted": 1,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "missReasons": {},
+          "reshuffles": 0,
+          "reshuffleChargesAfter": 2,
           "byUnit": {
             "P1": {
               "planned": 1,
-              "executed": 0
+              "executed": 0,
+              "attacksHit": 0,
+              "attacksMissed": 0
             }
           },
           "enemy": {
             "budget": 5,
-            "executed": 0
+            "executed": 0,
+            "attacksHit": 0,
+            "attacksMissed": 0
           },
           "refusal": null,
           "error": "injected fault (d1e)",
@@ -424,15 +587,32 @@
         {
           "turn": 1,
           "status": "bot-error",
+          "steps": [],
+          "orders": null,
           "budget": 5,
           "planned": 0,
+          "unspentBudget": 5,
           "executed": 0,
+          "notExecuted": 0,
           "wasted": 0,
-          "orders": null,
-          "byUnit": {},
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "missReasons": {},
+          "reshuffles": 0,
+          "reshuffleChargesAfter": 2,
+          "byUnit": {
+            "P1": {
+              "planned": 0,
+              "executed": 0,
+              "attacksHit": 0,
+              "attacksMissed": 0
+            }
+          },
           "enemy": {
             "budget": 5,
-            "executed": 0
+            "executed": 0,
+            "attacksHit": 0,
+            "attacksMissed": 0
           },
           "refusal": null,
           "error": "bot bug (d1f)",
@@ -479,23 +659,497 @@
       "orders": [],
       "replayQuery": "?scenario=intro&seed=1&preset=commander"
     },
+    "k": {
+      "scenarioId": "intro",
+      "seed": 1,
+      "preset": "commander",
+      "rulesVersion": "0.4.0-commander-enemy-actions-targets-fallback",
+      "rulesHash": "1ee7c8d5a26ec1",
+      "strategy": "scripted-miss",
+      "botSeed": 7,
+      "fixtureOnly": true,
+      "result": "timeout",
+      "stopReason": "max-turns-per-battle",
+      "error": null,
+      "turns": 1,
+      "perTurn": [
+        {
+          "turn": 1,
+          "status": "ran",
+          "steps": [
+            [
+              {
+                "unit": "P1",
+                "action": "Attack"
+              }
+            ]
+          ],
+          "orders": [
+            {
+              "unit": "P1",
+              "action": "Attack"
+            }
+          ],
+          "budget": 5,
+          "planned": 1,
+          "unspentBudget": 4,
+          "executed": 0,
+          "notExecuted": 1,
+          "wasted": 0,
+          "attacksHit": 0,
+          "attacksMissed": 1,
+          "missReasons": {
+            "target-not-adjacent": 1
+          },
+          "reshuffles": 0,
+          "reshuffleChargesAfter": 2,
+          "byUnit": {
+            "P1": {
+              "planned": 1,
+              "executed": 0,
+              "attacksHit": 0,
+              "attacksMissed": 1
+            }
+          },
+          "enemy": {
+            "budget": 5,
+            "executed": 0,
+            "attacksHit": 0,
+            "attacksMissed": 0
+          },
+          "refusal": null,
+          "error": null,
+          "eventHash": "1f89a2f63a1f03",
+          "observationHash": "2163556610be67d7"
+        }
+      ],
+      "orders": [
+        [
+          {
+            "unit": "P1",
+            "action": "Attack"
+          }
+        ]
+      ],
+      "replayQuery": "?scenario=intro&seed=1&preset=commander"
+    },
+    "l": {
+      "record": {
+        "scenarioId": "intro",
+        "seed": 1,
+        "preset": "commander",
+        "rulesVersion": "0.4.0-commander-enemy-actions-targets-fallback",
+        "rulesHash": "1ee7c8d5a26ec1",
+        "strategy": "scripted-reshuffle",
+        "botSeed": 7,
+        "fixtureOnly": true,
+        "result": "timeout",
+        "stopReason": "max-turns-per-battle",
+        "error": null,
+        "turns": 2,
+        "perTurn": [
+          {
+            "turn": 1,
+            "status": "ran",
+            "steps": [
+              [
+                {
+                  "reshuffle": true
+                }
+              ],
+              [
+                {
+                  "unit": "P1",
+                  "action": "Defend"
+                }
+              ]
+            ],
+            "orders": [
+              {
+                "unit": "P1",
+                "action": "Defend"
+              }
+            ],
+            "budget": 5,
+            "planned": 1,
+            "unspentBudget": 4,
+            "executed": 1,
+            "notExecuted": 0,
+            "wasted": 0,
+            "attacksHit": 0,
+            "attacksMissed": 0,
+            "missReasons": {},
+            "reshuffles": 1,
+            "reshuffleChargesAfter": 1,
+            "byUnit": {
+              "P1": {
+                "planned": 1,
+                "executed": 1,
+                "attacksHit": 0,
+                "attacksMissed": 0
+              }
+            },
+            "enemy": {
+              "budget": 5,
+              "executed": 0,
+              "attacksHit": 0,
+              "attacksMissed": 0
+            },
+            "refusal": null,
+            "error": null,
+            "eventHash": "0af05372c3d4e4",
+            "observationHash": "ac7c0eaec1af7b8d"
+          },
+          {
+            "turn": 2,
+            "status": "ran",
+            "steps": [
+              [
+                {
+                  "unit": "P1",
+                  "action": "Defend"
+                }
+              ]
+            ],
+            "orders": [
+              {
+                "unit": "P1",
+                "action": "Defend"
+              }
+            ],
+            "budget": 5,
+            "planned": 1,
+            "unspentBudget": 4,
+            "executed": 1,
+            "notExecuted": 0,
+            "wasted": 0,
+            "attacksHit": 0,
+            "attacksMissed": 0,
+            "missReasons": {},
+            "reshuffles": 0,
+            "reshuffleChargesAfter": 1,
+            "byUnit": {
+              "P1": {
+                "planned": 1,
+                "executed": 1,
+                "attacksHit": 0,
+                "attacksMissed": 0
+              }
+            },
+            "enemy": {
+              "budget": 5,
+              "executed": 3,
+              "attacksHit": 2,
+              "attacksMissed": 0
+            },
+            "refusal": null,
+            "error": null,
+            "eventHash": "0a1d024bd21387",
+            "observationHash": "bad159e649e5390d"
+          }
+        ],
+        "orders": [
+          [
+            {
+              "unit": "P1",
+              "action": "Defend"
+            }
+          ],
+          [
+            {
+              "unit": "P1",
+              "action": "Defend"
+            }
+          ]
+        ],
+        "replayQuery": "?scenario=intro&seed=1&preset=commander"
+      },
+      "botSaw": [
+        {
+          "call": 1,
+          "round": 0,
+          "hand": "Attack,Move,Attack,Defend,Defend",
+          "charges": 2,
+          "units": "P1:10 E1:10",
+          "keys": "rng,round,maxRounds"
+        },
+        {
+          "call": 2,
+          "round": 1,
+          "hand": "Move,Attack,Defend,Attack,Defend",
+          "charges": 1,
+          "units": "P1:10 E1:10",
+          "keys": "rng,round,maxRounds"
+        },
+        {
+          "call": 3,
+          "round": 0,
+          "hand": "Attack,Move,Attack,Attack,Defend",
+          "charges": 1,
+          "units": "P1:10 E1:10",
+          "keys": "rng,round,maxRounds"
+        }
+      ]
+    },
+    "m": {
+      "scenarioId": "intro",
+      "seed": 1,
+      "preset": "commander",
+      "rulesVersion": "0.4.0-commander-enemy-actions-targets-fallback",
+      "rulesHash": "11e4f22f7ebe37",
+      "strategy": "scripted-no-charges",
+      "botSeed": 7,
+      "fixtureOnly": true,
+      "result": "timeout",
+      "stopReason": "max-turns-per-battle",
+      "error": null,
+      "turns": 1,
+      "perTurn": [
+        {
+          "turn": 1,
+          "status": "refused",
+          "steps": [
+            [
+              {
+                "reshuffle": true
+              }
+            ]
+          ],
+          "orders": null,
+          "budget": 5,
+          "planned": 0,
+          "unspentBudget": 5,
+          "executed": 0,
+          "notExecuted": 0,
+          "wasted": 0,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "missReasons": {},
+          "reshuffles": 0,
+          "reshuffleChargesAfter": 0,
+          "byUnit": {
+            "P1": {
+              "planned": 0,
+              "executed": 0,
+              "attacksHit": 0,
+              "attacksMissed": 0
+            }
+          },
+          "enemy": {
+            "budget": 5,
+            "executed": 0,
+            "attacksHit": 0,
+            "attacksMissed": 0
+          },
+          "refusal": {
+            "by": "engine",
+            "step": 0,
+            "index": 0,
+            "reason": "no-reshuffle-charges",
+            "message": "no reshuffle charges left"
+          },
+          "error": null,
+          "eventHash": null,
+          "observationHash": null
+        }
+      ],
+      "orders": [
+        null
+      ],
+      "replayQuery": "?scenario=intro&seed=1&preset=commander&rules=rc:0"
+    },
+    "n": {
+      "scenarioId": "intro",
+      "seed": 1,
+      "preset": "commander",
+      "rulesVersion": "0.4.0-commander-enemy-actions-targets-fallback",
+      "rulesHash": "1ee7c8d5a26ec1",
+      "strategy": "scripted-late-reshuffle",
+      "botSeed": 7,
+      "fixtureOnly": true,
+      "result": "timeout",
+      "stopReason": "max-turns-per-battle",
+      "error": null,
+      "turns": 1,
+      "perTurn": [
+        {
+          "turn": 1,
+          "status": "refused",
+          "steps": [
+            [
+              {
+                "reshuffle": true
+              }
+            ],
+            [
+              {
+                "reshuffle": true
+              }
+            ]
+          ],
+          "orders": [
+            {
+              "reshuffle": true
+            }
+          ],
+          "budget": 5,
+          "planned": 0,
+          "unspentBudget": 5,
+          "executed": 0,
+          "notExecuted": 0,
+          "wasted": 0,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "missReasons": {},
+          "reshuffles": 1,
+          "reshuffleChargesAfter": 1,
+          "byUnit": {
+            "P1": {
+              "planned": 0,
+              "executed": 0,
+              "attacksHit": 0,
+              "attacksMissed": 0
+            }
+          },
+          "enemy": {
+            "budget": 5,
+            "executed": 0,
+            "attacksHit": 0,
+            "attacksMissed": 0
+          },
+          "refusal": {
+            "by": "driver",
+            "step": 1,
+            "index": 0,
+            "reason": "reshuffle-in-last-round",
+            "message": "a reshuffle is allowed only in round 0 of 2"
+          },
+          "error": null,
+          "eventHash": null,
+          "observationHash": null
+        }
+      ],
+      "orders": [
+        [
+          {
+            "reshuffle": true
+          }
+        ]
+      ],
+      "replayQuery": "?scenario=intro&seed=1&preset=commander"
+    },
+    "o": {
+      "scenarioId": "intro",
+      "seed": 1,
+      "preset": "commander",
+      "rulesVersion": "0.4.0-commander-enemy-actions-targets-fallback",
+      "rulesHash": "1ee7c8d5a26ec1",
+      "strategy": "scripted-mixed",
+      "botSeed": 7,
+      "fixtureOnly": true,
+      "result": "timeout",
+      "stopReason": "max-turns-per-battle",
+      "error": null,
+      "turns": 1,
+      "perTurn": [
+        {
+          "turn": 1,
+          "status": "refused",
+          "steps": [
+            [
+              {
+                "reshuffle": true
+              },
+              {
+                "unit": "P1",
+                "action": "Defend"
+              }
+            ]
+          ],
+          "orders": [
+            {
+              "reshuffle": true
+            },
+            {
+              "unit": "P1",
+              "action": "Defend"
+            }
+          ],
+          "budget": 5,
+          "planned": 1,
+          "unspentBudget": 5,
+          "executed": 0,
+          "notExecuted": 1,
+          "wasted": 1,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "missReasons": {},
+          "reshuffles": 0,
+          "reshuffleChargesAfter": 2,
+          "byUnit": {
+            "P1": {
+              "planned": 1,
+              "executed": 0,
+              "attacksHit": 0,
+              "attacksMissed": 0
+            }
+          },
+          "enemy": {
+            "budget": 5,
+            "executed": 0,
+            "attacksHit": 0,
+            "attacksMissed": 0
+          },
+          "refusal": {
+            "by": "engine",
+            "step": 0,
+            "index": 1,
+            "reason": "hand-not-observed",
+            "message": "a reshuffle earlier in this list draws a hand that has not been observed: queue cards in a later call"
+          },
+          "error": null,
+          "eventHash": null,
+          "observationHash": null
+        }
+      ],
+      "orders": [
+        [
+          {
+            "reshuffle": true
+          },
+          {
+            "unit": "P1",
+            "action": "Defend"
+          }
+        ]
+      ],
+      "replayQuery": "?scenario=intro&seed=1&preset=commander"
+    },
     "replay": {
       "a": "identical",
       "b": "identical",
       "c": "identical",
       "d": "identical",
       "e": "identical",
-      "h": "identical"
+      "f": "identical",
+      "h": "identical",
+      "k": "identical",
+      "l": "identical",
+      "m": "identical",
+      "n": "identical",
+      "o": "identical"
     },
     "optionErrors": [
       "runBattle: limits.maxTurnsPerBattle must be a positive integer",
       "runBattle: fixtureOnly must be a boolean",
       "runBattle: strategy unknown: pass options.strategy or a bot with an id",
-      "runBattle: botSeed must be an unsigned 32-bit integer"
+      "runBattle: botSeed must be an unsigned 32-bit integer",
+      "runBattle: rulesQuery must be \"\" or \"rules=<k>:<v>,...\"",
+      "runBattle: buildId must be 64 lowercase hex characters"
     ]
   },
   "usage": {
-    "contexts": 14,
+    "contexts": 25,
     "maxSteps": 0,
     "totalSteps": 0,
     "cap": 4000
