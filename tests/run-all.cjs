@@ -61,10 +61,12 @@ async function main() {
   // Battle Lab fixtures (tests/lab/<letter><n>-*.cjs, goldens in tests/lab/goldens): dev-only, hand-authored, no game load.
   const LAB_DIR = path.join(__dirname, "lab");
   const LAB_GOLDEN_DIR = path.join(LAB_DIR, "goldens");
+  const labIds = new Set();
   if (fs.existsSync(LAB_DIR)) {
     fs.mkdirSync(LAB_GOLDEN_DIR, { recursive: true });
     fs.readdirSync(LAB_DIR).filter((f) => /^[a-z]\d.*\.cjs$/.test(f)).sort().forEach((f) => {
       const m = require(path.join(LAB_DIR, f));
+      labIds.add(m.id);
       jobs.push({ id: m.id, file: path.join(LAB_GOLDEN_DIR, `${m.id}.json`), run: m.run, withUsage: true, fixtureFile: `lab/${f}` });
     });
   }
@@ -73,6 +75,9 @@ async function main() {
   const rows = [];
   let failed = false;
   const orphans = fs.readdirSync(GOLDEN_DIR).filter((f) => f.endsWith(".json") && !fixtureIds.has(f.slice(0, -5)));
+  if (fs.existsSync(LAB_GOLDEN_DIR)) {
+    fs.readdirSync(LAB_GOLDEN_DIR).filter((f) => f.endsWith(".json") && !labIds.has(f.slice(0, -5))).forEach((f) => orphans.push(`lab/${f}`));
+  }
   orphans.forEach((f) => {
     failed = true;
     rows.push({ id: `goldens/${f}`, status: "DIFF", detail: "orphan golden: no fixture file declares this id (delete the golden or add the fixture)" });
