@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "label": "smoke-2: same scenarios, seeds and limits as smoke-1; aggressive-pursuit v2 (reshuffle + reachability) vs unchanged random-legal; pipeline comparison, not a balance test",
+  "buildId": "7df983674acac7a2db5461a7164acf2f704108f0467fdae96cbb0f61a2a78d03",
+  "preset": "commander",
+  "scenarios": [{ "id": "intro", "seeds": [1, 2, 3, 4, 5] }],
+  "strategies": ["random-legal", "aggressive-pursuit"],
+  "limits": { "maxBattles": 10, "maxTurnsPerBattle": 30, "maxTotalTurns": 300, "maxRuntimeSeconds": 60 },
+  "botSeed": 1
+}

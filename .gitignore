@@ -31,3 +31,4 @@ lab/approvals.json
 lab/.approvals.json.*.tmp
 lab/*.lock
 lab/reports/
+lab/sample-replay-link.txt
