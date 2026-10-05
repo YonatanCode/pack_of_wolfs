@@ -903,10 +903,11 @@
         actionLabel.textContent = 'Action';
         const replayLink = document.createElement('a');
         replayLink.className = 'replay-link';
-        replayLink.textContent = 'Replay';
+        replayLink.textContent = 'Open starting setup';
         replayLink.href = 'http://localhost:4173/' + battle.replay.query;
         replayLink.target = '_blank';
         replayLink.rel = 'noopener noreferrer';
+        replayLink.title = 'Opens the scenario/seed/preset only; it does not replay the recorded orders';
         const actionValue = document.createElement('div');
         actionValue.className = 'battle-header-value';
         actionValue.appendChild(replayLink);
