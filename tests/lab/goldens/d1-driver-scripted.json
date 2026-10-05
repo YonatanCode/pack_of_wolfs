@@ -1,0 +1,503 @@
+{
+  "header": "REQUIREMENT — L2 driver",
+  "fixtureOnly": true,
+  "contexts": 14,
+  "hands": 22,
+  "result": {
+    "a": {
+      "record": {
+        "scenarioId": "intro",
+        "seed": 1,
+        "preset": "commander",
+        "rulesVersion": "0.4.0-commander-enemy-actions-targets-fallback",
+        "rulesHash": "15b088bd8d53f9",
+        "strategy": "scripted-win",
+        "botSeed": 7,
+        "fixtureOnly": true,
+        "result": "win",
+        "stopReason": "battle-end",
+        "error": null,
+        "turns": 2,
+        "perTurn": [
+          {
+            "turn": 1,
+            "status": "ran",
+            "budget": 5,
+            "planned": 1,
+            "executed": 1,
+            "wasted": 0,
+            "orders": [
+              {
+                "unit": "P1",
+                "target": "E1"
+              },
+              {
+                "unit": "P1",
+                "action": "Attack"
+              }
+            ],
+            "byUnit": {
+              "P1": {
+                "planned": 1,
+                "executed": 1
+              }
+            },
+            "enemy": {
+              "budget": 0,
+              "executed": 0
+            },
+            "refusal": null,
+            "error": null,
+            "eventHash": "fc7b7ab9f9db4356",
+            "observationHash": "8def40e44fe449e8"
+          },
+          {
+            "turn": 2,
+            "status": "ran",
+            "budget": 5,
+            "planned": 1,
+            "executed": 1,
+            "wasted": 0,
+            "orders": [
+              {
+                "unit": "P1",
+                "action": "Attack"
+              }
+            ],
+            "byUnit": {
+              "P1": {
+                "planned": 1,
+                "executed": 1
+              }
+            },
+            "enemy": {
+              "budget": 0,
+              "executed": 0
+            },
+            "refusal": null,
+            "error": null,
+            "eventHash": "3ad3105b45d54ccf",
+            "observationHash": "570c16f3ecb404af"
+          }
+        ],
+        "orders": [
+          [
+            {
+              "unit": "P1",
+              "target": "E1"
+            },
+            {
+              "unit": "P1",
+              "action": "Attack"
+            }
+          ],
+          [
+            {
+              "unit": "P1",
+              "action": "Attack"
+            }
+          ]
+        ],
+        "replayQuery": "?scenario=intro&seed=1&preset=commander"
+      },
+      "botSaw": [
+        {
+          "turn": 1,
+          "hand": "Attack,Move,Attack,Defend,Defend",
+          "units": "P1:10 E1:4",
+          "keys": "rng"
+        },
+        {
+          "turn": 2,
+          "hand": "Move,Move,Attack,Defend,Defend",
+          "units": "P1:10 E1:1",
+          "keys": "rng"
+        }
+      ],
+      "rngFirst": 0.011704753153026104
+    },
+    "b": {
+      "scenarioId": "intro",
+      "seed": 1,
+      "preset": "commander",
+      "rulesVersion": "0.4.0-commander-enemy-actions-targets-fallback",
+      "rulesHash": "1ee7c8d5a26ec1",
+      "strategy": "scripted-timeout",
+      "botSeed": 7,
+      "fixtureOnly": true,
+      "result": "timeout",
+      "stopReason": "max-turns-per-battle",
+      "error": null,
+      "turns": 1,
+      "perTurn": [
+        {
+          "turn": 1,
+          "status": "ran",
+          "budget": 5,
+          "planned": 1,
+          "executed": 1,
+          "wasted": 0,
+          "orders": [
+            {
+              "unit": "P1",
+              "action": "Defend"
+            }
+          ],
+          "byUnit": {
+            "P1": {
+              "planned": 1,
+              "executed": 1
+            }
+          },
+          "enemy": {
+            "budget": 5,
+            "executed": 0
+          },
+          "refusal": null,
+          "error": null,
+          "eventHash": "20738bac7cce7e30",
+          "observationHash": "54db928207173db8"
+        }
+      ],
+      "orders": [
+        [
+          {
+            "unit": "P1",
+            "action": "Defend"
+          }
+        ]
+      ],
+      "replayQuery": "?scenario=intro&seed=1&preset=commander"
+    },
+    "c": {
+      "scenarioId": "intro",
+      "seed": 1,
+      "preset": "commander",
+      "rulesVersion": "0.4.0-commander-enemy-actions-targets-fallback",
+      "rulesHash": "1ee7c8d5a26ec1",
+      "strategy": "scripted-refused",
+      "botSeed": 7,
+      "fixtureOnly": true,
+      "result": "timeout",
+      "stopReason": "max-turns-per-battle",
+      "error": null,
+      "turns": 2,
+      "perTurn": [
+        {
+          "turn": 1,
+          "status": "refused",
+          "budget": 5,
+          "planned": 3,
+          "executed": 0,
+          "wasted": 3,
+          "orders": [
+            {
+              "unit": "P1",
+              "action": "Attack"
+            },
+            {
+              "unit": "P1",
+              "action": "Attack"
+            },
+            {
+              "unit": "P1",
+              "action": "Attack"
+            }
+          ],
+          "byUnit": {
+            "P1": {
+              "planned": 3,
+              "executed": 0
+            }
+          },
+          "enemy": {
+            "budget": 5,
+            "executed": 0
+          },
+          "refusal": {
+            "by": "engine",
+            "index": 2,
+            "reason": "card-not-in-hand",
+            "message": "no Attack card in the hand"
+          },
+          "error": null,
+          "eventHash": null,
+          "observationHash": null
+        },
+        {
+          "turn": 2,
+          "status": "ran",
+          "budget": 5,
+          "planned": 1,
+          "executed": 1,
+          "wasted": 0,
+          "orders": [
+            {
+              "unit": "P1",
+              "action": "Attack"
+            }
+          ],
+          "byUnit": {
+            "P1": {
+              "planned": 1,
+              "executed": 1
+            }
+          },
+          "enemy": {
+            "budget": 5,
+            "executed": 0
+          },
+          "refusal": null,
+          "error": null,
+          "eventHash": "0c1f1ba297416cc7",
+          "observationHash": "5363e9d8f99c474e"
+        }
+      ],
+      "orders": [
+        [
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          }
+        ],
+        [
+          {
+            "unit": "P1",
+            "action": "Attack"
+          }
+        ]
+      ],
+      "replayQuery": "?scenario=intro&seed=1&preset=commander"
+    },
+    "d": {
+      "scenarioId": "intro",
+      "seed": 1,
+      "preset": "commander",
+      "rulesVersion": "0.4.0-commander-enemy-actions-targets-fallback",
+      "rulesHash": "1ee7c8d5a26ec1",
+      "strategy": "scripted-local",
+      "botSeed": 7,
+      "fixtureOnly": true,
+      "result": "timeout",
+      "stopReason": "max-turns-per-battle",
+      "error": null,
+      "turns": 2,
+      "perTurn": [
+        {
+          "turn": 1,
+          "status": "refused",
+          "budget": 5,
+          "planned": 0,
+          "executed": 0,
+          "wasted": 0,
+          "byUnit": {
+            "P1": {
+              "planned": 0,
+              "executed": 0
+            }
+          },
+          "enemy": {
+            "budget": 5,
+            "executed": 0
+          },
+          "refusal": {
+            "by": "driver",
+            "index": -1,
+            "reason": "malformed-orders",
+            "message": "the bot did not return an array of JSON orders"
+          },
+          "error": null,
+          "eventHash": null,
+          "observationHash": null
+        },
+        {
+          "turn": 2,
+          "status": "refused",
+          "budget": 5,
+          "planned": 65,
+          "executed": 0,
+          "wasted": 65,
+          "byUnit": {
+            "P1": {
+              "planned": 65,
+              "executed": 0
+            }
+          },
+          "enemy": {
+            "budget": 5,
+            "executed": 0
+          },
+          "refusal": {
+            "by": "driver",
+            "index": -1,
+            "reason": "too-many-orders",
+            "message": "more than 64 orders in one turn"
+          },
+          "error": null,
+          "eventHash": null,
+          "observationHash": null
+        }
+      ],
+      "orders": [
+        {
+          "not": "an array"
+        },
+        "65 orders"
+      ],
+      "replayQuery": "?scenario=intro&seed=1&preset=commander"
+    },
+    "e": {
+      "scenarioId": "intro",
+      "seed": 1,
+      "preset": "commander",
+      "rulesVersion": "0.4.0-commander-enemy-actions-targets-fallback",
+      "rulesHash": "1ee7c8d5a26ec1",
+      "strategy": "scripted-fault",
+      "botSeed": 7,
+      "fixtureOnly": true,
+      "result": "error",
+      "stopReason": "engine-error",
+      "error": "injected fault (d1e)",
+      "turns": 1,
+      "perTurn": [
+        {
+          "turn": 1,
+          "status": "engine-error",
+          "budget": 5,
+          "planned": 1,
+          "executed": 0,
+          "wasted": 1,
+          "orders": [
+            {
+              "unit": "P1",
+              "action": "Attack"
+            }
+          ],
+          "byUnit": {
+            "P1": {
+              "planned": 1,
+              "executed": 0
+            }
+          },
+          "enemy": {
+            "budget": 5,
+            "executed": 0
+          },
+          "refusal": null,
+          "error": "injected fault (d1e)",
+          "eventHash": null,
+          "observationHash": null
+        }
+      ],
+      "orders": [
+        [
+          {
+            "unit": "P1",
+            "action": "Attack"
+          }
+        ]
+      ],
+      "replayQuery": "?scenario=intro&seed=1&preset=commander"
+    },
+    "f": {
+      "scenarioId": "intro",
+      "seed": 1,
+      "preset": "commander",
+      "rulesVersion": "0.4.0-commander-enemy-actions-targets-fallback",
+      "rulesHash": "1ee7c8d5a26ec1",
+      "strategy": "scripted-throws",
+      "botSeed": 7,
+      "fixtureOnly": true,
+      "result": "error",
+      "stopReason": "bot-error",
+      "error": "bot bug (d1f)",
+      "turns": 1,
+      "perTurn": [
+        {
+          "turn": 1,
+          "status": "bot-error",
+          "budget": 5,
+          "planned": 0,
+          "executed": 0,
+          "wasted": 0,
+          "orders": null,
+          "byUnit": {},
+          "enemy": {
+            "budget": 5,
+            "executed": 0
+          },
+          "refusal": null,
+          "error": "bot bug (d1f)",
+          "eventHash": null,
+          "observationHash": null
+        }
+      ],
+      "orders": [
+        null
+      ],
+      "replayQuery": "?scenario=intro&seed=1&preset=commander"
+    },
+    "g": {
+      "scenarioId": "intro",
+      "seed": 1,
+      "preset": "commander",
+      "rulesVersion": "0.1.0-current",
+      "rulesHash": "0d3ce2ec6fa6de",
+      "strategy": "scripted-unused",
+      "botSeed": 7,
+      "fixtureOnly": true,
+      "result": "error",
+      "stopReason": "setup-error",
+      "error": "the battle booted with preset current, not commander (rejected link?)",
+      "turns": 0,
+      "perTurn": [],
+      "orders": [],
+      "replayQuery": "?scenario=intro&seed=1&preset=commander"
+    },
+    "h": {
+      "scenarioId": "intro",
+      "seed": 1,
+      "preset": "commander",
+      "rulesVersion": "0.4.0-commander-enemy-actions-targets-fallback",
+      "rulesHash": "1ee7c8d5a26ec1",
+      "strategy": "scripted-total",
+      "botSeed": 7,
+      "fixtureOnly": true,
+      "result": "timeout",
+      "stopReason": "max-total-turns",
+      "error": null,
+      "turns": 0,
+      "perTurn": [],
+      "orders": [],
+      "replayQuery": "?scenario=intro&seed=1&preset=commander"
+    },
+    "replay": {
+      "a": "identical",
+      "b": "identical",
+      "c": "identical",
+      "d": "identical",
+      "e": "identical",
+      "h": "identical"
+    },
+    "optionErrors": [
+      "runBattle: limits.maxTurnsPerBattle must be a positive integer",
+      "runBattle: fixtureOnly must be a boolean",
+      "runBattle: strategy unknown: pass options.strategy or a bot with an id",
+      "runBattle: botSeed must be an unsigned 32-bit integer"
+    ]
+  },
+  "usage": {
+    "contexts": 14,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
