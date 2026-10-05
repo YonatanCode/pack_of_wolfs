@@ -24,21 +24,39 @@
           "budget": 5,
           "planned": 2,
           "executed": 2,
-          "wasted": 0
+          "wasted": 0,
+          "unspentBudget": 3,
+          "notExecuted": 0,
+          "attacksHit": 1,
+          "attacksMissed": 0,
+          "steps": [[{"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P1"}]],
+          "reshuffles": 0
         },
         {
           "turn": 2,
           "budget": 5,
           "planned": 3,
           "executed": 3,
-          "wasted": 0
+          "wasted": 0,
+          "unspentBudget": 2,
+          "notExecuted": 0,
+          "attacksHit": 2,
+          "attacksMissed": 0,
+          "steps": [[{"action": "Attack", "unit": "P1"}, {"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P2"}]],
+          "reshuffles": 0
         },
         {
           "turn": 3,
           "budget": 5,
           "planned": 2,
           "executed": 2,
-          "wasted": 0
+          "wasted": 0,
+          "unspentBudget": 3,
+          "notExecuted": 0,
+          "attacksHit": 1,
+          "attacksMissed": 0,
+          "steps": [[{"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P1"}]],
+          "reshuffles": 0
         }
       ],
       "orders": [
@@ -52,7 +70,9 @@
           [{"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P1"}],
           [{"action": "Attack", "unit": "P1"}, {"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P2"}],
           [{"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P1"}]
-        ]
+        ],
+        "payload": null,
+        "payloadNote": "Replay unavailable: sample fixture for testing"
       }
     },
     {
@@ -74,14 +94,26 @@
           "budget": 5,
           "planned": 2,
           "executed": 2,
-          "wasted": 0
+          "wasted": 0,
+          "unspentBudget": 3,
+          "notExecuted": 0,
+          "attacksHit": 1,
+          "attacksMissed": 0,
+          "steps": [[{"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P1"}]],
+          "reshuffles": 0
         },
         {
           "turn": 2,
           "budget": 5,
           "planned": 2,
           "executed": 1,
-          "wasted": 1
+          "wasted": 1,
+          "unspentBudget": 3,
+          "notExecuted": 1,
+          "attacksHit": 0,
+          "attacksMissed": 1,
+          "steps": [[{"action": "Attack", "unit": "P1"}]],
+          "reshuffles": 0
         }
       ],
       "orders": [
@@ -93,7 +125,9 @@
         "orders": [
           [{"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P1"}],
           [{"action": "Attack", "unit": "P1"}]
-        ]
+        ],
+        "payload": null,
+        "payloadNote": "Replay unavailable: sample fixture for testing"
       }
     },
     {
@@ -115,14 +149,26 @@
           "budget": 5,
           "planned": 1,
           "executed": 1,
-          "wasted": 0
+          "wasted": 0,
+          "unspentBudget": 4,
+          "notExecuted": 0,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "steps": [[{"action": "Move", "unit": "P1"}]],
+          "reshuffles": 0
         },
         {
           "turn": 2,
           "budget": 5,
           "planned": 2,
           "executed": 2,
-          "wasted": 0
+          "wasted": 0,
+          "unspentBudget": 3,
+          "notExecuted": 0,
+          "attacksHit": 0,
+          "attacksMissed": 0,
+          "steps": [[{"action": "Move", "unit": "P1"}, {"action": "Move", "unit": "P2"}]],
+          "reshuffles": 0
         }
       ],
       "orders": [
@@ -134,7 +180,9 @@
         "orders": [
           [{"action": "Move", "unit": "P1"}],
           [{"action": "Move", "unit": "P1"}, {"action": "Move", "unit": "P2"}]
-        ]
+        ],
+        "payload": null,
+        "payloadNote": "Replay unavailable: sample fixture for testing"
       }
     }
   ],
@@ -153,6 +201,13 @@
       "meanPlanned": 2.25,
       "meanExecuted": 2.25,
       "meanWasted": 0.25,
+      "turnSlots": 5,
+      "meanUnspentBudget": 2.8,
+      "meanNotExecuted": 0.2,
+      "meanAttacksHit": 0.8,
+      "meanAttacksMissed": 0.2,
+      "reshuffles": 0,
+      "meanReshuffles": 0,
       "fixtureOnly": true
     },
     "random-legal": {
@@ -169,6 +224,13 @@
       "meanPlanned": 1.5,
       "meanExecuted": 1.5,
       "meanWasted": 0,
+      "turnSlots": 2,
+      "meanUnspentBudget": 3.5,
+      "meanNotExecuted": 0,
+      "meanAttacksHit": 0,
+      "meanAttacksMissed": 0,
+      "reshuffles": 0,
+      "meanReshuffles": 0,
       "fixtureOnly": true
     }
   },
