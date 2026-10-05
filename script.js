@@ -7098,6 +7098,19 @@ function getTurnEventLog() {
   return JSON.parse(JSON.stringify(lastTurnEventLog));
 }
 
+// L3: THE turn-event hash (window.devTest.hashTurnEvents), shared by the Battle Lab driver (recording each turn's
+// eventHash) and the visual replay page (checking it). Synchronous and deterministic: the events are normalised by a
+// JSON round trip (so a live log, a drained copy and a payload parsed from JSON hash alike), written in canonical form
+// (object keys sorted, array order kept: canonicalizeRules) and hashed with cyrb53 (hashString53) -> 14 lowercase hex
+// digits. Not dryRunTurn's eventHash (that one hashes JSON.stringify in emission order; kept unchanged).
+function hashTurnEvents(events) {
+  if (!Array.isArray(events)) {
+    throw new TypeError("hashTurnEvents: events must be an array of turn events");
+  }
+
+  return hashString53(canonicalizeRules(JSON.parse(JSON.stringify(events))));
+}
+
 // ============================================================================
 // BATTLE STATE (X3): plain-data copies of the battle, and dry runs of a turn on a copy.
 // ============================================================================
@@ -11211,6 +11224,8 @@ window.devTest = {
   applyPlayerOrders,
   runHeadlessTurn,
   observeBattle,
+  // L3: the one turn-event hash (Lab driver records it, the visual replay checks it).
+  hashTurnEvents,
 };
 
 function getTileFromEvent(event) {

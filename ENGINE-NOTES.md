@@ -15,6 +15,7 @@ The game is a classic script, so **every top-level function is also a `window` p
 | `withBattleState`, `loadBattleState`, `dryRunTurnInternal` | global functions only | Swap seam, logical state load (renders nothing), dry run with unvalidated queue overrides. Fixtures only. | **Separate**, keep internal |
 | `devTest.validatePlayerOrders / applyPlayerOrders / runHeadlessTurn / observeBattle` | `window.devTest` (internal / dev) | L1 (section 10): shared order validation (also used by the UI click paths, since L3a also the Reshuffle button), the headless order door (since L3a also the `{ reshuffle: true }` order), a headless turn on the existing core, the player-limited observation. Dev / fixture hooks, no UI. | **Separate** (see schedule) |
 | `reshufflePlayerHandData` | global function only | L3a (section 10.1): the rules half of the Reshuffle button, shared by the button and the headless door. Not on `devTest`. | Game code (stays) |
+| `devTest.hashTurnEvents` | `window.devTest` | L3 (section 11): THE turn-event hash, used by the Lab driver (records `eventHash`) and the visual replay page (checks it). | Game code (the replay page uses it) |
 
 **Separation schedule:** during Battle Lab work (P4), gate every hook marked "Separate" so it is attached only in a dev context and is absent from the packaged build. No broader tooling refactor before then. The L1 hooks follow the same schedule; `validatePlayerOrders` itself stays in the game (the UI click paths call it), only its `devTest` exposure is gated.
 
@@ -156,3 +157,13 @@ The player's EXISTING reshuffle, now also an order. No rules value, preset defau
 - **Observation.** No new key. `observeBattle()` already shows what the player sees for this decision: `hand.cards` (the current hand; after a turn, the turn-end draw is prepended and unplayed cards are the suffix, which is the only carry-over the UI shows), `hand.reshuffleChargesRemaining`, and each wolf's `queue` (cards a reshuffle would discard). The per-battle total (`reshuffleCharges` in the rules panel) is not in the observation's rules summary; adding it would change r44's pinned keys and golden, so it was left out (follow-up if wanted). No RNG state, seed or deck order.
 - **Presentation after the door.** As in section 10: nothing re-renders; the hand view, queue rows and the button's charge count show the old state until the UI re-renders.
 - **Fixture** r46 (header "REQUIREMENT — L3a reshuffle order"; L1 hand ledger in `_orders.cjs`: 18 hands, total 58 of 60): headless = live (real button listener) under current and commander, incl. carry-over and the hand-stream state after the reshuffle and after the turn; no charges (rc:0) refused by the validator, door, headless turn and the button (same function, same reason, nothing changed); atomic mixed lists; observation key walk after a headless reshuffle.
+
+## 11. Turn-event hash and visual replay (L3)
+
+### 11.1 `hashTurnEvents`
+
+`window.devTest.hashTurnEvents(events) -> string` (global function `hashTurnEvents`). One synchronous, deterministic hash of ONE turn's event list, shared by the Battle Lab driver (it records each turn's `eventHash`) and the visual replay page (it compares them):
+- input: the turn's events as an array (e.g. `runHeadlessTurn(orders, { includeEvents: true }).events`, `drainTurnCore()`, or `getTurnEventLog()` after a played turn); anything else throws `TypeError`;
+- normalised by a JSON round trip (so the live log, a drained copy and events parsed from JSON hash alike: `undefined` members drop out exactly as in `JSON.stringify`), written in canonical form (`canonicalizeRules`: object keys sorted, array order kept), hashed with cyrb53 (`hashString53`);
+- output: 14 lowercase hex digits (53 bits). Not a security hash.
+- It is NOT `dryRunTurn().eventHash` (that one hashes `JSON.stringify(events)` in emission order and is pinned by existing fixtures; unchanged).
