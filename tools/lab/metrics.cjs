@@ -3,11 +3,17 @@
  * Battle Lab metrics (L2, dev-only). Pure functions over BattleRecord arrays (tools/lab/CONTRACT.md "Report").
  *
  * summarize(battles) -> { <strategy>: { n, wins, losses, draws, timeouts, errors, winRate, winRateWilson95: [lo, hi],
- *   meanTurns, meanBudget, meanPlanned, meanExecuted, meanWasted, fixtureOnly } }, strategies in sorted key order.
+ *   meanTurns, meanBudget, meanPlanned, meanExecuted, meanWasted, turnSlots, meanUnspentBudget, meanNotExecuted,
+ *   meanAttacksHit, meanAttacksMissed, reshuffles, meanReshuffles, fixtureOnly } }, strategies in sorted key order.
  *   - n = battles of that strategy; winRate = wins / n (draws, timeouts and errors are non-wins); null when n = 0.
  *   - winRateWilson95: Wilson score interval, z = 1.959963984540054; n = 0 -> [0, 1] (no information).
  *   - meanTurns = mean turn slots per battle; meanBudget / meanPlanned / meanExecuted / meanWasted = means over every
  *     recorded turn slot of the strategy (null when there is none).
+ *   - L3: turnSlots = the number of turn slots of the strategy (the n of every per-turn mean); meanUnspentBudget,
+ *     meanNotExecuted, meanAttacksHit, meanAttacksMissed, meanReshuffles = per-slot means; reshuffles = total reshuffles
+ *     applied. A slot without the field (an L2-shaped record) is left out of that one mean.
+ *     Field meanings (driver.cjs): executed excludes missed Attacks; planned = executed + attacksMissed + wasted;
+ *     notExecuted = planned - executed.
  *   - fixtureOnly: true when any battle of the strategy is a hand-authored fixture (a label, never evidence).
  * Numbers are rounded to 6 decimals so the serialised report is stable.
  */
@@ -32,6 +38,7 @@ function wilson95(wins, n) {
 }
 
 const mean = (xs) => (xs.length ? round6(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
+const numbers = (turns, key) => turns.map((t) => t[key]).filter((v) => typeof v === "number" && Number.isFinite(v));
 
 function summarize(battles) {
   if (!Array.isArray(battles)) throw new TypeError("summarize: battles must be an array");
@@ -64,6 +71,13 @@ function summarize(battles) {
       meanPlanned: mean(turns.map((t) => t.planned)),
       meanExecuted: mean(turns.map((t) => t.executed)),
       meanWasted: mean(turns.map((t) => t.wasted)),
+      turnSlots: turns.length,
+      meanUnspentBudget: mean(numbers(turns, "unspentBudget")),
+      meanNotExecuted: mean(numbers(turns, "notExecuted")),
+      meanAttacksHit: mean(numbers(turns, "attacksHit")),
+      meanAttacksMissed: mean(numbers(turns, "attacksMissed")),
+      reshuffles: numbers(turns, "reshuffles").reduce((a, b) => a + b, 0),
+      meanReshuffles: mean(numbers(turns, "reshuffles")),
       fixtureOnly: list.some((b) => b.fixtureOnly === true),
     };
   });
