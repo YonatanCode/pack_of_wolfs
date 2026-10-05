@@ -1,13 +1,15 @@
 // Validates an EXISTING dist/ (does NOT run the build: run `pnpm build` first).
 // Usage: node tools/check-dist.mjs [--dist <path>]   (exit 0 = ok, 1 = failures, 2 = bad usage)
 // Checks: (a) copy integrity vs source, (b) asset audit (dynamic headless boot + static literal scan),
-// (c) dev-only exclusion + expected top level, (d) serve smoke over a throwaway http server.
+// (c) dev-only exclusion + expected top level, (d) serve smoke over a throwaway http server,
+// (e) build identity: dist/build-id.json is exactly { "buildId": <tools/build-id.mjs hash of the source tree> }.
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { computeGameplayBuildId } from "./build-id.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const argIdx = process.argv.indexOf("--dist");
@@ -17,7 +19,7 @@ const DIST = resolve(argIdx >= 0 ? process.argv[argIdx + 1] : join(ROOT, "dist")
 // ---- visible constants ------------------------------------------------------------------------
 const COPIED_FILES = ["script.js"];
 const COPIED_DIRS = ["scenarios", "wolf", "stag", "isometric tileset", "assets/icons"];
-const EXPECTED_TOP_LEVEL = ["index.html", "assets", "script.js", "scenarios", "wolf", "stag", "isometric tileset"];
+const EXPECTED_TOP_LEVEL = ["index.html", "assets", "script.js", "scenarios", "wolf", "stag", "isometric tileset", "build-id.json"];
 // Denylist: any path segment (case-insensitive) equal to one of these names, or matching a pattern, fails.
 const DENY_NAMES = ["tests", "tools", "lab", "gui-pack", ".claude", "node_modules", "package.json"];
 const DENY_PATHS = ["assets/sound"];
@@ -149,7 +151,7 @@ const lines = [`check-dist: ${DIST}`];
 
 // ---- (d) serve smoke --------------------------------------------------------------------------
 {
-  const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png" };
+  const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json" };
   const server = createServer((req, res) => {
     const u = decodeURIComponent((req.url || "/").split("?")[0]);
     const abs = resolve(DIST, "." + (u.endsWith("/") ? u + "index.html" : u));
@@ -165,7 +167,7 @@ const lines = [`check-dist: ${DIST}`];
   const reqs = [
     ["/", "text/html"], ["/script.js", "javascript"], ["/scenarios/intro.js", "javascript"],
     ["/wolf/no effects/wolf-idle.png", "image/png"], ["/isometric tileset/separated images/tile_000.png", "image/png"],
-    ["/assets/icons/move.svg", "image/svg+xml"], ...(cssHref ? [["/" + cssHref.replace(/^\//, ""), "text/css"]] : []),
+    ["/assets/icons/move.svg", "image/svg+xml"], ["/build-id.json", "application/json"], ...(cssHref ? [["/" + cssHref.replace(/^\//, ""), "text/css"]] : []),
   ];
   let ok = 0;
   try {
@@ -180,6 +182,24 @@ const lines = [`check-dist: ${DIST}`];
     }
   } finally { await new Promise((r) => server.close(r)); }
   lines.push(`(d) serve smoke: ${ok}/${reqs.length} requests 200 + non-empty + content-type ok (ephemeral port ${port}, closed)`);
+}
+
+// ---- (e) build identity -----------------------------------------------------------------------
+{
+  const file = join(DIST, "build-id.json");
+  const expected = computeGameplayBuildId(ROOT).buildId;
+  let ok = false;
+  if (!existsSync(file)) fail("[build-id] dist/build-id.json is missing (the replay page needs it)");
+  else {
+    let data = null;
+    try { data = JSON.parse(readFileSync(file, "utf8")); } catch { fail("[build-id] dist/build-id.json is not JSON"); }
+    if (data !== null) {
+      if (!data || typeof data !== "object" || Array.isArray(data) || Object.keys(data).join(",") !== "buildId") fail('[build-id] dist/build-id.json must be exactly { "buildId": "<64 hex>" }');
+      else if (data.buildId !== expected) fail(`[build-id] dist/build-id.json ${String(data.buildId).slice(0, 12)} != source build ${expected.slice(0, 12)} (rebuild: pnpm build)`);
+      else ok = true;
+    }
+  }
+  lines.push(`(e) build identity: dist/build-id.json ${ok ? `= source gameplay build ${expected}` : "INVALID"}`);
 }
 
 console.log(lines.join("\n"));
