@@ -21,7 +21,7 @@ function validateShape(d) {
   if (!Array.isArray(d.authorizations)) errors.push("authorizations must be an array");
   if (errors.length) return errors;
   const PC = ["buildId", "quote", "recordedAt"];
-  const AU = ["buildId", "manifestHash", "quote", "recordedAt", "consumedAt"];
+  const AU = ["buildId", "manifestHash", "labVersion", "quote", "recordedAt", "consumedAt"];
   d.playchecks.forEach((r, i) => {
     const p = `playchecks[${i}]`;
     if (!isObj(r)) { errors.push(`${p} must be an object`); return; }
@@ -36,6 +36,7 @@ function validateShape(d) {
     for (const k of Object.keys(r)) if (!AU.includes(k)) errors.push(`${p}: unknown key ${k}`);
     if (!HEX64.test(r.buildId ?? "")) errors.push(`${p}.buildId must be 64 hex chars`);
     if (!HEX64.test(r.manifestHash ?? "")) errors.push(`${p}.manifestHash must be 64 hex chars`);
+    if ("labVersion" in r && !HEX64.test(r.labVersion ?? "")) errors.push(`${p}.labVersion must be 64 hex chars when present`);
     if (!isStr(r.quote)) errors.push(`${p}.quote must be a non-empty string`);
     if (!isStr(r.recordedAt)) errors.push(`${p}.recordedAt must be a non-empty string`);
     if (!("consumedAt" in r) || !(r.consumedAt === null || isStr(r.consumedAt))) errors.push(`${p}.consumedAt must be null or a timestamp string`);
@@ -60,22 +61,30 @@ function loadApprovals(file) {
 }
 
 const findPlaycheck = (data, buildId) => data.playchecks.find((r) => r.buildId === buildId) || null;
-const findAuthorizations = (data, buildId, manifestHash) => data.authorizations.filter((r) => r.buildId === buildId && r.manifestHash === manifestHash);
+const findAuthorizations = (data, buildId, manifestHash, labVersion) => data.authorizations.filter((r) => r.buildId === buildId && r.manifestHash === manifestHash && r.labVersion === labVersion);
 
 /**
  * Gate status for a build + manifest. Pure read.
  * -> { playcheck: {ok, reason}, authorization: {ok, reason} }
  */
-function checkApprovals(data, buildId, manifestHash) {
+function checkApprovals(data, buildId, manifestHash, labVersion) {
   const pc = findPlaycheck(data, buildId);
   const playcheck = pc ? { ok: true, reason: "playcheck recorded for this exact build" }
     : { ok: false, reason: data.playchecks.length ? `no playcheck for build ${buildId} (playchecks exist only for other builds)` : `no playcheck for build ${buildId}` };
-  const matches = findAuthorizations(data, buildId, manifestHash);
+  if (typeof labVersion !== "string" || !HEX64.test(labVersion)) {
+    return { playcheck, authorization: { ok: false, reason: "current labVersion unavailable; cannot match an authorization" } };
+  }
+  const matches = findAuthorizations(data, buildId, manifestHash, labVersion);
   const open = matches.find((r) => r.consumedAt === null);
   let authorization;
   if (open) authorization = { ok: true, reason: "unconsumed authorization for this exact build and manifest hash" };
   else if (matches.length) authorization = { ok: false, reason: "authorization for this build and manifest hash was already consumed (single-use)" };
-  else if (data.authorizations.some((r) => r.buildId === buildId)) authorization = { ok: false, reason: `no authorization for manifest hash ${manifestHash} (authorizations exist only for other manifests)` };
+  else if (data.authorizations.some((r) => r.buildId === buildId && r.manifestHash === manifestHash)) {
+    const bound = data.authorizations.filter((r) => r.buildId === buildId && r.manifestHash === manifestHash);
+    authorization = { ok: false, reason: bound.some((r) => r.labVersion === undefined)
+      ? "authorization has no labVersion (it predates Lab version binding); a new authorization for the current labVersion is needed"
+      : `authorization is bound to a different Lab version (current labVersion ${labVersion}); the Lab tooling changed after it was given` };
+  } else if (data.authorizations.some((r) => r.buildId === buildId)) authorization = { ok: false, reason: `no authorization for manifest hash ${manifestHash} (authorizations exist only for other manifests)` };
   else authorization = { ok: false, reason: `no authorization for build ${buildId} and manifest hash ${manifestHash}` };
   return { playcheck, authorization };
 }
@@ -84,7 +93,7 @@ function checkApprovals(data, buildId, manifestHash) {
  * Consume one unconsumed authorization (build + manifest hash). Write temp file, rename, re-read to verify.
  * -> { ok, reason }. Never creates records.
  */
-function consumeAuthorization(file, buildId, manifestHash, opts = {}) {
+function consumeAuthorization(file, buildId, manifestHash, labVersion, opts = {}) {
   const lock = `${file}.lock`;
   let fd;
   try {
@@ -94,22 +103,22 @@ function consumeAuthorization(file, buildId, manifestHash, opts = {}) {
     return { ok: false, reason: `cannot create approvals lock: ${e.message}` };
   }
   try {
-    return consumeLocked(file, buildId, manifestHash, opts);
+    return consumeLocked(file, buildId, manifestHash, labVersion, opts);
   } finally {
     try { fs.closeSync(fd); } catch { /* best effort */ }
     try { fs.rmSync(lock, { force: true }); } catch { /* best effort */ }
   }
 }
 
-function consumeLocked(file, buildId, manifestHash, opts) {
+function consumeLocked(file, buildId, manifestHash, labVersion, opts) {
   const now = opts.now ? opts.now() : new Date().toISOString();
   const loaded = loadApprovals(file);
   if (!loaded.ok) return { ok: false, reason: loaded.error };
   if (loaded.missing) return { ok: false, reason: `approvals file not found: ${file}` };
   const data = loaded.data;
-  const status = checkApprovals(data, buildId, manifestHash);
+  const status = checkApprovals(data, buildId, manifestHash, labVersion);
   if (!status.authorization.ok) return { ok: false, reason: status.authorization.reason };
-  const idx = data.authorizations.findIndex((r) => r.buildId === buildId && r.manifestHash === manifestHash && r.consumedAt === null);
+  const idx = data.authorizations.findIndex((r) => r.buildId === buildId && r.manifestHash === manifestHash && r.labVersion === labVersion && r.consumedAt === null);
   data.authorizations[idx].consumedAt = now;
   const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${process.pid}.${Date.now()}.tmp`);
   try {
@@ -121,7 +130,7 @@ function consumeLocked(file, buildId, manifestHash, opts) {
   }
   const check = loadApprovals(file);
   const rec = check.ok ? check.data.authorizations[idx] : null;
-  if (!rec || rec.consumedAt !== now || rec.buildId !== buildId || rec.manifestHash !== manifestHash) {
+  if (!rec || rec.consumedAt !== now || rec.buildId !== buildId || rec.manifestHash !== manifestHash || rec.labVersion !== labVersion) {
     return { ok: false, reason: "consumption could not be verified after writing; treat the authorization as unusable" };
   }
   return { ok: true, reason: "authorization consumed", consumedAt: now };
