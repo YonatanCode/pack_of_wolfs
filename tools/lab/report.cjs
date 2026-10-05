@@ -10,7 +10,8 @@
  *     refused). A fixture report gets a leading FIXTURE note, and manifestHash / buildId may be any label string;
  *     a real report needs 64-hex values.
  *   - summary: metrics.summarize(battles). A note is added for every strategy with n < 30 (the interval is wide), and
- *     one counting battles whose replay.payload is null (L3; a missing payload key, as in L2 records, is not counted).
+ *     one counting battles whose replay.payload is null (L3; a missing payload key, as in L2 records, is not counted),
+ *     and one counting turns that carry an accountingNote (driver accounting imbalance, never hidden).
  *   - Deterministic: no wall-clock time, host or path inside the report; battles keep their given order.
  *   Any other key passed in (e.g. the manifest itself) is ignored.
  * canonicalJson(value): sorted-key compact JSON; refuses undefined, functions, symbols, bigints and non-finite numbers.
@@ -70,6 +71,8 @@ function buildReport({ manifestHash, buildId, battles, notes = [], fixtureOnly }
     if (s.n < SMALL_N) derived.push(`small sample: ${strategy} n=${s.n}, win rate 95% interval [${s.winRateWilson95[0]}, ${s.winRateWilson95[1]}]`);
   });
   const noPayload = battles.filter((b) => b.replay && b.replay.payload === null).length;
+  const unbalanced = battles.reduce((n, b) => n + (Array.isArray(b.perTurn) ? b.perTurn.filter((t) => t && typeof t.accountingNote === "string").length : 0), 0);
+  if (unbalanced) derived.push(`accounting: ${unbalanced} turn(s) do not balance planned = executed + attacksMissed + wasted (see perTurn[].accountingNote)`);
   if (noPayload) derived.push(`visual replay: ${noPayload} of ${battles.length} battle(s) have no replay payload (see replay.payloadNote)`);
 
   const report = {
