@@ -25,3 +25,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Battle Lab local approval records (written only by the coordinator after explicit user messages)
+lab/approvals.json
