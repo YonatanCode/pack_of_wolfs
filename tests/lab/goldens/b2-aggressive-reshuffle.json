@@ -1,0 +1,353 @@
+{
+  "id": "b2-aggressive-reshuffle",
+  "header": "REQUIREMENT — L3 aggressive-pursuit v2",
+  "observations": [
+    "poor",
+    "noCharges",
+    "good",
+    "unreachable",
+    "reachable",
+    "adjacent",
+    "concealed",
+    "walled",
+    "queued"
+  ],
+  "result": {
+    "poor": {
+      "round0": [
+        {
+          "reshuffle": true
+        }
+      ],
+      "round1": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ]
+    },
+    "noCharges": {
+      "round0": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ],
+      "round1": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ]
+    },
+    "good": {
+      "round0": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ],
+      "round1": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ]
+    },
+    "unreachable": {
+      "round0": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        }
+      ],
+      "round1": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        }
+      ]
+    },
+    "reachable": {
+      "round0": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        }
+      ],
+      "round1": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        }
+      ]
+    },
+    "adjacent": {
+      "round0": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ],
+      "round1": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ]
+    },
+    "concealed": {
+      "round0": [
+        {
+          "unit": "P1",
+          "target": "E2"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ],
+      "round1": [
+        {
+          "unit": "P1",
+          "target": "E2"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ]
+    },
+    "walled": {
+      "round0": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        }
+      ],
+      "round1": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P1",
+          "action": "Move"
+        }
+      ]
+    },
+    "queued": {
+      "round0": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ],
+      "round1": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        }
+      ]
+    },
+    "legalOrderCheck": {
+      "reshuffle": "ok",
+      "noCharges": "no-reshuffle-charges",
+      "twice": "no-reshuffle-charges",
+      "cardAfter": "hand-not-observed",
+      "malformedUnit": "malformed-order",
+      "malformedValue": "malformed-order",
+      "targetAfterOk": "ok"
+    }
+  },
+  "usage": {
+    "contexts": 0,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 0
+  }
+}

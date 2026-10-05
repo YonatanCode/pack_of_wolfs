@@ -28,12 +28,29 @@ function legalOrderCheck(observation, orders) {
   const obs = observation;
   const reject = (index, reason, message) => ({ ok: false, index, reason, message });
   if (!Array.isArray(orders)) return reject(-1, "malformed-orders", "orders must be an array");
-  const hand = [...obs.hand.cards];
+  let hand = [...obs.hand.cards];
   let queued = queuedTotal(obs);
-  const sameQueued = (a) => obs.units.filter((u) => u.team === "player").reduce((n, u) => n + (u.queue ?? []).filter((x) => x === a).length, 0);
+  let charges = obs.hand.reshuffleChargesRemaining ?? 0;
+  let queuesCleared = false; // a reshuffle discards every queued card
+  let handUnobserved = false; // a reshuffle earlier in the list draws a hand the caller has not seen
+  const sameQueued = (a) => (queuesCleared ? 0 : obs.units.filter((u) => u.team === "player").reduce((n, u) => n + (u.queue ?? []).filter((x) => x === a).length, 0));
   const added = {};
   for (let index = 0; index < orders.length; index += 1) {
     const order = orders[index];
+    // reshuffle order (L3a): pack-wide, exactly { reshuffle: true }
+    if (order && typeof order === "object" && "reshuffle" in order) {
+      if (order.reshuffle !== true || "unit" in order || "action" in order || "target" in order) {
+        return reject(index, "malformed-order", "a reshuffle order is exactly { reshuffle: true }");
+      }
+      if (charges <= 0) return reject(index, "no-reshuffle-charges", "no reshuffle charges left");
+      charges -= 1;
+      hand = [];
+      queued = 0;
+      queuesCleared = true;
+      handUnobserved = true;
+      for (const k of Object.keys(added)) delete added[k];
+      continue;
+    }
     if (!order || typeof order !== "object" || ("action" in order) === ("target" in order)) {
       return reject(index, "malformed-order", "an order is { unit, action } or { unit, target }");
     }
@@ -49,6 +66,7 @@ function legalOrderCheck(observation, orders) {
     if ("action" in order) {
       if (queued >= obs.rules.playerActionBudget) return reject(index, "action-budget", `the pack already queued ${queued} of ${obs.rules.playerActionBudget} actions`);
       if (!ACTION_LIST.includes(order.action)) return reject(index, "unknown-action", `${order.action} is not an action`);
+      if (handUnobserved) return reject(index, "hand-not-observed", "a reshuffle earlier in this list draws a hand that has not been observed: queue cards in a later call");
       const ci = hand.indexOf(order.action);
       if (ci === -1) {
         return sameQueued(order.action) + (added[order.action] ?? 0) >= obs.rules.maxSameAction
@@ -92,9 +110,49 @@ function decideRandomLegal(obs, ctx) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// aggressive-pursuit
+// aggressive-pursuit (v2: reachability-aware, may reshuffle a poor hand in its own round)
 // ---------------------------------------------------------------------------------------------------------------------
-function decideAggressivePursuit(obs) {
+const MOVE_TILES = 3; // a Move covers 1..3 tiles in a straight line (8 directions), as the engine's moveActionTileCount
+const NEEDED_CAP = 9; // "unreachable" sentinel (also used for no route)
+const DIRS = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+
+// Fewest Move actions for `wolf` to stand adjacent (8 neighbours) to `target`, over the observation's terrain and the
+// units' CURRENT positions (blockers). 0 = already adjacent. NEEDED_CAP = none within the cap. Static: enemy motion is
+// not predicted (see BOTS.md).
+function movesNeeded(obs, wolf, target) {
+  if (isAdjacent(wolf, target)) return 0;
+  const size = obs.config.gridSize;
+  const blocked = new Set([...obs.terrain.pond, ...obs.terrain.hill, ...obs.terrain.tree]);
+  for (const u of obs.units) if (!u.defeated && u.id !== wolf.id) blocked.add(`${u.row},${u.col}`);
+  const seen = new Set([`${wolf.row},${wolf.col}`]);
+  let frontier = [{ row: wolf.row, col: wolf.col }];
+  for (let moves = 1; moves < NEEDED_CAP && frontier.length > 0; moves += 1) {
+    const next = [];
+    for (const from of frontier) {
+      for (const [dr, dc] of DIRS) {
+        for (let step = 1; step <= MOVE_TILES; step += 1) {
+          const row = from.row + dr * step;
+          const col = from.col + dc * step;
+          if (row < 0 || col < 0 || row >= size || col >= size || blocked.has(`${row},${col}`)) break;
+          const key = `${row},${col}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          if (isAdjacent({ row, col }, target)) return moves;
+          next.push({ row, col });
+        }
+      }
+    }
+    frontier = next;
+  }
+  return NEEDED_CAP;
+}
+
+// Attack plausibility for the wolf's action in queue slot `slot` (it resolves in tick `slot`), given `movesBefore` Moves in
+// its earlier slots. Slot 0: only if the target is adjacent now. Later slots the target may have stepped away (it moves
+// simultaneously), so the wolf also needs one spare Move beyond the route to follow: movesBefore >= needed + 1.
+const attackPlausible = (slot, movesBefore, needed) => needed < NEEDED_CAP && (slot === 0 ? needed === 0 : movesBefore >= needed + 1);
+
+function planAggressive(obs) {
   const wolves = aliveWolves(obs);
   const enemies = visibleEnemies(obs);
   const hand = [...obs.hand.cards];
@@ -105,36 +163,66 @@ function decideAggressivePursuit(obs) {
     }
     return null;
   };
-  const orders = [];
   const plan = wolves.map((wolf) => {
     let target = null;
     for (const e of enemies) if (!target || manhattan(wolf, e) < manhattan(wolf, target)) target = e; // ties: lowest id (sorted)
-    return { wolf, target, slot: (wolf.queue ?? []).length };
+    const queue = wolf.queue ?? [];
+    return {
+      wolf, target, slot: queue.length, moves: queue.filter((a) => a === "Move").length, done: false,
+      needed: target ? movesNeeded(obs, wolf, target) : NEEDED_CAP,
+    };
   });
   const targetOrders = targetsActive(obs)
     ? plan.filter((p) => p.target && p.wolf.target !== p.target.id).map((p) => ({ unit: p.wolf.id, target: p.target.id }))
     : [];
+  let nearest = NEEDED_CAP;
+  for (const p of plan) nearest = Math.min(nearest, p.needed);
 
   const actions = [];
   let room = obs.rules.playerActionBudget - queuedTotal(obs);
-  while (room > 0 && hand.length > 0 && plan.length > 0) {
+  while (room > 0 && hand.length > 0) {
     let progressed = false;
     for (const p of plan) {
       if (room <= 0 || hand.length === 0) break;
-      const adjacent = p.target ? isAdjacent(p.wolf, p.target) : false;
-      // first action of a wolf that is not adjacent: close in; otherwise (adjacent, or already moving) strike
-      const prefs = adjacent || p.slot > 0 ? ["Attack", "Move", "Defend"] : ["Move", "Attack", "Defend"];
-      const card = takeCard(prefs);
-      if (card === null) break;
+      if (p.done) continue;
+      const strike = p.target !== null && attackPlausible(p.slot, p.moves, p.needed);
+      // strike when it can land; else close in (Move, which also builds the spare Move later Attacks need); Defend fills.
+      const card = takeCard(strike ? ["Attack", "Defend", "Move"] : ["Move", "Defend"]);
+      if (card === null) { p.done = true; continue; }
       actions.push({ unit: p.wolf.id, action: card });
       p.slot += 1;
+      if (card === "Move") p.moves += 1;
       room -= 1;
       progressed = true;
     }
     if (!progressed) break;
   }
-  if (actions.length === 0) return []; // target orders alone would change nothing worth sending
-  return [...targetOrders, ...actions];
+  return { targetOrders, actions, nearest };
+}
+
+// Round-0 reshuffle rule (player-visible information only). Reshuffle iff charges > 0, nothing is queued yet (a reshuffle
+// discards queued cards, so carry-over is never thrown away), the hand is not empty, there is budget, and the plan this
+// hand would give is poor: with USEFUL = its Moves and Attacks (Defend is filler),
+//   - an enemy is within reach (needs <= 1 Move for some wolf) but the plan has no Attack; or
+//   - no enemy is within reach (or none is visible) and the plan has fewer than 2 Moves; or
+//   - the plan has fewer than min(2, budget) useful actions.
+function shouldReshuffle(obs, planned) {
+  if ((obs.hand.reshuffleChargesRemaining ?? 0) <= 0) return false;
+  if (queuedTotal(obs) > 0 || obs.hand.cards.length === 0) return false;
+  if (obs.rules.playerActionBudget <= 0 || aliveWolves(obs).length === 0) return false;
+  const attacks = planned.actions.filter((x) => x.action === "Attack").length;
+  const moves = planned.actions.filter((x) => x.action === "Move").length;
+  if (planned.nearest <= 1) { if (attacks === 0) return true; }
+  else if (moves < 2) return true;
+  return attacks + moves < Math.min(2, obs.rules.playerActionBudget);
+}
+
+function decideAggressivePursuit(obs, ctx) {
+  const planned = planAggressive(obs);
+  // Only in an explicit round 0 of a two-round protocol (ctx.round === 0, maxRounds >= 2); round 1 and legacy callers never reshuffle.
+  if (ctx && ctx.round === 0 && ctx.maxRounds >= 2 && shouldReshuffle(obs, planned)) return [{ reshuffle: true }];
+  if (planned.actions.length === 0) return []; // target orders alone would change nothing worth sending
+  return [...planned.targetOrders, ...planned.actions];
 }
 
 const BOTS = {
@@ -143,7 +231,7 @@ const BOTS = {
     decide: decideRandomLegal,
   },
   "aggressive-pursuit": {
-    description: "Targets the nearest visible enemy per wolf (commander) and spends the whole budget on Move toward it, then Attack once adjacent.",
+    description: "Targets the nearest visible enemy per wolf (commander); queues Move to close in and Attack only where it can plausibly land (reachability from visible positions); in its own round 0 reshuffles a poor hand when charges remain.",
     decide: decideAggressivePursuit,
   },
 };

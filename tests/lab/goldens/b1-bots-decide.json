@@ -30,7 +30,7 @@
         },
         {
           "unit": "P1",
-          "action": "Attack"
+          "action": "Move"
         }
       ],
       "random-legal": {
@@ -207,10 +207,6 @@
         {
           "unit": "P1",
           "action": "Move"
-        },
-        {
-          "unit": "P1",
-          "action": "Attack"
         },
         {
           "unit": "P1",
