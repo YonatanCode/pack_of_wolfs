@@ -621,11 +621,16 @@
 
     let currentReport = null;
 
-    // Base64url encoding (RFC 4648 without padding)
+    // Base64url encoding (RFC 4648 without padding, handles large payloads)
     function toBase64Url(data) {
       const json = JSON.stringify(data);
       const bytes = new TextEncoder().encode(json);
-      const binary = String.fromCharCode.apply(null, bytes);
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.slice(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk);
+      }
       return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
     }
 
@@ -779,7 +784,7 @@
           row.appendChild(errorsCell);
 
           const winRateCell = document.createElement('td');
-          winRateCell.textContent = s.winRate !== null ? (s.winRate * 100).toFixed(1) + '%' : 'N/A';
+          winRateCell.textContent = Number.isFinite(s.winRate) ? (s.winRate * 100).toFixed(1) + '%' : '–';
           if (s.n < 30) {
             const warning = document.createElement('span');
             warning.className = 'small-sample-warning';
@@ -789,29 +794,33 @@
           row.appendChild(winRateCell);
 
           const intervalCell = document.createElement('td');
-          intervalCell.textContent = `[${(s.winRateWilson95[0] * 100).toFixed(1)}%, ${(s.winRateWilson95[1] * 100).toFixed(1)}%]`;
+          if (Array.isArray(s.winRateWilson95) && s.winRateWilson95.length === 2 && Number.isFinite(s.winRateWilson95[0]) && Number.isFinite(s.winRateWilson95[1])) {
+            intervalCell.textContent = `[${(s.winRateWilson95[0] * 100).toFixed(1)}%, ${(s.winRateWilson95[1] * 100).toFixed(1)}%]`;
+          } else {
+            intervalCell.textContent = '–';
+          }
           row.appendChild(intervalCell);
 
           // New L3 metrics
           const unspentCell = document.createElement('td');
-          unspentCell.textContent = s.meanUnspentBudget !== null ? s.meanUnspentBudget.toFixed(2) : 'N/A';
+          unspentCell.textContent = Number.isFinite(s.meanUnspentBudget) ? s.meanUnspentBudget.toFixed(2) : '–';
           row.appendChild(unspentCell);
 
           const notExecutedCell = document.createElement('td');
-          notExecutedCell.textContent = s.meanNotExecuted !== null ? s.meanNotExecuted.toFixed(2) : 'N/A';
+          notExecutedCell.textContent = Number.isFinite(s.meanNotExecuted) ? s.meanNotExecuted.toFixed(2) : '–';
           row.appendChild(notExecutedCell);
 
           const hitCell = document.createElement('td');
-          hitCell.textContent = s.meanAttacksHit !== null ? s.meanAttacksHit.toFixed(2) : 'N/A';
+          hitCell.textContent = Number.isFinite(s.meanAttacksHit) ? s.meanAttacksHit.toFixed(2) : '–';
           row.appendChild(hitCell);
 
           const missedCell = document.createElement('td');
-          missedCell.textContent = s.meanAttacksMissed !== null ? s.meanAttacksMissed.toFixed(2) : 'N/A';
+          missedCell.textContent = Number.isFinite(s.meanAttacksMissed) ? s.meanAttacksMissed.toFixed(2) : '–';
           row.appendChild(missedCell);
 
           const reshufflesCell = document.createElement('td');
-          const reshuffleText = s.reshuffles !== undefined && s.meanReshuffles !== null ?
-            `${s.reshuffles} (${s.meanReshuffles.toFixed(2)})` : 'N/A';
+          const reshuffleText = Number.isFinite(s.meanReshuffles) ?
+            `${s.reshuffles || 0} (${s.meanReshuffles.toFixed(2)})` : '–';
           reshufflesCell.textContent = reshuffleText;
           row.appendChild(reshufflesCell);
 
@@ -945,36 +954,53 @@
         const actionLabel = document.createElement('div');
         actionLabel.className = 'battle-header-label';
         actionLabel.textContent = 'Action';
-        const replayLink = document.createElement('a');
-        replayLink.className = 'replay-link';
-        replayLink.textContent = 'Open starting setup';
-        replayLink.href = 'http://localhost:4173/' + battle.replay.query;
-        replayLink.target = '_blank';
-        replayLink.rel = 'noopener noreferrer';
-        replayLink.title = 'Opens the scenario/seed/preset only; it does not replay the recorded orders';
         const actionValue = document.createElement('div');
         actionValue.className = 'battle-header-value';
-        actionValue.appendChild(replayLink);
 
-        // Watch replay link if payload available
-        if (battle.replay.payload) {
-          actionValue.appendChild(document.createTextNode(' '));
-          const watchReplayLink = document.createElement('a');
-          watchReplayLink.className = 'replay-link';
-          watchReplayLink.textContent = 'Watch replay';
-          const encoded = toBase64Url(battle.replay.payload);
-          watchReplayLink.href = 'http://localhost:4173/?replay=1#r=' + encoded;
-          watchReplayLink.target = '_blank';
-          watchReplayLink.rel = 'noopener noreferrer';
-          watchReplayLink.title = 'Replays the recorded orders and animations';
-          actionValue.appendChild(watchReplayLink);
-        } else if (battle.replay.payloadNote) {
-          actionValue.appendChild(document.createTextNode(' '));
-          const unavail = document.createElement('span');
-          unavail.style.color = 'var(--text-secondary)';
-          unavail.style.fontSize = '12px';
-          unavail.textContent = battle.replay.payloadNote;
-          actionValue.appendChild(unavail);
+        try {
+          // "Open starting setup" link
+          if (battle.replay && battle.replay.query) {
+            const replayLink = document.createElement('a');
+            replayLink.className = 'replay-link';
+            replayLink.textContent = 'Open starting setup';
+            replayLink.href = 'http://localhost:4173/' + battle.replay.query;
+            replayLink.target = '_blank';
+            replayLink.rel = 'noopener noreferrer';
+            replayLink.title = 'Opens the scenario/seed/preset only; it does not replay the recorded orders';
+            actionValue.appendChild(replayLink);
+
+            // Watch replay link if payload available
+            if (battle.replay.payload) {
+              actionValue.appendChild(document.createTextNode(' '));
+              const watchReplayLink = document.createElement('a');
+              watchReplayLink.className = 'replay-link';
+              watchReplayLink.textContent = 'Watch replay';
+              const encoded = toBase64Url(battle.replay.payload);
+              watchReplayLink.href = 'http://localhost:4173/?replay=1#r=' + encoded;
+              watchReplayLink.target = '_blank';
+              watchReplayLink.rel = 'noopener noreferrer';
+              watchReplayLink.title = 'Replays the recorded orders and animations';
+              actionValue.appendChild(watchReplayLink);
+            } else if (battle.replay.payloadNote) {
+              actionValue.appendChild(document.createTextNode(' '));
+              const unavail = document.createElement('span');
+              unavail.style.color = 'var(--text-secondary)';
+              unavail.style.fontSize = '12px';
+              unavail.textContent = battle.replay.payloadNote;
+              actionValue.appendChild(unavail);
+            }
+          } else {
+            const unavail = document.createElement('span');
+            unavail.style.color = 'var(--text-secondary)';
+            unavail.textContent = 'N/A';
+            actionValue.appendChild(unavail);
+          }
+        } catch (err) {
+          const errorSpan = document.createElement('span');
+          errorSpan.style.color = 'var(--error-color)';
+          errorSpan.style.fontSize = '12px';
+          errorSpan.textContent = `Replay link unavailable: ${err.message}`;
+          actionValue.appendChild(errorSpan);
         }
 
         actionDiv.appendChild(actionLabel);
