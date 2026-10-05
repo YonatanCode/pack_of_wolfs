@@ -44,3 +44,11 @@ Approvals live in `lab/approvals.json` (gitignored). No tool in this repo create
 ## Runtime limits during a run
 - Authorization is consumed before the first battle starts.
 - Before each battle the runner stops (and notes it in the report) when `maxRuntimeSeconds` wall clock or `maxTotalTurns` is reached; each battle is also capped by `maxTurnsPerBattle`. The driver also receives the deadline and the remaining total turns, so both are enforced per turn inside a battle (the battle ends as `timeout`).
+
+## Known limits (PoC)
+- The gates are a process control, not a security boundary: anyone with disk access can edit `lab/approvals.json`.
+- `--approvals <path>` is refused with `--run` (always `lab/approvals.json`); the gameplay build ID and clean tree are re-verified before EACH battle, and a change stops the run with the note "aborted: gameplay build changed after authorization".
+- Consuming takes `lab/approvals.json.lock`; a held or stale lock is refused with a message and never auto-broken.
+- A hung synchronous bot or engine call cannot be interrupted by the runtime limit, and the authorization is already burned by then. Killing a worker/child process is later hardening.
+- Manifest scenario and preset names are not validated against the game, so a typo burns the authorization on setup-error records.
+- Bots are isolated by convention and a source grep, not a sandbox.

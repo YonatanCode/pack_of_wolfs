@@ -24,8 +24,9 @@ async function cli(args, { approvals, manifest = baseManifest(), build = { build
     if (approvals !== undefined) writeJson(ap, approvals);
     const lines = []; const errs = [];
     let moduleLoads = 0; let buildCalls = 0;
-    const code = await main(["--manifest", mf, ...args, "--approvals", ap], {
-      botIds: BOT_IDS,
+    const cliFlag = args.includes("--check-only") ? ["--approvals", ap] : [];
+    const code = await main(["--manifest", mf, ...args, ...cliFlag], {
+      approvalsFile: ap, botIds: BOT_IDS,
       currentBuild: () => { buildCalls++; return build; },
       loadModules: () => { moduleLoads++; throw new Error("fixture must never reach the driver"); },
       out: (s) => lines.push(s.split(dir).join("<tmp>")), err: (s) => errs.push(s.split(dir).join("<tmp>").replace(/(not valid JSON): .*$/, "$1")),
@@ -69,6 +70,18 @@ async function exec() {
   // manifest.buildId stale but approvals match the stale id: approvals are matched to the CURRENT build, so this still refuses
   await refuse("run-manifest-claims-old-build-with-old-approvals", { playchecks: [pc(OTHER_BUILD)], authorizations: [au({ buildId: OTHER_BUILD })] }, { manifest: { ...baseManifest(), buildId: OTHER_BUILD } });
 
+  // --approvals under --run via the real CLI argument path is refused (no injected approvalsFile)
+  {
+    const dir2 = tmpDir();
+    try {
+      const mf = path.join(dir2, "m.json"); writeJson(mf, baseManifest());
+      const ap = path.join(dir2, "a.json"); writeJson(ap, good());
+      const errs = []; let loads = 0;
+      const code = await main(["--manifest", mf, "--run", "--approvals", ap], { botIds: BOT_IDS, currentBuild: () => ({ buildId: BUILD, dirty: false }), loadModules: () => { loads++; throw new Error("no"); }, out: () => {}, err: (s) => errs.push(s) });
+      cases["run-approvals-flag-refused"] = { code, errs, moduleLoads: loads, consumed: JSON.parse(fs.readFileSync(ap, "utf8")).authorizations[0].consumedAt };
+    } finally { cleanup(dir2); }
+  }
+
   // usage errors
   const u1 = await main(["--check-only", "--run", "--manifest", "x"], { err: () => {}, out: () => {} });
   const u2 = await main(["--run"], { err: () => {}, out: () => {} });
@@ -85,6 +98,15 @@ async function exec() {
     const after = loadApprovals(f).data;
     const leftovers = fs.readdirSync(dir).filter((n) => n.endsWith(".tmp"));
     cases["consume-single-use"] = { first, second, consumed: after.authorizations.map((a) => a.consumedAt), otherManifestUntouched: after.authorizations[1].consumedAt === null, tmpLeftovers: leftovers.length };
+    // lock held (stale or concurrent): refused, lock left in place, approvals untouched
+    const lockFile = `${f}.lock`;
+    const beforeLock = fs.readFileSync(f, "utf8");
+    fs.writeFileSync(lockFile, "");
+    const locked = consumeAuthorization(f, BUILD, OTHER_MH);
+    cases["consume-lock-held"] = { ok: locked.ok, reason: locked.reason, lockStillThere: fs.existsSync(lockFile), approvalsUntouched: fs.readFileSync(f, "utf8") === beforeLock };
+    fs.rmSync(lockFile);
+    const unlocked = consumeAuthorization(f, BUILD, OTHER_MH, { now: () => "2003-01-01T00:00:00Z" });
+    cases["consume-releases-lock"] = { ok: unlocked.ok, lockGone: !fs.existsSync(lockFile) };
     cases["consume-wrong-manifest"] = consumeAuthorization(f, BUILD, "d".repeat(64));
     cases["consume-wrong-build"] = consumeAuthorization(f, OTHER_BUILD, OTHER_MH);
     cases["consume-missing-file"] = (({ ok, reason }) => ({ ok, reason: reason.split(dir).join("<tmp>") }))(consumeAuthorization(path.join(dir, "nope.json"), BUILD, MH));

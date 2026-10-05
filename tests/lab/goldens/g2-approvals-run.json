@@ -220,6 +220,14 @@
         null
       ]
     },
+    "run-approvals-flag-refused": {
+      "code": 2,
+      "errs": [
+        "REFUSED (approvals path): --approvals is not honoured with --run; --run always uses lab/approvals.json (the flag is for --check-only only)"
+      ],
+      "moduleLoads": 0,
+      "consumed": null
+    },
     "usage-errors": {
       "both": 2,
       "noManifest": 2,
@@ -241,6 +249,16 @@
       ],
       "otherManifestUntouched": true,
       "tmpLeftovers": 0
+    },
+    "consume-lock-held": {
+      "ok": false,
+      "reason": "approvals lock exists (approvals.json.lock): another consume is in progress or a previous one crashed; remove the lock file by hand only after checking approvals.json",
+      "lockStillThere": true,
+      "approvalsUntouched": true
+    },
+    "consume-releases-lock": {
+      "ok": true,
+      "lockGone": true
     },
     "consume-wrong-manifest": {
       "ok": false,

@@ -1,6 +1,20 @@
 {
   "id": "g3-run-driver-shape",
   "case": {
+    "buildChange": {
+      "code": 0,
+      "battlesRun": 1,
+      "notes": [
+        "aborted: gameplay build changed after authorization; 1 of 2 battles completed"
+      ],
+      "reportBattles": 1,
+      "dirtyCase": {
+        "battlesRun": 1,
+        "notes": [
+          "aborted: gameplay build changed after authorization; 1 of 2 battles completed"
+        ]
+      }
+    },
     "code": 0,
     "errs": [],
     "calls": [

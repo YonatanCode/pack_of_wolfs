@@ -96,7 +96,7 @@ function evaluateGates(args, deps) {
   return { manifest, v, gates, build, approvalsFile: file };
 }
 
-async function execute(manifest, v, mods, startedMs, now) {
+async function execute(manifest, v, mods, startedMs, now, currentBuild) {
   const { driver, bots, report, loadGame } = mods;
   const L = manifest.limits;
   const deadline = startedMs + L.maxRuntimeSeconds * 1000;
@@ -108,6 +108,9 @@ async function execute(manifest, v, mods, startedMs, now) {
   for (const sc of manifest.scenarios) {
     for (const seed of sc.seeds) {
       for (const strategy of manifest.strategies) {
+        let b = null;
+        try { b = currentBuild(); } catch { /* treated as changed */ }
+        if (!b || b.buildId !== manifest.buildId || b.dirty !== false) { stopped = "aborted: gameplay build changed after authorization"; break outer; }
         if (now() >= deadline) { stopped = `maxRuntimeSeconds ${L.maxRuntimeSeconds} reached`; break outer; }
         if (totalTurns >= L.maxTotalTurns) { stopped = `maxTotalTurns ${L.maxTotalTurns} reached`; break outer; }
         const rec = await driver.runBattle({
@@ -120,7 +123,7 @@ async function execute(manifest, v, mods, startedMs, now) {
       }
     }
   }
-  if (stopped) notes.push(`stopped early: ${stopped}; ${records.length} of ${v.battles} battles completed`);
+  if (stopped) notes.push(`${stopped.startsWith("aborted:") ? stopped : `stopped early: ${stopped}`}; ${records.length} of ${v.battles} battles completed`);
   return report.buildReport({ manifestHash: v.manifestHash, buildId: manifest.buildId, battles: records, notes, fixtureOnly: false });
 }
 
@@ -132,6 +135,11 @@ async function main(argv, deps = {}) {
   const args = parseArgs(argv);
   if (args.errors.length) { err(`usage error: ${args.errors.join("; ")}`); return 2; }
 
+  if (args.run && args.approvals && !deps.approvalsFile) {
+    err("REFUSED (approvals path): --approvals is not honoured with --run; --run always uses lab/approvals.json (the flag is for --check-only only)");
+    return 2;
+  }
+  if (deps.approvalsFile) args.approvals = deps.approvalsFile;
   const ev = evaluateGates(args, d);
   const failed = ev.gates.filter((g) => !g.ok);
 
@@ -162,7 +170,7 @@ async function main(argv, deps = {}) {
   out(`authorization consumed at ${consumed.consumedAt}; starting ${ev.v.battles} battles (maxRuntimeSeconds ${ev.manifest.limits.maxRuntimeSeconds})`);
 
   try {
-    const result = await execute(ev.manifest, ev.v, mods, d.now(), d.now);
+    const result = await execute(ev.manifest, ev.v, mods, d.now(), d.now, d.currentBuild);
     out(JSON.stringify(result, null, 2));
     return 0;
   } catch (e) {
