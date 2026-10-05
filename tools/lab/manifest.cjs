@@ -69,7 +69,7 @@ function validateManifest(m, opts = {}) {
   if ("label" in m && (!isStr(m.label) || m.label.length > MAX_LABEL)) errors.push(`label must be a non-empty string of at most ${MAX_LABEL} characters`);
   if ("buildId" in m && !(typeof m.buildId === "string" && /^[0-9a-f]{64}$/.test(m.buildId))) errors.push("buildId must be a 64-character lowercase hex string");
   if ("preset" in m && !isStr(m.preset)) errors.push("preset must be a non-empty string");
-  if ("botSeed" in m && !isInt(m.botSeed)) errors.push("botSeed must be an integer");
+  if ("botSeed" in m && !(isInt(m.botSeed) && m.botSeed >= 0 && m.botSeed <= 0xffffffff)) errors.push("botSeed must be an unsigned 32-bit integer");
 
   if ("scenarios" in m) {
     if (!Array.isArray(m.scenarios) || m.scenarios.length === 0) errors.push("scenarios must be a non-empty array");

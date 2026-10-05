@@ -110,10 +110,10 @@ async function execute(manifest, v, mods, startedMs, now) {
       for (const strategy of manifest.strategies) {
         if (now() >= deadline) { stopped = `maxRuntimeSeconds ${L.maxRuntimeSeconds} reached`; break outer; }
         if (totalTurns >= L.maxTotalTurns) { stopped = `maxTotalTurns ${L.maxTotalTurns} reached`; break outer; }
-        const turnsLeft = L.maxTotalTurns - totalTurns;
         const rec = await driver.runBattle({
-          load: loadGame, bot: bots.BOTS[strategy], scenarioId: sc.id, seed, preset: manifest.preset,
-          limits: { ...L, maxTurnsPerBattle: Math.min(L.maxTurnsPerBattle, turnsLeft) }, botSeed: manifest.botSeed, fixtureOnly: false,
+          load: loadGame, bot: bots.BOTS[strategy], strategy, scenarioId: sc.id, seed, preset: manifest.preset,
+          limits: { ...L }, botSeed: manifest.botSeed, fixtureOnly: false,
+          turnsRemaining: L.maxTotalTurns - totalTurns, deadlineMs: deadline, now,
         });
         records.push(rec);
         totalTurns += rec.turns || 0;
@@ -121,10 +121,7 @@ async function execute(manifest, v, mods, startedMs, now) {
     }
   }
   if (stopped) notes.push(`stopped early: ${stopped}; ${records.length} of ${v.battles} battles completed`);
-  const build = report.buildReport || report.makeReport;
-  return typeof build === "function"
-    ? build({ manifest, manifestHash: v.manifestHash, buildId: manifest.buildId, battles: records, notes, fixtureOnly: false })
-    : { schemaVersion: 1, manifestHash: v.manifestHash, buildId: manifest.buildId, fixtureOnly: false, battles: records, notes };
+  return report.buildReport({ manifestHash: v.manifestHash, buildId: manifest.buildId, battles: records, notes, fixtureOnly: false });
 }
 
 /** main(argv, deps) -> exit code. deps (all optional, for tests): currentBuild, loadModules, botIds, out, err, now. */

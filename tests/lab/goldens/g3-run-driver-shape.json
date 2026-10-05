@@ -1,0 +1,92 @@
+{
+  "id": "g3-run-driver-shape",
+  "case": {
+    "code": 0,
+    "errs": [],
+    "calls": [
+      {
+        "keys": [
+          "bot",
+          "botSeed",
+          "deadlineMs",
+          "fixtureOnly",
+          "limits",
+          "load",
+          "now",
+          "preset",
+          "scenarioId",
+          "seed",
+          "strategy",
+          "turnsRemaining"
+        ],
+        "loadIsFake": true,
+        "botIsFake": true,
+        "strategy": "random-legal",
+        "scenarioId": "intro",
+        "seed": 1,
+        "preset": "commander",
+        "limits": {
+          "maxBattles": 5,
+          "maxTurnsPerBattle": 20,
+          "maxTotalTurns": 5,
+          "maxRuntimeSeconds": 60
+        },
+        "botSeed": 7,
+        "fixtureOnly": false,
+        "turnsRemaining": 5,
+        "deadlineMs": 61000,
+        "nowIsFn": true
+      },
+      {
+        "keys": [
+          "bot",
+          "botSeed",
+          "deadlineMs",
+          "fixtureOnly",
+          "limits",
+          "load",
+          "now",
+          "preset",
+          "scenarioId",
+          "seed",
+          "strategy",
+          "turnsRemaining"
+        ],
+        "loadIsFake": true,
+        "botIsFake": true,
+        "strategy": "random-legal",
+        "scenarioId": "intro",
+        "seed": 2,
+        "preset": "commander",
+        "limits": {
+          "maxBattles": 5,
+          "maxTurnsPerBattle": 20,
+          "maxTotalTurns": 5,
+          "maxRuntimeSeconds": 60
+        },
+        "botSeed": 7,
+        "fixtureOnly": false,
+        "turnsRemaining": 2,
+        "deadlineMs": 61000,
+        "nowIsFn": true
+      }
+    ],
+    "consumedBeforeFirstBattle": true,
+    "reportArgs": {
+      "manifestHash": "b7816902e39403a1a81233eec62faf144160fab234eb053ad8ab228c2599d65b",
+      "buildId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "battles": 2,
+      "notes": [],
+      "fixtureOnly": false
+    },
+    "firstOut": "authorization consumed at <ts> starting 2 battles (maxRuntimeSeconds 60)",
+    "stdoutLast": "{\n  \"fakeReport\": true\n}",
+    "authorizationAfter": true
+  },
+  "usage": {
+    "contexts": 0,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 0
+  }
+}
