@@ -449,6 +449,62 @@
       }
     }
 
+    .notes-section {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+
+    .notes-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .note-item {
+      padding: 8px 12px;
+      border-left: 3px solid var(--border-color);
+      background-color: var(--bg-primary);
+      border-radius: 2px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .note-item.warning {
+      border-left-color: var(--warning-color);
+      background-color: #fff7ed;
+      color: #92400e;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .note-item.warning {
+        background-color: #7c2d12;
+        color: #fed7aa;
+      }
+    }
+
+    .error-warning {
+      background-color: #fee2e2;
+      color: #991b1b;
+      border-left: 3px solid var(--error-color);
+      padding: 8px 12px;
+      border-radius: 2px;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .error-warning {
+        background-color: #7f1d1d;
+        color: #fca5a5;
+      }
+    }
+
     @media (max-width: 768px) {
       body {
         padding: 12px;
@@ -504,6 +560,11 @@
       <div id="fixtureBanner" class="fixture-banner hidden"></div>
 
       <div class="header-meta" id="headerMeta"></div>
+
+      <div id="notesSection" class="notes-section hidden">
+        <h2 class="section-title" style="margin: 0 0 12px 0; border: none; padding: 0; font-size: 16px;">Notes</h2>
+        <ul class="notes-list" id="notesList"></ul>
+      </div>
 
       <div class="section" id="strategySection" style="display: none;">
         <h2 class="section-title">Strategy Summary</h2>
@@ -591,6 +652,28 @@
         fixtureBanner.textContent = 'FIXTURE ONLY: Hand-authored scripted battles for development testing.';
       } else {
         fixtureBanner.classList.add('hidden');
+      }
+
+      // Notes section
+      const notesSection = document.getElementById('notesSection');
+      const notesList = document.getElementById('notesList');
+      if (report.notes && report.notes.length > 0) {
+        notesSection.classList.remove('hidden');
+        notesList.innerHTML = '';
+        report.notes.forEach(note => {
+          const li = document.createElement('li');
+          li.className = 'note-item';
+          const lowerNote = note.toLowerCase();
+          if (lowerNote.includes('stopped early') || lowerNote.includes('aborted')) {
+            li.classList.add('warning');
+            li.textContent = note + ' (this report is incomplete)';
+          } else {
+            li.textContent = note;
+          }
+          notesList.appendChild(li);
+        });
+      } else {
+        notesSection.classList.add('hidden');
       }
 
       // Header meta
@@ -689,6 +772,19 @@
           row.appendChild(intervalCell);
 
           strategyTableBody.appendChild(row);
+
+          // Add error warning if errors > 0
+          if (s.errors > 0) {
+            const warningRow = document.createElement('tr');
+            const warningCell = document.createElement('td');
+            warningCell.colSpan = 9;
+            const warningDiv = document.createElement('div');
+            warningDiv.className = 'error-warning';
+            warningDiv.textContent = `⚠️ ${s.errors} error(s) – errors count as non-wins and lower the win rate`;
+            warningCell.appendChild(warningDiv);
+            warningRow.appendChild(warningCell);
+            strategyTableBody.appendChild(warningRow);
+          }
         });
       } else {
         strategySection.style.display = 'none';
@@ -810,6 +906,7 @@
         replayLink.textContent = 'Replay';
         replayLink.href = 'http://localhost:4173/' + battle.replay.query;
         replayLink.target = '_blank';
+        replayLink.rel = 'noopener noreferrer';
         const actionValue = document.createElement('div');
         actionValue.className = 'battle-header-value';
         actionValue.appendChild(replayLink);

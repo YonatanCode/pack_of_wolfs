@@ -175,6 +175,8 @@
   "notes": [
     "FIXTURE ONLY: hand-authored scripted battles; these numbers say nothing about the game or any strategy.",
     "small sample: aggressive-pursuit n=2, win rate 95% interval [0.094531, 0.905469]",
-    "small sample: random-legal n=1, win rate 95% interval [0, 0.776101]"
+    "small sample: random-legal n=1, win rate 95% interval [0, 0.776101]",
+    "Test run completed with baseline strategies on intro scenario.",
+    "Sample fixture created for viewer testing."
   ]
 }
