@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 1,
+  "manifestHash": "sample-fixture-manifest",
+  "buildId": "sample-fixture-build",
+  "rulesHash": "3a5b7c2e9f1d8a4b6c0e2f3a5b7c9d1e",
+  "fixtureOnly": true,
+  "battles": [
+    {
+      "scenarioId": "intro",
+      "seed": 1,
+      "preset": "commander",
+      "rulesVersion": "v1",
+      "rulesHash": "3a5b7c2e9f1d8a4b6c0e2f3a5b7c9d1e",
+      "strategy": "aggressive-pursuit",
+      "botSeed": 42,
+      "fixtureOnly": true,
+      "result": "win",
+      "turns": 3,
+      "stopReason": "battle-end",
+      "error": null,
+      "perTurn": [
+        {
+          "turn": 1,
+          "budget": 5,
+          "planned": 2,
+          "executed": 2,
+          "wasted": 0
+        },
+        {
+          "turn": 2,
+          "budget": 5,
+          "planned": 3,
+          "executed": 3,
+          "wasted": 0
+        },
+        {
+          "turn": 3,
+          "budget": 5,
+          "planned": 2,
+          "executed": 2,
+          "wasted": 0
+        }
+      ],
+      "orders": [
+        [{"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P1"}],
+        [{"action": "Attack", "unit": "P1"}, {"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P2"}],
+        [{"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P1"}]
+      ],
+      "replay": {
+        "query": "?scenario=intro&seed=1&preset=commander",
+        "orders": [
+          [{"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P1"}],
+          [{"action": "Attack", "unit": "P1"}, {"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P2"}],
+          [{"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P1"}]
+        ]
+      }
+    },
+    {
+      "scenarioId": "intro",
+      "seed": 2,
+      "preset": "commander",
+      "rulesVersion": "v1",
+      "rulesHash": "3a5b7c2e9f1d8a4b6c0e2f3a5b7c9d1e",
+      "strategy": "aggressive-pursuit",
+      "botSeed": 42,
+      "fixtureOnly": true,
+      "result": "loss",
+      "turns": 2,
+      "stopReason": "battle-end",
+      "error": null,
+      "perTurn": [
+        {
+          "turn": 1,
+          "budget": 5,
+          "planned": 2,
+          "executed": 2,
+          "wasted": 0
+        },
+        {
+          "turn": 2,
+          "budget": 5,
+          "planned": 2,
+          "executed": 1,
+          "wasted": 1
+        }
+      ],
+      "orders": [
+        [{"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P1"}],
+        [{"action": "Attack", "unit": "P1"}]
+      ],
+      "replay": {
+        "query": "?scenario=intro&seed=2&preset=commander",
+        "orders": [
+          [{"action": "Move", "unit": "P1"}, {"action": "Attack", "unit": "P1"}],
+          [{"action": "Attack", "unit": "P1"}]
+        ]
+      }
+    },
+    {
+      "scenarioId": "intro",
+      "seed": 1,
+      "preset": "commander",
+      "rulesVersion": "v1",
+      "rulesHash": "3a5b7c2e9f1d8a4b6c0e2f3a5b7c9d1e",
+      "strategy": "random-legal",
+      "botSeed": 99,
+      "fixtureOnly": true,
+      "result": "draw",
+      "turns": 2,
+      "stopReason": "max-turns-per-battle",
+      "error": null,
+      "perTurn": [
+        {
+          "turn": 1,
+          "budget": 5,
+          "planned": 1,
+          "executed": 1,
+          "wasted": 0
+        },
+        {
+          "turn": 2,
+          "budget": 5,
+          "planned": 2,
+          "executed": 2,
+          "wasted": 0
+        }
+      ],
+      "orders": [
+        [{"action": "Move", "unit": "P1"}],
+        [{"action": "Move", "unit": "P1"}, {"action": "Move", "unit": "P2"}]
+      ],
+      "replay": {
+        "query": "?scenario=intro&seed=1&preset=commander",
+        "orders": [
+          [{"action": "Move", "unit": "P1"}],
+          [{"action": "Move", "unit": "P1"}, {"action": "Move", "unit": "P2"}]
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "aggressive-pursuit": {
+      "n": 2,
+      "wins": 1,
+      "losses": 1,
+      "draws": 0,
+      "timeouts": 0,
+      "errors": 0,
+      "winRate": 0.5,
+      "winRateWilson95": [0.094531, 0.905469],
+      "meanTurns": 2.5,
+      "meanBudget": 5,
+      "meanPlanned": 2.25,
+      "meanExecuted": 2.25,
+      "meanWasted": 0.25,
+      "fixtureOnly": true
+    },
+    "random-legal": {
+      "n": 1,
+      "wins": 0,
+      "losses": 0,
+      "draws": 1,
+      "timeouts": 0,
+      "errors": 0,
+      "winRate": 0,
+      "winRateWilson95": [0, 0.776101],
+      "meanTurns": 2,
+      "meanBudget": 5,
+      "meanPlanned": 1.5,
+      "meanExecuted": 1.5,
+      "meanWasted": 0,
+      "fixtureOnly": true
+    }
+  },
+  "notes": [
+    "FIXTURE ONLY: hand-authored scripted battles; these numbers say nothing about the game or any strategy.",
+    "small sample: aggressive-pursuit n=2, win rate 95% interval [0.094531, 0.905469]",
+    "small sample: random-legal n=1, win rate 95% interval [0, 0.776101]"
+  ]
+}

@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Battle Lab Report Viewer</title>
+  <style>
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f5;
+      --bg-tertiary: #eeeeee;
+      --text-primary: #000000;
+      --text-secondary: #666666;
+      --text-tertiary: #999999;
+      --border-color: #cccccc;
+      --accent-color: #2563eb;
+      --accent-hover: #1d4ed8;
+      --error-color: #dc2626;
+      --warning-color: #ea580c;
+      --success-color: #16a34a;
+      --fixture-bg: #fff5e6;
+      --fixture-border: #f59e0b;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg-primary: #1a1a1a;
+        --bg-secondary: #2d2d2d;
+        --bg-tertiary: #3a3a3a;
+        --text-primary: #ffffff;
+        --text-secondary: #cccccc;
+        --text-tertiary: #999999;
+        --border-color: #444444;
+        --accent-color: #3b82f6;
+        --accent-hover: #2563eb;
+        --error-color: #ef4444;
+        --warning-color: #f97316;
+        --success-color: #22c55e;
+        --fixture-bg: #3a2a1a;
+        --fixture-border: #f59e0b;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .fixture-banner {
+      background-color: var(--fixture-bg);
+      border: 2px solid var(--fixture-border);
+      border-radius: 4px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .header {
+      margin-bottom: 24px;
+    }
+
+    .header-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin: 0 0 16px 0;
+    }
+
+    .header-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      font-size: 14px;
+    }
+
+    .meta-item {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 8px 12px;
+    }
+
+    .meta-label {
+      color: var(--text-secondary);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      font-family: monospace;
+      font-size: 13px;
+      word-break: break-all;
+    }
+
+    .build-id-short {
+      cursor: help;
+    }
+
+    .build-id-short:hover {
+      text-decoration: underline;
+    }
+
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .file-input-wrapper {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .file-input-wrapper input[type="file"] {
+      flex: 1;
+      min-width: 150px;
+    }
+
+    button {
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: var(--accent-hover);
+    }
+
+    button:disabled {
+      background-color: var(--text-tertiary);
+      cursor: not-allowed;
+    }
+
+    .error-box {
+      background-color: #fef2f2;
+      border: 1px solid var(--error-color);
+      color: var(--error-color);
+      border-radius: 4px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .error-box {
+        background-color: #7f1d1d;
+        color: #fca5a5;
+      }
+    }
+
+    .section {
+      margin-bottom: 32px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 0 0 16px 0;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+
+    .strategy-table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: var(--bg-secondary);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    .strategy-table th {
+      background-color: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 8px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .strategy-table td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 13px;
+    }
+
+    .strategy-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .small-sample-warning {
+      background-color: #fef3c7;
+      color: #92400e;
+      padding: 4px 8px;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .small-sample-warning {
+        background-color: #78350f;
+        color: #fcd34d;
+      }
+    }
+
+    .filters {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-row label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+    }
+
+    .filter-row select {
+      padding: 6px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+      font-size: 13px;
+    }
+
+    .battle-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .battle-item {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 12px;
+    }
+
+    .battle-header {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+      font-size: 13px;
+    }
+
+    .battle-header-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .battle-header-label {
+      color: var(--text-secondary);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+
+    .battle-header-value {
+      font-weight: 500;
+    }
+
+    .result-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      width: fit-content;
+    }
+
+    .result-win {
+      background-color: #dcfce7;
+      color: #166534;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .result-win {
+        background-color: #064e3b;
+        color: #86efac;
+      }
+    }
+
+    .result-loss {
+      background-color: #fee2e2;
+      color: #991b1b;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .result-loss {
+        background-color: #7f1d1d;
+        color: #fca5a5;
+      }
+    }
+
+    .result-draw {
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .result-draw {
+        background-color: #78350f;
+        color: #fcd34d;
+      }
+    }
+
+    .result-timeout {
+      background-color: #e0e7ff;
+      color: #312e81;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .result-timeout {
+        background-color: #3730a3;
+        color: #c7d2fe;
+      }
+    }
+
+    .result-error {
+      background-color: #fee2e2;
+      color: #7f1d1d;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .result-error {
+        background-color: #991b1b;
+        color: #fecaca;
+      }
+    }
+
+    .replay-link {
+      color: var(--accent-color);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .replay-link:hover {
+      text-decoration: underline;
+    }
+
+    .turns-table {
+      display: none;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .turns-table.visible {
+      display: block;
+    }
+
+    .battle-item.expanded .toggle-turns::after {
+      content: " ▼";
+    }
+
+    .battle-item:not(.expanded) .toggle-turns::after {
+      content: " ▶";
+    }
+
+    .toggle-turns {
+      cursor: pointer;
+      color: var(--accent-color);
+      font-weight: 500;
+      user-select: none;
+    }
+
+    .turns-table-content {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .turns-table-content th {
+      background-color: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 8px;
+      text-align: left;
+      font-weight: 600;
+    }
+
+    .turns-table-content td {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .turns-table-content tr:last-child td {
+      border-bottom: none;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .no-battles {
+      text-align: center;
+      color: var(--text-secondary);
+      padding: 24px;
+    }
+
+    .schema-error {
+      background-color: #fef2f2;
+      border: 2px solid var(--error-color);
+      border-radius: 4px;
+      padding: 16px;
+      margin-top: 16px;
+      color: var(--error-color);
+      text-align: center;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .schema-error {
+        background-color: #7f1d1d;
+        color: #fca5a5;
+      }
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 12px;
+      }
+
+      .header-title {
+        font-size: 20px;
+      }
+
+      .header-meta {
+        grid-template-columns: 1fr;
+      }
+
+      .file-input-wrapper {
+        flex-direction: column;
+      }
+
+      .file-input-wrapper input[type="file"],
+      .file-input-wrapper button {
+        width: 100%;
+      }
+
+      .battle-header {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .strategy-table {
+        font-size: 12px;
+      }
+
+      .strategy-table th,
+      .strategy-table td {
+        padding: 8px 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 class="header-title">Battle Lab Report Viewer</h1>
+    </div>
+
+    <div class="controls">
+      <div class="file-input-wrapper">
+        <input type="file" id="fileInput" accept=".json" />
+        <button id="loadSampleBtn">Load Sample Report</button>
+      </div>
+    </div>
+
+    <div id="errorContainer"></div>
+    <div id="content" class="hidden">
+      <div id="fixtureBanner" class="fixture-banner hidden"></div>
+
+      <div class="header-meta" id="headerMeta"></div>
+
+      <div class="section" id="strategySection" style="display: none;">
+        <h2 class="section-title">Strategy Summary</h2>
+        <table class="strategy-table" id="strategyTable">
+          <thead>
+            <tr>
+              <th>Strategy</th>
+              <th>N</th>
+              <th>Wins</th>
+              <th>Losses</th>
+              <th>Draws</th>
+              <th>Timeouts</th>
+              <th>Errors</th>
+              <th>Win Rate</th>
+              <th>95% Interval</th>
+            </tr>
+          </thead>
+          <tbody id="strategyTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="section" id="battlesSection" style="display: none;">
+        <h2 class="section-title">Battles</h2>
+        <div class="filters">
+          <div class="filter-row">
+            <label>Result: <select id="resultFilter"><option value="">All Results</option></select></label>
+            <label>Strategy: <select id="strategyFilter"><option value="">All Strategies</option></select></label>
+          </div>
+        </div>
+        <div class="battle-list" id="battleList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const loadSampleBtn = document.getElementById('loadSampleBtn');
+    const errorContainer = document.getElementById('errorContainer');
+    const content = document.getElementById('content');
+    const fixtureBanner = document.getElementById('fixtureBanner');
+    const headerMeta = document.getElementById('headerMeta');
+    const strategySection = document.getElementById('strategySection');
+    const battlesSection = document.getElementById('battlesSection');
+    const strategyTableBody = document.getElementById('strategyTableBody');
+    const battleList = document.getElementById('battleList');
+    const resultFilter = document.getElementById('resultFilter');
+    const strategyFilter = document.getElementById('strategyFilter');
+
+    let currentReport = null;
+
+    function showError(message) {
+      errorContainer.innerHTML = '';
+      const errorBox = document.createElement('div');
+      errorBox.className = 'error-box';
+      errorBox.textContent = message;
+      errorContainer.appendChild(errorBox);
+      content.classList.add('hidden');
+    }
+
+    function clearError() {
+      errorContainer.innerHTML = '';
+    }
+
+    function formatBuildId(fullId) {
+      if (!fullId || typeof fullId !== 'string') return fullId;
+      const short = fullId.substring(0, 8);
+      return {short, full: fullId};
+    }
+
+    function renderReport(report) {
+      clearError();
+
+      // Validate schema version
+      if (report.schemaVersion !== 1) {
+        showError(`Schema version mismatch. Expected 1, got ${report.schemaVersion}`);
+        return;
+      }
+
+      currentReport = report;
+      content.classList.remove('hidden');
+
+      // Fixture banner
+      if (report.fixtureOnly) {
+        fixtureBanner.classList.remove('hidden');
+        fixtureBanner.textContent = 'FIXTURE ONLY: Hand-authored scripted battles for development testing.';
+      } else {
+        fixtureBanner.classList.add('hidden');
+      }
+
+      // Header meta
+      headerMeta.innerHTML = '';
+      const buildIdFormatted = formatBuildId(report.buildId);
+      const buildIdEl = document.createElement('div');
+      buildIdEl.className = 'meta-item';
+      buildIdEl.innerHTML = '<div class="meta-label">Build ID</div>';
+      const buildValue = document.createElement('div');
+      buildValue.className = 'meta-value';
+      const shortSpan = document.createElement('span');
+      shortSpan.className = 'build-id-short';
+      shortSpan.textContent = buildIdFormatted.short;
+      shortSpan.title = buildIdFormatted.full;
+      buildValue.appendChild(shortSpan);
+      buildIdEl.appendChild(buildValue);
+      headerMeta.appendChild(buildIdEl);
+
+      const manifestEl = document.createElement('div');
+      manifestEl.className = 'meta-item';
+      manifestEl.innerHTML = '<div class="meta-label">Manifest Hash</div>';
+      const manifestValue = document.createElement('div');
+      manifestValue.className = 'meta-value';
+      manifestValue.textContent = report.manifestHash;
+      manifestEl.appendChild(manifestValue);
+      headerMeta.appendChild(manifestEl);
+
+      const rulesEl = document.createElement('div');
+      rulesEl.className = 'meta-item';
+      rulesEl.innerHTML = '<div class="meta-label">Rules Hash</div>';
+      const rulesValue = document.createElement('div');
+      rulesValue.className = 'meta-value';
+      rulesValue.textContent = report.rulesHash || 'N/A';
+      rulesEl.appendChild(rulesValue);
+      headerMeta.appendChild(rulesEl);
+
+      // Strategy summary
+      if (report.summary && Object.keys(report.summary).length > 0) {
+        strategySection.style.display = 'block';
+        strategyTableBody.innerHTML = '';
+        const strategies = Object.keys(report.summary).sort();
+
+        // Update filters
+        strategyFilter.innerHTML = '<option value="">All Strategies</option>';
+        strategies.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = s;
+          strategyFilter.appendChild(opt);
+        });
+
+        strategies.forEach(strategy => {
+          const s = report.summary[strategy];
+          const row = document.createElement('tr');
+
+          const nameCell = document.createElement('td');
+          nameCell.textContent = strategy;
+          row.appendChild(nameCell);
+
+          const nCell = document.createElement('td');
+          nCell.textContent = s.n;
+          row.appendChild(nCell);
+
+          const winsCell = document.createElement('td');
+          winsCell.textContent = s.wins;
+          row.appendChild(winsCell);
+
+          const lossesCell = document.createElement('td');
+          lossesCell.textContent = s.losses;
+          row.appendChild(lossesCell);
+
+          const drawsCell = document.createElement('td');
+          drawsCell.textContent = s.draws;
+          row.appendChild(drawsCell);
+
+          const timeoutsCell = document.createElement('td');
+          timeoutsCell.textContent = s.timeouts;
+          row.appendChild(timeoutsCell);
+
+          const errorsCell = document.createElement('td');
+          errorsCell.textContent = s.errors;
+          row.appendChild(errorsCell);
+
+          const winRateCell = document.createElement('td');
+          winRateCell.textContent = s.winRate !== null ? (s.winRate * 100).toFixed(1) + '%' : 'N/A';
+          if (s.n < 30) {
+            const warning = document.createElement('span');
+            warning.className = 'small-sample-warning';
+            warning.textContent = ' ⚠ n<30';
+            winRateCell.appendChild(warning);
+          }
+          row.appendChild(winRateCell);
+
+          const intervalCell = document.createElement('td');
+          intervalCell.textContent = `[${(s.winRateWilson95[0] * 100).toFixed(1)}%, ${(s.winRateWilson95[1] * 100).toFixed(1)}%]`;
+          row.appendChild(intervalCell);
+
+          strategyTableBody.appendChild(row);
+        });
+      } else {
+        strategySection.style.display = 'none';
+      }
+
+      // Battles
+      if (report.battles && report.battles.length > 0) {
+        battlesSection.style.display = 'block';
+
+        // Update result filter
+        const results = ['win', 'loss', 'draw', 'timeout', 'error'];
+        resultFilter.innerHTML = '<option value="">All Results</option>';
+        results.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r;
+          opt.textContent = r;
+          resultFilter.appendChild(opt);
+        });
+
+        renderBattles();
+      } else {
+        battlesSection.style.display = 'none';
+      }
+    }
+
+    function renderBattles() {
+      battleList.innerHTML = '';
+      const resultValue = resultFilter.value;
+      const strategyValue = strategyFilter.value;
+
+      const filtered = currentReport.battles.filter(b => {
+        const resultMatch = !resultValue || b.result === resultValue;
+        const strategyMatch = !strategyValue || b.strategy === strategyValue;
+        return resultMatch && strategyMatch;
+      });
+
+      if (filtered.length === 0) {
+        battleList.innerHTML = '<div class="no-battles">No battles match the selected filters.</div>';
+        return;
+      }
+
+      filtered.forEach((battle, index) => {
+        const item = document.createElement('div');
+        item.className = 'battle-item';
+
+        const header = document.createElement('div');
+        header.className = 'battle-header';
+
+        const scenarioDiv = document.createElement('div');
+        scenarioDiv.className = 'battle-header-item';
+        const scenarioLabel = document.createElement('div');
+        scenarioLabel.className = 'battle-header-label';
+        scenarioLabel.textContent = 'Scenario';
+        const scenarioValue = document.createElement('div');
+        scenarioValue.className = 'battle-header-value';
+        scenarioValue.textContent = battle.scenarioId;
+        scenarioDiv.appendChild(scenarioLabel);
+        scenarioDiv.appendChild(scenarioValue);
+        header.appendChild(scenarioDiv);
+
+        const seedDiv = document.createElement('div');
+        seedDiv.className = 'battle-header-item';
+        const seedLabel = document.createElement('div');
+        seedLabel.className = 'battle-header-label';
+        seedLabel.textContent = 'Seed';
+        const seedValue = document.createElement('div');
+        seedValue.className = 'battle-header-value';
+        seedValue.textContent = battle.seed;
+        seedDiv.appendChild(seedLabel);
+        seedDiv.appendChild(seedValue);
+        header.appendChild(seedDiv);
+
+        const strategyDiv = document.createElement('div');
+        strategyDiv.className = 'battle-header-item';
+        const strategyLabel = document.createElement('div');
+        strategyLabel.className = 'battle-header-label';
+        strategyLabel.textContent = 'Strategy';
+        const strategyValue = document.createElement('div');
+        strategyValue.className = 'battle-header-value';
+        strategyValue.textContent = battle.strategy;
+        strategyDiv.appendChild(strategyLabel);
+        strategyDiv.appendChild(strategyValue);
+        header.appendChild(strategyDiv);
+
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'battle-header-item';
+        const resultLabel = document.createElement('div');
+        resultLabel.className = 'battle-header-label';
+        resultLabel.textContent = 'Result';
+        const resultValue = document.createElement('div');
+        resultValue.className = 'battle-header-value';
+        const badge = document.createElement('span');
+        badge.className = `result-badge result-${battle.result}`;
+        badge.textContent = battle.result;
+        resultValue.appendChild(badge);
+        resultDiv.appendChild(resultLabel);
+        resultDiv.appendChild(resultValue);
+        header.appendChild(resultDiv);
+
+        const turnsDiv = document.createElement('div');
+        turnsDiv.className = 'battle-header-item';
+        const turnsLabel = document.createElement('div');
+        turnsLabel.className = 'battle-header-label';
+        turnsLabel.textContent = 'Turns';
+        const turnsValue = document.createElement('div');
+        turnsValue.className = 'battle-header-value';
+        turnsValue.textContent = battle.turns;
+        turnsDiv.appendChild(turnsLabel);
+        turnsDiv.appendChild(turnsValue);
+        header.appendChild(turnsDiv);
+
+        const actionDiv = document.createElement('div');
+        actionDiv.className = 'battle-header-item';
+        const actionLabel = document.createElement('div');
+        actionLabel.className = 'battle-header-label';
+        actionLabel.textContent = 'Action';
+        const replayLink = document.createElement('a');
+        replayLink.className = 'replay-link';
+        replayLink.textContent = 'Replay';
+        replayLink.href = 'http://localhost:4173/' + battle.replay.query;
+        replayLink.target = '_blank';
+        const actionValue = document.createElement('div');
+        actionValue.className = 'battle-header-value';
+        actionValue.appendChild(replayLink);
+        actionDiv.appendChild(actionLabel);
+        actionDiv.appendChild(actionValue);
+        header.appendChild(actionDiv);
+
+        item.appendChild(header);
+
+        // Toggle turns table
+        const turnsToggle = document.createElement('div');
+        turnsToggle.className = 'toggle-turns';
+        turnsToggle.textContent = 'Per-Turn Details';
+        turnsToggle.addEventListener('click', () => {
+          item.classList.toggle('expanded');
+          turnsTable.classList.toggle('visible');
+        });
+        item.appendChild(turnsToggle);
+
+        // Turns table
+        const turnsTable = document.createElement('div');
+        turnsTable.className = 'turns-table';
+
+        if (battle.perTurn && battle.perTurn.length > 0) {
+          const table = document.createElement('table');
+          table.className = 'turns-table-content';
+          const thead = document.createElement('thead');
+          const headerRow = document.createElement('tr');
+
+          const headers = ['Turn', 'Budget', 'Planned', 'Executed', 'Wasted'];
+          headers.forEach(h => {
+            const th = document.createElement('th');
+            th.textContent = h;
+            headerRow.appendChild(th);
+          });
+          thead.appendChild(headerRow);
+          table.appendChild(thead);
+
+          const tbody = document.createElement('tbody');
+          battle.perTurn.forEach(turn => {
+            const row = document.createElement('tr');
+
+            const turnCell = document.createElement('td');
+            turnCell.textContent = turn.turn;
+            row.appendChild(turnCell);
+
+            const budgetCell = document.createElement('td');
+            budgetCell.textContent = turn.budget;
+            row.appendChild(budgetCell);
+
+            const plannedCell = document.createElement('td');
+            plannedCell.textContent = turn.planned;
+            row.appendChild(plannedCell);
+
+            const executedCell = document.createElement('td');
+            executedCell.textContent = turn.executed;
+            row.appendChild(executedCell);
+
+            const wastedCell = document.createElement('td');
+            wastedCell.textContent = turn.wasted;
+            row.appendChild(wastedCell);
+
+            tbody.appendChild(row);
+          });
+          table.appendChild(tbody);
+          turnsTable.appendChild(table);
+        } else {
+          turnsTable.textContent = 'No per-turn data available.';
+        }
+
+        item.appendChild(turnsTable);
+        battleList.appendChild(item);
+      });
+    }
+
+    function loadReportFromFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const report = JSON.parse(e.target.result);
+          renderReport(report);
+        } catch (err) {
+          showError(`Failed to parse JSON: ${err.message}`);
+        }
+      };
+      reader.onerror = () => {
+        showError('Failed to read file.');
+      };
+      reader.readAsText(file);
+    }
+
+    function loadSampleReport() {
+      fetch('./sample-report.json')
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: Sample report not found. Make sure sample-report.json is in the same directory.`);
+          }
+          return res.json();
+        })
+        .then(report => {
+          renderReport(report);
+        })
+        .catch(err => {
+          showError(`Failed to load sample report: ${err.message}`);
+        });
+    }
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        loadReportFromFile(e.target.files[0]);
+      }
+    });
+
+    // Drag and drop
+    document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        const jsonFile = Array.from(files).find(f => f.type === 'application/json' || f.name.endsWith('.json'));
+        if (jsonFile) {
+          loadReportFromFile(jsonFile);
+        } else {
+          showError('Please drop a JSON file.');
+        }
+      }
+    });
+
+    loadSampleBtn.addEventListener('click', loadSampleReport);
+
+    resultFilter.addEventListener('change', renderBattles);
+    strategyFilter.addEventListener('change', renderBattles);
+  </script>
+</body>
+</html>
