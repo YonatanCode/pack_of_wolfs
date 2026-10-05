@@ -1,0 +1,338 @@
+{
+  "header": "REQUIREMENT — L3 visual replay",
+  "divergence": {
+    "error": "Divergence at turn 2: recorded 00000000000000 vs replayed 04d64c4b3a0447",
+    "results": [
+      {
+        "turn": 1,
+        "recorded": "19ec9259b33ae8",
+        "replayed": "19ec9259b33ae8",
+        "match": true
+      },
+      {
+        "turn": 2,
+        "recorded": "00000000000000",
+        "replayed": "04d64c4b3a0447",
+        "match": false
+      }
+    ],
+    "panel": {
+      "turn": "Turn 2 / 3 (stopped)",
+      "status": "Playback stopped.",
+      "error": "Divergence at turn 2: recorded 00000000000000 vs replayed 04d64c4b3a0447",
+      "buttons": [
+        true,
+        true,
+        false
+      ]
+    }
+  },
+  "buildMismatch": {
+    "error": "Replay refused: build mismatch: the payload was recorded on build 474747474747, this page is build 484848484848",
+    "fetchCalls": [
+      "./build-id.json"
+    ],
+    "panel": {
+      "turn": "Turn 1 / 3 (stopped)",
+      "status": null,
+      "orders": null
+    }
+  },
+  "rules": [
+    {
+      "case": "rulesHash differs",
+      "error": "Replay refused: the recorded rules differ from the rules this page loaded: rulesHash: recorded 0d3ce2ec6fa6de vs loaded 1462d320309cd9"
+    },
+    {
+      "case": "rulesVersion differs",
+      "error": "Replay refused: the recorded rules differ from the rules this page loaded: rulesVersion: recorded \"0.3.0-commander-enemy-actions-targets\" vs loaded \"0.4.0-commander-enemy-actions-targets-fallback\""
+    },
+    {
+      "case": "both differ",
+      "error": "Replay refused: the recorded rules differ from the rules this page loaded: rulesVersion: recorded \"1.0.0\" vs loaded \"0.4.0-commander-enemy-actions-targets-fallback\"; rulesHash: recorded ffffffffffffff vs loaded 1462d320309cd9"
+    },
+    {
+      "case": "rulesQuery rejected by the link parser",
+      "error": "Replay refused: the recorded preset / rulesQuery do not load: rules link rejected (unknown key \"zz\")"
+    },
+    {
+      "case": "rulesQuery fails settings validation",
+      "error": "Replay refused: the recorded preset / rulesQuery do not load: rules link rejected (playerActionBudget must be a whole number from 1 to 8)"
+    },
+    {
+      "case": "unknown preset",
+      "error": "Replay refused: the recorded preset / rulesQuery do not load: rules link rejected (unknown preset \"bogus\")"
+    },
+    {
+      "case": "unknown scenario",
+      "error": "Replay refused: scenarioId \"nowhere\" is not a scenario of this build"
+    }
+  ],
+  "malformed": [
+    {
+      "case": "extra query parameter",
+      "field": "?replay",
+      "message": "a replay link is exactly ?replay=1#r=<payload>; the setup comes only from the payload (remove \"scenario\")"
+    },
+    {
+      "case": "duplicate replay parameter",
+      "field": "?replay",
+      "message": "a replay link is exactly ?replay=1#r=<payload>; the setup comes only from the payload (remove the duplicate replay parameter)"
+    },
+    {
+      "case": "no #r fragment",
+      "field": "#r",
+      "message": "missing replay payload: the link has no #r=<payload> fragment"
+    },
+    {
+      "case": "empty #r",
+      "field": "#r",
+      "message": "the #r= payload is empty"
+    },
+    {
+      "case": "not base64url",
+      "field": "#r",
+      "message": "the #r= payload is not base64url-encoded UTF-8 (characters A-Z a-z 0-9 - _ only)"
+    },
+    {
+      "case": "base64url of invalid UTF-8",
+      "field": "#r",
+      "message": "the #r= payload is not base64url-encoded UTF-8 (characters A-Z a-z 0-9 - _ only)"
+    },
+    {
+      "case": "too long",
+      "field": "#r",
+      "message": "the #r= payload is too long (262145 characters, limit 262144)"
+    },
+    {
+      "case": "not JSON",
+      "field": "#r",
+      "message": "the #r= payload is not valid JSON"
+    },
+    {
+      "case": "JSON array",
+      "field": "payload",
+      "message": "the payload must be a JSON object"
+    },
+    {
+      "case": "missing turns",
+      "field": "turns",
+      "message": "payload field \"turns\" is missing"
+    },
+    {
+      "case": "missing buildId",
+      "field": "buildId",
+      "message": "payload field \"buildId\" is missing"
+    },
+    {
+      "case": "unknown field",
+      "field": "extra",
+      "message": "payload field \"extra\" is not a v1 replay payload field"
+    },
+    {
+      "case": "v 2",
+      "field": "v",
+      "message": "payload field \"v\" must be 1 (this page replays payload version 1), got 2"
+    },
+    {
+      "case": "buildId short",
+      "field": "buildId",
+      "message": "payload field \"buildId\" must be the 64-hex gameplay build ID"
+    },
+    {
+      "case": "scenarioId with a slash",
+      "field": "scenarioId",
+      "message": "payload field \"scenarioId\" must be a scenario id (letters, digits, - and _, at most 64)"
+    },
+    {
+      "case": "seed negative",
+      "field": "seed",
+      "message": "payload field \"seed\" must be an integer from 0 to 4294967295"
+    },
+    {
+      "case": "seed as a string",
+      "field": "seed",
+      "message": "payload field \"seed\" must be an integer from 0 to 4294967295"
+    },
+    {
+      "case": "preset uppercase",
+      "field": "preset",
+      "message": "payload field \"preset\" must be a preset name (lowercase letters)"
+    },
+    {
+      "case": "rulesQuery without rules=",
+      "field": "rulesQuery",
+      "message": "payload field \"rulesQuery\" must be \"\" or one rules link parameter \"rules=<key>:<value>,...\""
+    },
+    {
+      "case": "rulesQuery with a second parameter",
+      "field": "rulesQuery",
+      "message": "payload field \"rulesQuery\" must be \"\" or one rules link parameter \"rules=<key>:<value>,...\""
+    },
+    {
+      "case": "rulesVersion empty",
+      "field": "rulesVersion",
+      "message": "payload field \"rulesVersion\" must be a non-empty string (at most 128 characters)"
+    },
+    {
+      "case": "rulesHash uppercase",
+      "field": "rulesHash",
+      "message": "payload field \"rulesHash\" must be the 14-hex rules hash"
+    },
+    {
+      "case": "strategy missing",
+      "field": "strategy",
+      "message": "payload field \"strategy\" is missing"
+    },
+    {
+      "case": "botSeed fractional",
+      "field": "botSeed",
+      "message": "payload field \"botSeed\" must be an integer"
+    },
+    {
+      "case": "result unknown",
+      "field": "result",
+      "message": "payload field \"result\" must be one of win, loss, draw, timeout, error"
+    },
+    {
+      "case": "turns empty",
+      "field": "turns",
+      "message": "payload field \"turns\" must be a list of 1 to 60 recorded turns"
+    },
+    {
+      "case": "turn not an object",
+      "field": "turns[1]",
+      "message": "payload field \"turns[1]\" must be an object { turn, steps, eventHash }"
+    },
+    {
+      "case": "turn numbered wrong",
+      "field": "turns[0].turn",
+      "message": "payload field \"turns[0].turn\" must be 1 (turns are numbered 1, 2, ... in order), got 2"
+    },
+    {
+      "case": "turn eventHash missing",
+      "field": "turns[2].eventHash",
+      "message": "payload field \"turns[2].eventHash\" is missing"
+    },
+    {
+      "case": "turn eventHash malformed",
+      "field": "turns[0].eventHash",
+      "message": "payload field \"turns[0].eventHash\" must be the 14-hex hashTurnEvents value"
+    },
+    {
+      "case": "turn unknown field",
+      "field": "turns[0].note",
+      "message": "payload field \"turns[0].note\" is not a recorded turn field"
+    },
+    {
+      "case": "steps empty",
+      "field": "turns[1].steps",
+      "message": "payload field \"turns[1].steps\" must be a list of 1 to 2 order lists"
+    },
+    {
+      "case": "three steps",
+      "field": "turns[0].steps",
+      "message": "payload field \"turns[0].steps\" must be a list of 1 to 2 order lists"
+    },
+    {
+      "case": "step not a list",
+      "field": "turns[1].steps[0]",
+      "message": "payload field \"turns[1].steps[0]\" must be a list of at most 64 orders"
+    },
+    {
+      "case": "first step not a reshuffle",
+      "field": "turns[0].steps[0]",
+      "message": "payload field \"turns[0].steps[0]\" must be exactly [{ \"reshuffle\": true }]: only the last step of a turn runs the turn"
+    },
+    {
+      "case": "unit P4",
+      "field": "turns[1].steps[0][0]",
+      "message": "payload field \"turns[1].steps[0][0]\" unit must be P1, P2 or P3 (got \"P4\")"
+    },
+    {
+      "case": "action Jump",
+      "field": "turns[1].steps[0][1]",
+      "message": "payload field \"turns[1].steps[0][1]\" action must be one of Move, Attack, Defend (got \"Jump\")"
+    },
+    {
+      "case": "target E4",
+      "field": "turns[1].steps[0][2]",
+      "message": "payload field \"turns[1].steps[0][2]\" target must be E1, E2, E3 or null (got \"E4\")"
+    },
+    {
+      "case": "reshuffle not true",
+      "field": "turns[0].steps[0][0]",
+      "message": "payload field \"turns[0].steps[0][0]\" a reshuffle order is exactly { \"reshuffle\": true }"
+    },
+    {
+      "case": "order with an extra key",
+      "field": "turns[2].steps[0][3]",
+      "message": "payload field \"turns[2].steps[0][3]\" must be { unit, action }, { unit, target } or { reshuffle: true } (keys: action,extra,unit)"
+    },
+    {
+      "case": "order null",
+      "field": "turns[2].steps[0][0]",
+      "message": "payload field \"turns[2].steps[0][0]\" must be an order object"
+    }
+  ],
+  "pages": [
+    {
+      "case": "no #r fragment",
+      "error": "Replay refused: missing replay payload: the link has no #r=<payload> fragment",
+      "buttons": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "case": "not JSON",
+      "error": "Replay refused: the #r= payload is not valid JSON",
+      "buttons": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "case": "v 2",
+      "error": "Replay refused: payload field \"v\" must be 1 (this page replays payload version 1), got 2",
+      "buttons": [
+        true,
+        true,
+        true
+      ]
+    }
+  ],
+  "unavailable": [
+    {
+      "case": "no fetch (harness / old browser)",
+      "warning": "build identity unavailable; relying on rules hash and per-turn event hashes (fetch is not available)"
+    },
+    {
+      "case": "HTTP 404 (dev server)",
+      "warning": "build identity unavailable; relying on rules hash and per-turn event hashes (build-id.json: HTTP 404)",
+      "turn1": {
+        "turn": 1,
+        "recorded": "19ec9259b33ae8",
+        "replayed": "19ec9259b33ae8",
+        "match": true
+      }
+    },
+    {
+      "case": "fetch rejected",
+      "warning": "build identity unavailable; relying on rules hash and per-turn event hashes (build-id.json could not be fetched (network down))"
+    },
+    {
+      "case": "not JSON",
+      "warning": "build identity unavailable; relying on rules hash and per-turn event hashes (build-id.json is not JSON)"
+    }
+  ],
+  "hands": 37,
+  "usage": {
+    "contexts": 17,
+    "maxSteps": 319,
+    "totalSteps": 433,
+    "cap": 4000
+  }
+}
