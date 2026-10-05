@@ -55,6 +55,23 @@
           <button type="button" id="restart-button" class="ui-button game-result-restart-button">Play Again</button>
         </div>
       </div>
+      <!-- Visual replay (L3): shown only with ?replay=1#r=<payload>; see script.js "VISUAL REPLAY (L3)". -->
+      <section id="replay-panel" class="replay-panel" hidden aria-label="Battle replay">
+        <div class="replay-panel-head">
+          <h2>Replay</h2>
+          <span id="replay-turn" class="replay-turn">Turn - / -</span>
+        </div>
+        <p id="replay-meta" class="replay-meta" hidden></p>
+        <p id="replay-warning" class="replay-message is-warning" hidden></p>
+        <p id="replay-error" class="replay-message is-error" role="alert" hidden></p>
+        <p id="replay-status" class="replay-status" aria-live="polite"></p>
+        <ol id="replay-orders" class="replay-orders" aria-label="Recorded orders of this turn" hidden></ol>
+        <div class="control-group">
+          <button type="button" id="replay-play" class="ui-button" aria-pressed="false" disabled>Play</button>
+          <button type="button" id="replay-next" class="ui-button" disabled>Next turn</button>
+          <button type="button" id="replay-restart" class="ui-button" disabled>Restart replay</button>
+        </div>
+      </section>
       <!-- Debug/testing controls: keep available for animation, direction, and tile-number checks. -->
       <div class="debug-controls" aria-label="Developer tools" hidden>
         <section class="dev-control-section" aria-label="End fight">

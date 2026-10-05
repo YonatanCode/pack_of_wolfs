@@ -1890,3 +1890,117 @@ body {
 .tutorial-skip-link:hover {
   color: rgba(237, 242, 233, 0.85);
 }
+
+/* Visual replay (L3): the panel, and the game's own controls locked / hidden while a recorded battle is replayed.
+   body.is-replay is set only with ?replay=1; body.is-replay-blocked while the build check runs or after a refusal. */
+.replay-panel {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 120; /* above the result overlay, so Restart replay stays reachable after the battle ends */
+  display: grid;
+  gap: 8px;
+  width: min(340px, calc(100vw - 32px));
+  max-height: calc(100vh - 140px);
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #edf2e9;
+  background: rgba(11, 17, 18, 0.86);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  overflow: auto;
+  backdrop-filter: blur(10px);
+  font: 13px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.replay-panel[hidden],
+.replay-panel [hidden] {
+  display: none;
+}
+
+.replay-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.replay-panel h2 {
+  margin: 0;
+  font: 700 14px/1.2 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.replay-turn {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.replay-meta,
+.replay-status,
+.replay-message {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.replay-meta {
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+.replay-message {
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.replay-message.is-warning {
+  color: #ffe08a;
+  background: rgba(255, 209, 26, 0.12);
+}
+
+.replay-message.is-error {
+  color: #ffb3aa;
+  background: rgba(243, 24, 29, 0.16);
+  font-weight: 600;
+}
+
+.replay-orders {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 6px 8px 6px 24px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  font: 600 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.replay-panel .ui-button {
+  min-width: 48px;
+  min-height: 38px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.replay-panel .ui-button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+body.is-replay .dev-tools-toggle,
+body.is-replay .restart-battle-button,
+body.is-replay .tutorial-toggle,
+body.is-replay .debug-controls,
+body.is-replay .game-result-restart-button {
+  display: none;
+}
+
+body.is-replay .arena,
+body.is-replay .action-panel,
+body.is-replay .action-queue-panel {
+  pointer-events: none;
+}
+
+body.is-replay-blocked .arena,
+body.is-replay-blocked .action-panel,
+body.is-replay-blocked .action-queue-panel {
+  visibility: hidden;
+}

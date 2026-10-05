@@ -2140,6 +2140,10 @@ function reshufflePlayerHandData() {
 // planning-only reset: no turn is consumed and no enemy acts. Validated by the shared order validation (refusal:
 // silent, as before); the button's disabled state (canReshuffle) checks the same two conditions.
 function reshuffleActions() {
+  if (isReplayInputLocked()) {
+    return; // L3 visual replay: the viewer cannot change the recorded battle
+  }
+
   if (!validatePlayerOrders([{ reshuffle: true }]).ok) {
     return;
   }
@@ -2353,6 +2357,10 @@ function queueUnitAction(unit, action) {
 }
 
 function removeUnitActionAt(unit, index) {
+  if (isReplayInputLocked()) {
+    return; // L3 visual replay: the viewer cannot change the recorded battle
+  }
+
   const actionQueue = getUnitActionQueue(unit);
   const [removedAction] = actionQueue.splice(index, 1);
 
@@ -2763,6 +2771,10 @@ function updatePlayerTileLabels() {
 }
 
 function applyPlayerAction(action) {
+  if (isReplayInputLocked()) {
+    return; // L3 visual replay: the viewer cannot change the recorded battle
+  }
+
   const selectedUnit = getSelectedPlayerUnit();
   // The same order validation as headless orders (validatePlayerOrders). A hand miss falls through to
   // consumeAvailableAction, which first adopts a pending direct DOM edit of the hand (shim) and checks again.
@@ -5712,6 +5724,10 @@ function devEndFight(didWin) {
 }
 
 function resetGame() {
+  if (isReplayInputLocked()) {
+    return; // L3 visual replay: the viewer cannot change the recorded battle
+  }
+
   // A scenario battle replays identically (same terrain, spawns, seeded hand).
   if (activeScenario) {
     // Refused mid-turn: never fall through to the legacy reset with a stale scenario.
@@ -7037,6 +7053,10 @@ async function driveTurnCore(generator, replay) {
 // same try/finally as before: turnStartPhase, then the tick loop (one executeActionTick per tick), and
 // turnEndPhase in `finally`, so recovery / note / hand / preview / idle / outcome still run after an error.
 async function executePlayerActionQueue() {
+  if (isReplayInputLocked()) {
+    return; // L3 visual replay: the viewer cannot change the recorded battle
+  }
+
   if (isExecutingActionQueue || !hasQueuedPlayerActions() || hasMovingPlayerUnits()) {
     updateActionQueueControls();
     return;
@@ -11379,6 +11399,10 @@ function showTargetStatus(message) {
 }
 
 function handleEnemyTargetIntent(enemyUnit) {
+  if (isReplayInputLocked()) {
+    return false; // L3 visual replay: the viewer cannot change the recorded battle
+  }
+
   if (!isTargetSelectionActive() || !enemyUnit || enemyUnit.team !== "enemy") {
     return false;
   }
@@ -11429,6 +11453,10 @@ function presentAutoTargetPick(unit, pick) {
 }
 
 function handleTileIntent(tile) {
+  if (isReplayInputLocked()) {
+    return; // L3 visual replay: the viewer cannot change the recorded battle
+  }
+
   if (isExecutingActionQueue) {
     return isTargetSelectionActive() ? handleEnemyTargetIntent(getEnemyUnitAtTile(tile)) : undefined; // commander: refused, explained
   }
@@ -11682,7 +11710,7 @@ function loadScenario(id = "intro", seed) {
 
 // Re-run the active scenario with the SAME seed. Ignored mid-turn.
 function restartBattle() {
-  if (!activeScenario || isExecutingActionQueue) {
+  if (!activeScenario || isExecutingActionQueue || isReplayInputLocked()) {
     return false;
   }
 
@@ -11745,7 +11773,7 @@ function resetPendingSettings() {
 // RNG all reset together.
 function applyPendingSettings() {
   const store = getRulesState();
-  const reason = getRulesLockReason();
+  const reason = isReplayInputLocked() ? "replay-active" : getRulesLockReason();
 
   if (reason !== null) {
     throw new DryRunRejected(reason, "applyPendingSettings");
@@ -11811,6 +11839,10 @@ function useDefaultSettingsForWorldMode() {
 // settings never leak into it. No-op (no restart) when the defaults are already active. The pending values
 // stay in the panel, flagged "not applied". Returns false (tutorial must not start) if the switch is refused.
 function enterTutorialDefaultSettings() {
+  if (isReplayInputLocked()) {
+    return false; // L3 visual replay: the viewer cannot change the recorded battle
+  }
+
   const store = getRulesState();
   const presetStore = getRulesPresetState();
 
@@ -11846,9 +11878,8 @@ function enterTutorialDefaultSettings() {
 }
 
 // Boot: apply (or reject) the ?preset=&rules= link. World mode ignores custom settings.
-function resolveBootRules(route) {
-  const search = window.location?.search;
-
+// search: the boot link by default; the visual replay (L3) passes the recorded preset / rulesQuery through the same path.
+function resolveBootRules(route, search = window.location?.search) {
   if (typeof search !== "string") {
     return;
   }
@@ -12132,6 +12163,729 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+// ============================================================================
+// VISUAL REPLAY (L3): watch a recorded Battle Lab battle with the game's own turn flow and animations.
+// ============================================================================
+// Active ONLY with ?replay=1#r=<base64url(JSON payload)> (resolveBootRoute -> startReplayMode). Without ?replay=1 none of
+// this runs: no listener, no panel, no state (getReplayState.store stays unset). ENGINE-NOTES.md section 11.2.
+// Payload v1 (tools/lab/CONTRACT.md "Visual replay payload"): { v: 1, buildId, scenarioId, seed, preset, rulesQuery,
+//   rulesVersion, rulesHash, strategy, botSeed, result, turns: [ { turn, steps: [ [orders], ... ], eventHash } ] }.
+// Flow: parse + validate the payload strictly (parseReplayLocation; any problem refuses with the field named, nothing
+// starts) -> compare payload.buildId with ./build-id.json (mismatch refuses; unavailable warns and continues) -> load the
+// setup ONLY from the payload (preset + rulesQuery through the same strict rules-link path as a normal boot, then
+// loadScenario(scenarioId, seed)) -> refuse unless rulesVersion and rulesHash equal the loaded effective rules.
+// Each turn: every step but the last through applyPlayerOrders (no turn), the last through applyPlayerOrders(.., { turn })
+// and then executePlayerActionQueue, the Play button's own presentation driver (animations included); then
+// hashTurnEvents(that turn's events) must equal the recorded eventHash, else playback stops at that turn. Nothing reruns
+// a bot or generates orders: only the recorded steps are applied. Player input is ignored while replay mode is on
+// (isReplayInputLocked guards on the input paths + a capture-phase click / key blocker outside the replay panel).
+// All state lives off the top level in getReplayState() (r19 pins the top-level declaration inventory).
+
+function getReplayState() {
+  if (!getReplayState.store) {
+    getReplayState.store = {
+      active: false, payload: null, status: "off", setupLoaded: false, turnIndex: 0, playing: false, busy: false,
+      driving: false, loop: 0, error: "", warning: "", results: [], buildCheck: null, current: null,
+    };
+  }
+
+  return getReplayState.store;
+}
+
+// True while replay mode is on, except during the replay's own synchronous call into the Play driver.
+function isReplayInputLocked() {
+  const store = getReplayState.store;
+
+  return Boolean(store && store.active && !store.driving);
+}
+
+function getReplayLimits() {
+  return { maxEncodedLength: 262144, maxTurns: 60, maxStepsPerTurn: 2, maxOrdersPerStep: 64, maxTextLength: 128, maxRulesQueryLength: 512 };
+}
+
+// base64url (RFC 4648 section 5, padding optional) -> UTF-8 text; null when malformed. No atob / TextDecoder (the
+// headless harness has neither), so this decodes by hand.
+function decodeReplayBase64Url(text) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+  if (!/^[A-Za-z0-9_-]*={0,2}$/.test(text)) {
+    return null;
+  }
+
+  const body = text.replace(/=+$/, "");
+
+  if (body.length % 4 === 1) {
+    return null;
+  }
+
+  const bytes = [];
+  let value = 0;
+  let bits = 0;
+
+  for (const ch of body) {
+    value = (value << 6) | alphabet.indexOf(ch);
+    bits += 6;
+
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push((value >>> bits) & 0xff);
+      value &= (1 << bits) - 1;
+    }
+  }
+
+  try {
+    return decodeURIComponent(bytes.map((byte) => `%${byte.toString(16).padStart(2, "0")}`).join(""));
+  } catch (error) {
+    return null; // not UTF-8
+  }
+}
+
+// Location -> { ok: true, payload } | { ok: false, field, message }. Strict: nothing is guessed or defaulted.
+function parseReplayLocation(search, hash) {
+  const limits = getReplayLimits();
+  const refuse = (field, message) => ({ ok: false, field, message });
+  const params = new URLSearchParams(typeof search === "string" ? search : "");
+  const extra = [...new Set([...params.keys()].filter((key) => key !== "replay"))];
+
+  if (params.getAll("replay").length !== 1 || extra.length > 0) {
+    return refuse("?replay", `a replay link is exactly ?replay=1#r=<payload>; the setup comes only from the payload (remove ${extra.length ? extra.map((key) => `"${key}"`).join(", ") : "the duplicate replay parameter"})`);
+  }
+
+  if (typeof hash !== "string" || !hash.startsWith("#r=")) {
+    return refuse("#r", "missing replay payload: the link has no #r=<payload> fragment");
+  }
+
+  const encoded = hash.slice(3);
+
+  if (encoded.length === 0) {
+    return refuse("#r", "the #r= payload is empty");
+  }
+
+  if (encoded.length > limits.maxEncodedLength) {
+    return refuse("#r", `the #r= payload is too long (${encoded.length} characters, limit ${limits.maxEncodedLength})`);
+  }
+
+  const text = decodeReplayBase64Url(encoded);
+
+  if (text === null) {
+    return refuse("#r", "the #r= payload is not base64url-encoded UTF-8 (characters A-Z a-z 0-9 - _ only)");
+  }
+
+  let payload;
+
+  try {
+    payload = JSON.parse(text);
+  } catch (error) {
+    return refuse("#r", "the #r= payload is not valid JSON");
+  }
+
+  return validateReplayPayload(payload);
+}
+
+function isReplayPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+// One recorded order -> null (well-formed) or what is wrong. Shapes as in applyPlayerOrders; the game decides legality.
+function describeReplayOrderProblem(order) {
+  if (!isReplayPlainObject(order)) {
+    return "must be an order object";
+  }
+
+  const keys = Object.keys(order).sort().join(",");
+
+  if (keys === "reshuffle") {
+    return order.reshuffle === true ? null : "a reshuffle order is exactly { \"reshuffle\": true }";
+  }
+
+  if (keys !== "action,unit" && keys !== "target,unit") {
+    return `must be { unit, action }, { unit, target } or { reshuffle: true } (keys: ${keys || "none"})`;
+  }
+
+  if (!["P1", "P2", "P3"].includes(order.unit)) {
+    return `unit must be P1, P2 or P3 (got ${JSON.stringify(order.unit)})`;
+  }
+
+  if ("action" in order) {
+    return ACTIONS.includes(order.action) ? null : `action must be one of ${ACTIONS.join(", ")} (got ${JSON.stringify(order.action)})`;
+  }
+
+  return order.target === null || ["E1", "E2", "E3"].includes(order.target) ? null : `target must be E1, E2, E3 or null (got ${JSON.stringify(order.target)})`;
+}
+
+function validateReplayPayload(payload) {
+  const limits = getReplayLimits();
+  const refuse = (field, problem) => ({ ok: false, field, message: `payload field "${field}" ${problem}` });
+  const fields = ["v", "buildId", "scenarioId", "seed", "preset", "rulesQuery", "rulesVersion", "rulesHash", "strategy", "botSeed", "result", "turns"];
+  const shortText = (value) => typeof value === "string" && value.length > 0 && value.length <= limits.maxTextLength;
+
+  if (!isReplayPlainObject(payload)) {
+    return { ok: false, field: "payload", message: "the payload must be a JSON object" };
+  }
+
+  const missing = fields.find((key) => !Object.prototype.hasOwnProperty.call(payload, key));
+
+  if (missing) {
+    return refuse(missing, "is missing");
+  }
+
+  const unknown = Object.keys(payload).find((key) => !fields.includes(key));
+
+  if (unknown) {
+    return refuse(unknown, "is not a v1 replay payload field");
+  }
+
+  if (payload.v !== 1) {
+    return refuse("v", `must be 1 (this page replays payload version 1), got ${JSON.stringify(payload.v)}`);
+  }
+
+  if (typeof payload.buildId !== "string" || !/^[0-9a-f]{64}$/.test(payload.buildId)) {
+    return refuse("buildId", "must be the 64-hex gameplay build ID");
+  }
+
+  if (typeof payload.scenarioId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(payload.scenarioId)) {
+    return refuse("scenarioId", "must be a scenario id (letters, digits, - and _, at most 64)");
+  }
+
+  if (!Number.isInteger(payload.seed) || payload.seed < 0 || payload.seed > 4294967295) {
+    return refuse("seed", "must be an integer from 0 to 4294967295");
+  }
+
+  if (typeof payload.preset !== "string" || !/^[a-z]{1,32}$/.test(payload.preset)) {
+    return refuse("preset", "must be a preset name (lowercase letters)");
+  }
+
+  if (typeof payload.rulesQuery !== "string" || payload.rulesQuery.length > limits.maxRulesQueryLength
+    || (payload.rulesQuery !== "" && !/^rules=[^&?#=\s]+$/.test(payload.rulesQuery))) {
+    return refuse("rulesQuery", "must be \"\" or one rules link parameter \"rules=<key>:<value>,...\"");
+  }
+
+  if (!shortText(payload.rulesVersion)) {
+    return refuse("rulesVersion", `must be a non-empty string (at most ${limits.maxTextLength} characters)`);
+  }
+
+  if (typeof payload.rulesHash !== "string" || !/^[0-9a-f]{14}$/.test(payload.rulesHash)) {
+    return refuse("rulesHash", "must be the 14-hex rules hash");
+  }
+
+  if (!shortText(payload.strategy)) {
+    return refuse("strategy", `must be a non-empty string (at most ${limits.maxTextLength} characters)`);
+  }
+
+  if (!Number.isSafeInteger(payload.botSeed)) {
+    return refuse("botSeed", "must be an integer");
+  }
+
+  if (!["win", "loss", "draw", "timeout", "error"].includes(payload.result)) {
+    return refuse("result", "must be one of win, loss, draw, timeout, error");
+  }
+
+  if (!Array.isArray(payload.turns) || payload.turns.length === 0 || payload.turns.length > limits.maxTurns) {
+    return refuse("turns", `must be a list of 1 to ${limits.maxTurns} recorded turns`);
+  }
+
+  for (let index = 0; index < payload.turns.length; index += 1) {
+    const turn = payload.turns[index];
+    const at = `turns[${index}]`;
+
+    if (!isReplayPlainObject(turn)) {
+      return refuse(at, "must be an object { turn, steps, eventHash }");
+    }
+
+    const turnKeys = ["turn", "steps", "eventHash"];
+    const turnMissing = turnKeys.find((key) => !Object.prototype.hasOwnProperty.call(turn, key));
+    const turnUnknown = Object.keys(turn).find((key) => !turnKeys.includes(key));
+
+    if (turnMissing) {
+      return refuse(`${at}.${turnMissing}`, "is missing");
+    }
+
+    if (turnUnknown) {
+      return refuse(`${at}.${turnUnknown}`, "is not a recorded turn field");
+    }
+
+    if (turn.turn !== index + 1) {
+      return refuse(`${at}.turn`, `must be ${index + 1} (turns are numbered 1, 2, ... in order), got ${JSON.stringify(turn.turn)}`);
+    }
+
+    if (typeof turn.eventHash !== "string" || !/^[0-9a-f]{14}$/.test(turn.eventHash)) {
+      return refuse(`${at}.eventHash`, "must be the 14-hex hashTurnEvents value");
+    }
+
+    if (!Array.isArray(turn.steps) || turn.steps.length === 0 || turn.steps.length > limits.maxStepsPerTurn) {
+      return refuse(`${at}.steps`, `must be a list of 1 to ${limits.maxStepsPerTurn} order lists`);
+    }
+
+    for (let stepIndex = 0; stepIndex < turn.steps.length; stepIndex += 1) {
+      const step = turn.steps[stepIndex];
+      const stepAt = `${at}.steps[${stepIndex}]`;
+
+      if (!Array.isArray(step) || step.length > limits.maxOrdersPerStep) {
+        return refuse(stepAt, `must be a list of at most ${limits.maxOrdersPerStep} orders`);
+      }
+
+      for (let orderIndex = 0; orderIndex < step.length; orderIndex += 1) {
+        const problem = describeReplayOrderProblem(step[orderIndex]);
+
+        if (problem) {
+          return refuse(`${stepAt}[${orderIndex}]`, problem);
+        }
+      }
+
+      // Bot protocol v2: a step applied without running the turn is a reshuffle round, exactly [{ reshuffle: true }].
+      if (stepIndex < turn.steps.length - 1 && !(step.length === 1 && "reshuffle" in step[0])) {
+        return refuse(stepAt, "must be exactly [{ \"reshuffle\": true }]: only the last step of a turn runs the turn");
+      }
+    }
+  }
+
+  return { ok: true, payload };
+}
+
+// ./build-id.json (emitted by `pnpm build`) -> { status: "match" | "mismatch" | "unavailable", pageBuildId?, reason? }.
+function checkReplayBuildIdentity(expected) {
+  const unavailable = (reason) => ({ status: "unavailable", reason });
+
+  if (typeof fetch !== "function") {
+    return Promise.resolve(unavailable("fetch is not available"));
+  }
+
+  return fetch("./build-id.json", { cache: "no-store" }).then(async (response) => {
+    if (!response || !response.ok) {
+      return unavailable(`build-id.json: HTTP ${response ? response.status : "no response"}`);
+    }
+
+    let data;
+
+    try {
+      data = JSON.parse(await response.text());
+    } catch (error) {
+      return unavailable("build-id.json is not JSON");
+    }
+
+    if (!isReplayPlainObject(data) || typeof data.buildId !== "string" || !/^[0-9a-f]{64}$/.test(data.buildId)) {
+      return unavailable("build-id.json holds no 64-hex buildId");
+    }
+
+    return data.buildId === expected ? { status: "match", pageBuildId: data.buildId } : { status: "mismatch", pageBuildId: data.buildId };
+  }, (error) => unavailable(`build-id.json could not be fetched (${error && error.message ? error.message : error})`));
+}
+
+// Setup ONLY from the payload, through the normal machinery. -> { ok: true } | { ok: false, message }.
+function loadReplaySetup(payload) {
+  if (!Object.prototype.hasOwnProperty.call(window.BATTLE_SCENARIOS ?? {}, payload.scenarioId)) {
+    return { ok: false, message: `scenarioId "${payload.scenarioId}" is not a scenario of this build` };
+  }
+
+  const search = `?preset=${encodeURIComponent(payload.preset)}${payload.rulesQuery ? `&${payload.rulesQuery}` : ""}`;
+  const parsed = parseRulesParams(new URLSearchParams(search)); // the strict link parser: a refusal names the problem
+
+  if (!parsed.ok) {
+    return { ok: false, message: `the recorded preset / rulesQuery do not load: ${parsed.message.replace(/; default settings are used$/, "")}` };
+  }
+
+  resolveBootRules({ scenario: payload.scenarioId }, search); // applied exactly like a normal boot link
+
+  if (getRulesState().linkStatus.status !== "applied" || getActivePreset() !== payload.preset) {
+    return { ok: false, message: `the recorded preset "${payload.preset}" / rulesQuery did not apply (${getRulesState().linkStatus.message || `active preset ${getActivePreset()}`})` };
+  }
+
+  if (!loadScenario(payload.scenarioId, String(payload.seed)) || activeScenarioSeed !== payload.seed) {
+    return { ok: false, message: `scenario "${payload.scenarioId}" seed ${payload.seed} could not be loaded` };
+  }
+
+  const differs = [];
+
+  if (activeRules.version !== payload.rulesVersion) {
+    differs.push(`rulesVersion: recorded "${payload.rulesVersion}" vs loaded "${activeRules.version}"`);
+  }
+
+  if (activeRules.hash !== payload.rulesHash) {
+    differs.push(`rulesHash: recorded ${payload.rulesHash} vs loaded ${activeRules.hash}`);
+  }
+
+  return differs.length ? { ok: false, message: `the recorded rules differ from the rules this page loaded: ${differs.join("; ")}` } : { ok: true };
+}
+
+// Readable text of one recorded order list, e.g. "P1: Move, Attack -> target E2; P2: Defend" or "reshuffle".
+function formatReplayStep(step) {
+  if (step.length === 0) {
+    return "no orders";
+  }
+
+  const parts = [];
+  let group = null;
+
+  step.forEach((order) => {
+    if ("reshuffle" in order) {
+      parts.push("reshuffle");
+      group = null;
+      return;
+    }
+
+    if (!group || group.unit !== order.unit) {
+      group = { unit: order.unit, actions: [], targets: [] };
+      parts.push(group);
+    }
+
+    if ("action" in order) {
+      group.actions.push(order.action);
+    } else {
+      group.targets.push(order.target === null ? "-> target cleared" : `-> target ${order.target}`);
+    }
+  });
+
+  return parts.map((part) => (typeof part === "string"
+    ? part
+    : `${part.unit}${part.actions.length ? `: ${part.actions.join(", ")}` : ""}${part.targets.length ? ` ${part.targets.join(" ")}` : ""}`)).join("; ");
+}
+
+function getReplayOutcomeText() {
+  const outcome = getBattleOutcome();
+
+  return outcome === "player" ? "the player pack won" : outcome === "enemy" ? "the enemy pack won" : "the battle is not over";
+}
+
+function renderReplayPanel() {
+  const store = getReplayState();
+  const panel = document.getElementById("replay-panel");
+
+  if (!panel) {
+    return;
+  }
+
+  const payload = store.payload;
+  const total = payload ? payload.turns.length : 0;
+  const index = Math.min(store.turnIndex, Math.max(0, total - 1));
+  const blocked = store.status === "checking" || store.status === "refused";
+  const playable = store.status === "ready" && store.setupLoaded;
+  const set = (id, text) => {
+    const element = document.getElementById(id);
+
+    if (element) {
+      element.textContent = text;
+      element.hidden = text === "";
+    }
+  };
+
+  panel.hidden = !store.active;
+  document.body?.classList.toggle("is-replay-blocked", store.active && blocked);
+  set("replay-meta", payload
+    ? `${payload.scenarioId} · seed ${payload.seed} · preset ${payload.preset}${payload.rulesQuery ? ` · ${payload.rulesQuery}` : ""} · strategy ${payload.strategy} (bot seed ${payload.botSeed}) · recorded result ${payload.result} · build ${payload.buildId.slice(0, 12)}`
+    : "");
+  set("replay-warning", store.warning);
+  set("replay-error", store.error);
+  set("replay-turn", !payload
+    ? "Turn - / -"
+    : store.status === "done"
+      ? `Turn ${total} / ${total} (finished)`
+      : `Turn ${index + 1} / ${total} (${store.busy ? "playing" : store.status === "ready" ? "next" : "stopped"})`);
+  set("replay-status", store.status === "checking"
+    ? "Checking build identity..."
+    : store.status === "ready"
+      ? (store.turnIndex === 0
+        ? `Ready: ${total} recorded turn(s). Play replays them with the game's own animations; Next turn plays one.`
+        : `${store.turnIndex} of ${total} turn(s) replayed; every event hash matches the recording.`)
+      : store.status === "done"
+        ? `Replay complete: all ${total} turn(s) match the recorded event hashes. Recorded result: ${payload.result}; replayed: ${getReplayOutcomeText()}.`
+        : store.status === "refused" ? "" : "Playback stopped.");
+
+  const orders = document.getElementById("replay-orders");
+
+  if (orders) {
+    const steps = payload && !blocked ? payload.turns[index].steps : [];
+
+    orders.replaceChildren(...steps.map((step, stepIndex) => {
+      const item = document.createElement("li");
+
+      item.textContent = `${steps.length > 1 ? `Step ${stepIndex + 1}: ` : ""}${formatReplayStep(step)}`;
+      return item;
+    }));
+    orders.hidden = steps.length === 0;
+  }
+
+  const playButton = document.getElementById("replay-play");
+
+  if (playButton) {
+    playButton.textContent = store.playing ? "Pause" : "Play";
+    playButton.disabled = !playable;
+    playButton.setAttribute("aria-pressed", String(store.playing));
+  }
+
+  const nextButton = document.getElementById("replay-next");
+
+  if (nextButton) {
+    nextButton.disabled = !playable || store.busy || store.playing;
+  }
+
+  const restartButton = document.getElementById("replay-restart");
+
+  if (restartButton) {
+    restartButton.disabled = !store.setupLoaded || store.busy || blocked;
+  }
+}
+
+function refuseReplay(message) {
+  const store = getReplayState();
+
+  store.status = "refused";
+  store.playing = false;
+  store.loop += 1;
+  store.error = `Replay refused: ${message}`;
+  renderReplayPanel();
+}
+
+function stopReplay(status, message) {
+  const store = getReplayState();
+
+  store.status = status;
+  store.playing = false;
+  store.loop += 1;
+  store.error = message;
+  renderReplayPanel();
+}
+
+function waitReplay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+// Show what a recorded step changed (the door renders nothing): hand (a reshuffle deals with the button's slide-in), queue
+// rows, controls, the enemy intent tags and the commander target markers. Presentation only: no data changes.
+function presentReplayStep(step) {
+  if (step.some((order) => "reshuffle" in order)) {
+    actionsList.replaceChildren(); // the view only (the button empties it the same way before its refill renders)
+    playerHandViewItems = [];
+  }
+
+  renderPlayerHandDraws();
+  renderActionQueue(getSelectedPlayerUnit());
+  updatePlayerActionControls();
+  updateActionQueueControls();
+  renderEnemyPackIntentTags();
+  renderTargetMarkers();
+}
+
+// One recorded turn. Resolves true when it ran and its event hash matched.
+async function playReplayTurn() {
+  const store = getReplayState();
+
+  if (!store.active || store.busy || store.status !== "ready" || !store.setupLoaded) {
+    return false;
+  }
+
+  const turn = store.payload.turns[store.turnIndex];
+
+  store.busy = true;
+  renderReplayPanel();
+
+  try {
+    for (let index = 0; index < turn.steps.length; index += 1) {
+      const isLast = index === turn.steps.length - 1;
+      const applied = applyPlayerOrders(turn.steps[index], isLast ? { turn: true } : {});
+
+      if (!applied.ok) {
+        stopReplay("error", `Playback stopped at turn ${turn.turn}, step ${index + 1}: the game refused the recorded orders (${applied.reason}: ${applied.message}).`);
+        return false;
+      }
+
+      presentReplayStep(turn.steps[index]);
+      await waitReplay(600);
+    }
+
+    const before = lastTurnEventLog;
+    let running;
+
+    store.driving = true; // the Play driver's own guard check runs synchronously inside this call
+
+    try {
+      running = executePlayerActionQueue();
+    } finally {
+      store.driving = false;
+    }
+
+    await running;
+
+    if (lastTurnEventLog === before) {
+      stopReplay("error", `Playback stopped at turn ${turn.turn}: the game did not start the turn.`);
+      return false;
+    }
+
+    const replayed = hashTurnEvents(lastTurnEventLog);
+
+    store.results.push({ turn: turn.turn, recorded: turn.eventHash, replayed, match: replayed === turn.eventHash });
+
+    if (replayed !== turn.eventHash) {
+      stopReplay("diverged", `Divergence at turn ${turn.turn}: recorded ${turn.eventHash} vs replayed ${replayed}`);
+      return false;
+    }
+
+    store.turnIndex += 1;
+
+    if (store.turnIndex >= store.payload.turns.length) {
+      store.status = "done";
+      store.playing = false;
+    }
+
+    return true;
+  } catch (error) {
+    stopReplay("error", `Playback stopped at turn ${turn.turn}: ${error && error.message ? error.message : error}`);
+    return false;
+  } finally {
+    store.busy = false;
+    renderReplayPanel();
+  }
+}
+
+// Next turn: stops autoplay and plays exactly one recorded turn.
+function stepReplayTurn() {
+  const store = getReplayState();
+
+  if (store.busy) {
+    return store.current;
+  }
+
+  store.playing = false;
+  store.loop += 1;
+  store.current = playReplayTurn();
+  return store.current;
+}
+
+// Play / Pause. Pause takes effect when the turn on screen ends (a turn's animations are not cut).
+function toggleReplayPlayback() {
+  const store = getReplayState();
+
+  if (store.playing) {
+    store.playing = false;
+    store.loop += 1;
+    renderReplayPanel();
+    return store.current;
+  }
+
+  if (store.status !== "ready" || !store.setupLoaded) {
+    return null;
+  }
+
+  store.playing = true;
+  store.loop += 1;
+  store.current = runReplayAutoplay(store.loop);
+  return store.current;
+}
+
+async function runReplayAutoplay(loop) {
+  const store = getReplayState();
+  const live = () => store.playing && store.loop === loop && store.status === "ready";
+
+  renderReplayPanel();
+
+  while (live()) {
+    if (store.busy) {
+      await store.current; // a turn started by Next before Play was pressed
+    } else if (!(await playReplayTurn())) {
+      break;
+    }
+
+    if (live()) {
+      await waitReplay(900);
+    }
+  }
+
+  if (store.loop === loop) {
+    store.playing = false;
+    renderReplayPanel();
+  }
+
+  return store.status;
+}
+
+// Restart Replay: the same setup from the payload again (rules, scenario, seed: terrain, units, hand stream all reset).
+function restartReplay() {
+  const store = getReplayState();
+
+  if (!store.active || store.busy || !store.setupLoaded) {
+    return false;
+  }
+
+  store.playing = false;
+  store.loop += 1;
+  store.turnIndex = 0;
+  store.results = [];
+  store.error = "";
+
+  const setup = loadReplaySetup(store.payload);
+
+  if (!setup.ok) {
+    refuseReplay(setup.message);
+    return false;
+  }
+
+  store.status = "ready";
+  renderReplayPanel();
+  return true;
+}
+
+// Capture-phase blocker (window) for clicks and keys outside the replay panel while replay mode is on.
+function blockReplayInput(event) {
+  if (!isReplayInputLocked() || event?.target?.closest?.("#replay-panel")) {
+    return;
+  }
+
+  event.stopPropagation();
+}
+
+function startReplayMode() {
+  const store = getReplayState();
+
+  store.active = true;
+  document.body?.classList.add("is-replay");
+  window.addEventListener("click", blockReplayInput, true);
+  window.addEventListener("keydown", blockReplayInput, true);
+  document.getElementById("replay-play")?.addEventListener("click", toggleReplayPlayback);
+  document.getElementById("replay-next")?.addEventListener("click", stepReplayTurn);
+  document.getElementById("replay-restart")?.addEventListener("click", restartReplay);
+
+  const parsed = parseReplayLocation(window.location?.search, window.location?.hash);
+
+  if (!parsed.ok) {
+    refuseReplay(parsed.message);
+    return null;
+  }
+
+  store.payload = parsed.payload;
+  store.status = "checking";
+  renderReplayPanel();
+  store.buildCheck = checkReplayBuildIdentity(parsed.payload.buildId).then((identity) => {
+    if (identity.status === "mismatch") {
+      refuseReplay(`build mismatch: the payload was recorded on build ${parsed.payload.buildId.slice(0, 12)}, this page is build ${identity.pageBuildId.slice(0, 12)}`);
+      return store.status;
+    }
+
+    if (identity.status === "unavailable") {
+      store.warning = `build identity unavailable; relying on rules hash and per-turn event hashes (${identity.reason})`;
+    }
+
+    let setup;
+
+    try {
+      setup = loadReplaySetup(parsed.payload);
+    } catch (error) {
+      setup = { ok: false, message: `the recorded setup could not be loaded (${error && error.message ? error.message : error})` };
+    }
+
+    if (!setup.ok) {
+      refuseReplay(setup.message);
+      return store.status;
+    }
+
+    store.setupLoaded = true;
+    store.status = "ready";
+    renderReplayPanel();
+    return store.status;
+  });
+  return store.buildCheck;
+}
+
 // ?mode=world keeps the original world-map / procedural-arena boot. Otherwise
 // boot into a scenario (?scenario=<id>&seed=<int>, default "intro"). With no
 // URL (headless harness) or no registry, fall back to the original boot.
@@ -12143,6 +12897,11 @@ function resolveBootRoute() {
   }
 
   const params = new URLSearchParams(search);
+
+  // L3 visual replay: the setup comes ONLY from the #r= payload (startReplayMode), never from these parameters.
+  if (params.get("replay") === "1") {
+    return { scenario: null, replay: true };
+  }
 
   if (params.get("mode") === "world") {
     return { scenario: null };
@@ -12184,6 +12943,10 @@ units.forEach((unit) => {
     playUnitAnimation(unit, "idle", unit === getDevPreviewUnit());
   }
 });
+
+if (bootRoute.replay) {
+  startReplayMode();
+}
 
 if (executeQueueButton) {
   executeQueueButton.addEventListener("click", executePlayerActionQueue);
@@ -12423,6 +13186,10 @@ if (copyBattleDebugButton) {
 actionQueueList.addEventListener("click", (event) => {
   event.stopPropagation();
 
+  if (isReplayInputLocked()) {
+    return;
+  }
+
   const unitButton = event.target.closest("[data-player-timeline-unit]");
   const removeButton = event.target.closest("[data-action-index]");
 
@@ -12448,7 +13215,7 @@ actionQueueList.addEventListener("click", (event) => {
 });
 
 arena.addEventListener("click", (event) => {
-  if (event.target.closest(".player-action-menu")) {
+  if (isReplayInputLocked() || event.target.closest(".player-action-menu")) {
     return;
   }
 
@@ -12542,7 +13309,7 @@ arena.addEventListener("mouseleave", () => {
 });
 
 arena.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter" && event.key !== " ") {
+  if (isReplayInputLocked() || (event.key !== "Enter" && event.key !== " ")) {
     return;
   }
 
