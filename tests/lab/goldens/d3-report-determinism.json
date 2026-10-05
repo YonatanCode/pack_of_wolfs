@@ -1,0 +1,151 @@
+{
+  "header": "REQUIREMENT — L2 report",
+  "fixtureOnly": true,
+  "reportHash": "73a9fd4e587018c2954e466289247cbb4a1a720373ca5df8d0a78d32e90a243e",
+  "changedHash": "2d53b71ad2ead9feccc5860738e27f09be8d44c0c2c6cfb26fe24eb797ee2a85",
+  "report": {
+    "schemaVersion": 1,
+    "manifestHash": "fixture-manifest",
+    "buildId": "fixture-build",
+    "rulesHash": "rh",
+    "fixtureOnly": true,
+    "battles": [
+      {
+        "botSeed": 7,
+        "error": null,
+        "fixtureOnly": true,
+        "orders": [
+          [
+            {
+              "action": "Attack",
+              "unit": "P1"
+            },
+            {
+              "action": "Move",
+              "unit": "P1"
+            }
+          ]
+        ],
+        "perTurn": [
+          {
+            "budget": 5,
+            "byUnit": {
+              "P1": {
+                "executed": 2,
+                "planned": 2
+              }
+            },
+            "enemy": {
+              "budget": 5,
+              "executed": 3
+            },
+            "error": null,
+            "eventHash": "e1",
+            "executed": 2,
+            "observationHash": "o1",
+            "orders": [
+              {
+                "action": "Attack",
+                "unit": "P1"
+              },
+              {
+                "action": "Move",
+                "unit": "P1"
+              }
+            ],
+            "planned": 2,
+            "refusal": null,
+            "status": "ran",
+            "turn": 1,
+            "wasted": 0
+          }
+        ],
+        "preset": "commander",
+        "replay": {
+          "orders": [
+            [
+              {
+                "action": "Attack",
+                "unit": "P1"
+              },
+              {
+                "action": "Move",
+                "unit": "P1"
+              }
+            ]
+          ],
+          "query": "?scenario=intro&seed=1&preset=commander"
+        },
+        "result": "win",
+        "rulesHash": "rh",
+        "rulesVersion": "v",
+        "scenarioId": "intro",
+        "seed": 1,
+        "stopReason": "battle-end",
+        "strategy": "scripted",
+        "turns": 1
+      },
+      {
+        "botSeed": 7,
+        "error": null,
+        "fixtureOnly": true,
+        "orders": [],
+        "perTurn": [],
+        "preset": "commander",
+        "replay": {
+          "orders": [],
+          "query": "?scenario=intro&seed=2&preset=commander"
+        },
+        "result": "timeout",
+        "rulesHash": "rh",
+        "rulesVersion": "v",
+        "scenarioId": "intro",
+        "seed": 2,
+        "stopReason": "max-turns-per-battle",
+        "strategy": "scripted",
+        "turns": 0
+      }
+    ],
+    "summary": {
+      "scripted": {
+        "n": 2,
+        "wins": 1,
+        "losses": 0,
+        "draws": 0,
+        "timeouts": 1,
+        "errors": 0,
+        "winRate": 0.5,
+        "winRateWilson95": [
+          0.094531,
+          0.905469
+        ],
+        "meanTurns": 0.5,
+        "meanBudget": 5,
+        "meanPlanned": 2,
+        "meanExecuted": 2,
+        "meanWasted": 0,
+        "fixtureOnly": true
+      }
+    },
+    "notes": [
+      "FIXTURE ONLY: hand-authored scripted battles; these numbers say nothing about the game or any strategy.",
+      "small sample: scripted n=2, win rate 95% interval [0.094531, 0.905469]",
+      "caller note"
+    ]
+  },
+  "refusals": [
+    "mixed: buildReport: fixture and real battles cannot share a report",
+    "rules hashes: buildReport: battles ran under different rules hashes (other, rh)",
+    "real without hex: buildReport: manifestHash must be 64 lowercase hex characters",
+    "flag disagrees: buildReport: fixtureOnly false disagrees with the battles (true)",
+    "NaN: canonicalJson: non-finite number at $[0].seed",
+    "undefined: canonicalJson: undefined at $[0].error is not plain data"
+  ],
+  "canonical": "{\"a\":null,\"b\":[3,1,{\"c\":2,\"d\":1}]}",
+  "usage": {
+    "contexts": 0,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 0
+  }
+}
