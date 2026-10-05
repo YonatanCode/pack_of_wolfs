@@ -2097,6 +2097,8 @@ function refillAvailableActions() {
   updatePlayerActionControls();
 }
 
+// The button's enabled state. Same two conditions as validatePlayerOrders for a { reshuffle: true } order
+// (no-reshuffle-charges, turn-executing); kept separate so rendering the button does not call the validator.
 function canReshuffle() {
   return reshuffleChargesRemaining > 0 && !isExecutingActionQueue;
 }
@@ -2122,19 +2124,29 @@ function updateReshuffleControl() {
   }
 }
 
+// RULES (core-safe) half of a reshuffle, shared by the Reshuffle button and the headless order door (L3a): spend one
+// charge, discard every wolf's queued actions (they are NOT returned to the hand) and the hand, then draw a fresh hand
+// with drawPlayerHandToSize (same hand stream, algorithm and order as every other draw). Callers validate first
+// (validatePlayerOrders, order { reshuffle: true }) and then refresh the enemy preview (updateEnemyIntentPreview).
+function reshufflePlayerHandData() {
+  reshuffleChargesRemaining -= 1;
+  getPlayerTimelineUnits().forEach(clearUnitActionQueue);
+  playerHand.length = 0;
+  drawPlayerHandToSize();
+}
+
 // Spends one battle charge to discard the whole pack's current hand (every
 // wolf's queued actions plus the shared pool) and draw a fresh set. This is a
-// planning-only reset: no turn is consumed and no enemy acts.
+// planning-only reset: no turn is consumed and no enemy acts. Validated by the shared order validation (refusal:
+// silent, as before); the button's disabled state (canReshuffle) checks the same two conditions.
 function reshuffleActions() {
-  if (!canReshuffle()) {
+  if (!validatePlayerOrders([{ reshuffle: true }]).ok) {
     return;
   }
 
-  reshuffleChargesRemaining -= 1;
-
-  getPlayerTimelineUnits().forEach(clearUnitActionQueue);
-  clearPlayerHand();
-  refillAvailableActions();
+  clearPlayerHand(); // empty the view first, so the refill below renders the fresh hand with its slide-in
+  reshufflePlayerHandData();
+  refillAvailableActions(); // adopts nothing, draws nothing (the hand is full), renders the drawn cards
 
   renderActionQueue(getSelectedPlayerUnit());
   updatePlayerActionControls();
@@ -7602,6 +7614,11 @@ function loadBattleState(state) {
 // An order is plain data, with the unit ids of the events:
 //   { unit: "P1" | "P2" | "P3", action: "Move" | "Attack" | "Defend" }  queue ONE hand card (first match) for that wolf
 //   { unit: "P1" | "P2" | "P3", target: "E1" | "E2" | "E3" | null }     commander target selection: choose / clear
+//   { reshuffle: true }  (L3a) the Reshuffle button: spend a charge, discard every queued card and the hand, draw a
+//                        fresh hand (reshufflePlayerHandData, the button's own rules half). Pack-wide: no other key.
+//   Reshuffle reasons: malformed-order (not exactly { reshuffle: true }), no-reshuffle-charges (counted in sequence).
+//   A card order AFTER a reshuffle in the same list is refused hand-not-observed whatever the new hand holds (queue
+//   cards in a later call, after observing the hand), so no refusal can reveal undrawn cards; validation never draws.
 // validatePlayerOrders(orders) -> { ok: true, queuedTotal } | { ok: false, index, reason, message }. Pure (reads the live
 //   battle, writes nothing). Orders are checked IN SEQUENCE, each against what the previous ones leave, exactly like
 //   successive clicks. The UI validates its one order here too: applyPlayerAction (card click for the selected wolf) and
@@ -7643,9 +7660,28 @@ function validatePlayerOrders(orders) {
 
   const hand = [...playerHand];
   const queued = getPlayerTimelineUnits().flatMap((unit) => unitActionQueues.get(unit) ?? []); // read-only
+  let charges = reshuffleChargesRemaining;
+  let handUnobserved = false; // a reshuffle earlier in this list draws a hand the caller has not seen
 
   for (let index = 0; index < orders.length; index += 1) {
     const order = orders[index];
+
+    // L3a reshuffle order: pack-wide, no unit. Like the button: needs a charge (turn-executing is checked above).
+    if (order && typeof order === "object" && "reshuffle" in order) {
+      if (order.reshuffle !== true || "unit" in order || "action" in order || "target" in order) {
+        return reject(index, "malformed-order", "a reshuffle order is exactly { reshuffle: true }");
+      }
+
+      if (charges <= 0) {
+        return reject(index, "no-reshuffle-charges", "no reshuffle charges left");
+      }
+
+      charges -= 1;
+      hand.length = 0;
+      queued.length = 0;
+      handUnobserved = true;
+      continue;
+    }
 
     if (!order || typeof order !== "object" || ("action" in order) === ("target" in order)) {
       return reject(index, "malformed-order", "an order is { unit, action } or { unit, target }");
@@ -7684,6 +7720,11 @@ function validatePlayerOrders(orders) {
 
       if (!ACTIONS.includes(order.action)) {
         return reject(index, "unknown-action", `${order.action} is not an action`);
+      }
+
+      // Refused whatever the new hand holds, so a refusal reveals nothing about cards not drawn yet.
+      if (handUnobserved) {
+        return reject(index, "hand-not-observed", "a reshuffle earlier in this list draws a hand that has not been observed: queue cards in a later call");
       }
 
       const cardIndex = hand.indexOf(order.action);
@@ -7737,7 +7778,10 @@ function applyPlayerOrders(orders, { turn = false } = {}) {
     orders.forEach((order) => {
       const unit = getUnitByBattleId(order.unit);
 
-      if ("target" in order) {
+      if ("reshuffle" in order) {
+        reshufflePlayerHandData(); // the button's own rules half, then its enemy-preview refresh
+        updateEnemyIntentPreview();
+      } else if ("target" in order) {
         setUnitTarget(unit, order.target === null ? null : getUnitByBattleId(order.target), "chosen");
       } else if (!consumeAvailableAction(order.action) || !queueUnitAction(unit, order.action)) {
         throw new Error(`applyPlayerOrders: a validated order did not apply (${order.unit} ${order.action})`);
