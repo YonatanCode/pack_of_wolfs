@@ -56,3 +56,30 @@ Every limit is REQUIRED (positive integers, with hard upper caps defined in mani
 `{ schemaVersion:1, manifestHash, buildId, rulesHash, fixtureOnly, battles:[BattleRecord], summary: { <strategy>: { n, wins, losses, draws, timeouts, errors, winRate, winRateWilson95:[lo,hi], meanTurns, meanBudget, meanPlanned, meanExecuted, meanWasted } }, notes:[] }`. Deterministic (no wall-clock timestamps inside the hashed body). Reports with fixtureOnly true are labelled as fixtures; small-n results always show n and the interval.
 
 `run.cjs --run` also writes the serialized report (report.serializeReport) to `lab/reports/<manifestHash first 12>-<UTC timestamp>.json` (gitignored) and prints the path; a write failure is noted but never loses the stdout report.
+
+## L3 additions (reshuffle, bot rounds, visual replay)
+
+### Bot protocol v2 (multi-call turns)
+`decide(observation, ctx)` keeps its signature; `ctx = { rng, round, maxRounds: 2 }`. Reshuffle is the order `{ reshuffle: true }` (script.js, L3a). A reshuffle discards all queued cards and draws a new hand, and any card order placed after it in the same list is refused (`hand-not-observed`). So a reshuffle must be its OWN decision round:
+- Round 0: a bot may return exactly `[{ reshuffle: true }]`. The driver then applies it WITHOUT running the turn (`applyPlayerOrders(orders)`, no turn), re-observes, and calls `decide` again with `round: 1`.
+- Round 1 (or round 0 when not reshuffling): the returned list (target and card orders, never reshuffle in round 1) is applied and the turn runs.
+- Everything is recorded: each turn has `steps: [ orders, ... ]` (all but the last applied without running; the last runs the turn).
+
+### Per-turn metrics (BattleRecord.perTurn[i])
+Keep existing fields and add: `unspentBudget` (budget - planned), `notExecuted` (planned - executed, with executed excluding misses), `attacksHit`, `attacksMissed` (Attack executed, outcome Miss, with reasons counted in `missReasons`), `reshuffles` (count), `reshuffleChargesAfter`. Existing `executed` meaning must be documented if it changes. Report summary adds per-strategy means of these plus total reshuffle use.
+
+### Visual replay payload (built by the driver into `record.replay.payload`; the viewer base64url-encodes it into `http://localhost:4173/?replay=1#r=<base64url(JSON)>`)
+```
+{ "v": 1, "buildId": "<64 hex>", "scenarioId", "seed", "preset", "rulesQuery": "<rules= params or ''>",
+  "rulesVersion", "rulesHash", "strategy", "botSeed", "result",
+  "turns": [ { "turn": 1, "steps": [ [orders...], [orders...] ], "eventHash": "<hash of that turn's events>" } ] }
+```
+The game page (`?replay=1`) loads setup from scenario+seed+preset+rulesQuery, verifies compatibility, replays recorded `steps` through the existing turn flow and animations (Play/Pause, Next Turn, Restart; shows turn number and the recorded bot orders), compares each turn's `eventHash` to the recorded one and reports divergence loudly, and NEVER reruns a bot. `eventHash` is computed by one game-side function exposed as `window.devTest.hashTurnEvents(events)` that both the driver (via the game context) and the replay page use. Compatibility: the page compares `payload.buildId` with its own build identity (`./build-id.json`, emitted by the build); mismatch -> refuse; identity unavailable (dev server) -> clearly flagged warning, relying on rulesHash/rulesVersion and per-turn eventHash. Missing or malformed payload data -> refuse with a specific message; never substitute current settings silently.
+
+### Ownership for L3
+| Files | Owner |
+|---|---|
+| script.js, index.html, styles.css, vite.config.mjs, tools/check-dist.mjs, ENGINE-NOTES.md (replay mode, build-id.json, `hashTurnEvents`) | Agent A (Opus) |
+| tools/lab/bots.cjs, BOTS.md | Agent C (Sonnet) |
+| tools/lab/driver.cjs, report.cjs, metrics.cjs (steps, new metrics, payload) | Agent D (Opus), after A's hook lands |
+| tools/lab/viewer/ (Replay button builds the URL) | Haiku, after D |
