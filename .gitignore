@@ -28,3 +28,5 @@ dist-ssr
 
 # Battle Lab local approval records (written only by the coordinator after explicit user messages)
 lab/approvals.json
+lab/.approvals.json.*.tmp
+lab/*.lock
