@@ -1,0 +1,525 @@
+{
+  "header": "REQUIREMENT — L3a reshuffle order",
+  "hands": 18,
+  "current": {
+    "steps": [
+      {
+        "unit": "P1",
+        "action": "Attack"
+      },
+      {
+        "reshuffle": true
+      }
+    ],
+    "liveUi": [
+      "P1 Attack: queued",
+      "reshuffle: spent"
+    ],
+    "door": {
+      "ok": true,
+      "queuedTotal": 0
+    },
+    "afterReshuffle": {
+      "hand": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Attack",
+        "Defend"
+      ],
+      "queues": [
+        "P1:",
+        "P2:",
+        "P3:"
+      ],
+      "charges": 1,
+      "stream": 1135788947,
+      "targets": "P1:- P2:- P3:-",
+      "stateHash": "1803a8c435ee838d0ff7d2019f9b5a08f4a57a502d6c5f8eb268b3a814919be7"
+    },
+    "turnOrders": [
+      {
+        "unit": "P1",
+        "action": "Attack"
+      },
+      {
+        "unit": "P2",
+        "action": "Move"
+      },
+      {
+        "unit": "P3",
+        "action": "Defend"
+      }
+    ],
+    "turn": {
+      "count": 19,
+      "types": {
+        "turnStart": 1,
+        "enemyPlan": 2,
+        "fighters": 1,
+        "tickStart": 1,
+        "consumed": 1,
+        "move": 3,
+        "attackSwing": 1,
+        "defendSwing": 2,
+        "miss": 1,
+        "tickEnd": 1,
+        "recovery": 1,
+        "debugNote": 1,
+        "handDraw": 1,
+        "turnEnd": 1,
+        "outcome": 1
+      },
+      "key": [
+        "recovery heals=[]",
+        "handDraw drawn=[Attack,Attack,Move] hand=[Attack,Attack,Move,Attack,Defend]",
+        "outcome winner=none doubleKO=false"
+      ],
+      "eventHash": "e70cff353877cf4bc6a1560c12cd26caf3835a82da039eed697f1f4798885bf7",
+      "stateHash": "b7c7cbea41073f70c10b700c1f3f9a8236f95f899331c26e52ea9cba6ba4e24b",
+      "hand": [
+        "Attack",
+        "Attack",
+        "Move",
+        "Attack",
+        "Defend"
+      ]
+    },
+    "carryOver": {
+      "drawn": [
+        "Attack",
+        "Attack",
+        "Move"
+      ],
+      "kept": [
+        "Attack",
+        "Defend"
+      ]
+    },
+    "streamAfterTurn": 2335519090
+  },
+  "commander": {
+    "steps": [
+      {
+        "unit": "P2",
+        "action": "Defend"
+      },
+      {
+        "reshuffle": true
+      },
+      {
+        "unit": "P1",
+        "target": "E2"
+      }
+    ],
+    "liveUi": [
+      "P2 Defend: queued",
+      "reshuffle: spent",
+      "P1 target E2: P1:E2/chosen"
+    ],
+    "door": {
+      "ok": true,
+      "queuedTotal": 0
+    },
+    "afterReshuffle": {
+      "hand": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Attack",
+        "Defend"
+      ],
+      "queues": [
+        "P1:",
+        "P2:",
+        "P3:"
+      ],
+      "charges": 1,
+      "stream": 1135788947,
+      "targets": "P1:E2/chosen P2:E3/auto P3:-",
+      "stateHash": "2e26d70bebc6ac2553fb76a6b56caaf6c2de941b4870688506dfc4a91c54b276"
+    },
+    "turnOrders": [
+      {
+        "unit": "P1",
+        "action": "Move"
+      },
+      {
+        "unit": "P2",
+        "action": "Attack"
+      },
+      {
+        "unit": "P3",
+        "action": "Attack"
+      }
+    ],
+    "turn": {
+      "count": 24,
+      "types": {
+        "turnStart": 1,
+        "targetsCommitted": 1,
+        "enemyPlan": 2,
+        "enemyBudget": 1,
+        "unassigned": 1,
+        "fighters": 1,
+        "tickStart": 1,
+        "consumed": 1,
+        "move": 3,
+        "attackSwing": 2,
+        "defendSwing": 1,
+        "miss": 2,
+        "tickEnd": 1,
+        "enemyAccounting": 1,
+        "recovery": 1,
+        "debugNote": 1,
+        "handDraw": 1,
+        "turnEnd": 1,
+        "outcome": 1
+      },
+      "key": [
+        "recovery heals=[]",
+        "handDraw drawn=[Attack,Attack,Move] hand=[Attack,Attack,Move,Defend,Defend]",
+        "outcome winner=none doubleKO=false"
+      ],
+      "eventHash": "6d7c254dc4a50627765e440eb1f1d808823c30774c6eaf3e6f26444f0ba0c4be",
+      "stateHash": "f8bca205f2df1644f3b7d6761d7e69e63a5d5cf27b7c7f484af5e399ead2a7bf",
+      "hand": [
+        "Attack",
+        "Attack",
+        "Move",
+        "Defend",
+        "Defend"
+      ]
+    },
+    "carryOver": {
+      "drawn": [
+        "Attack",
+        "Attack",
+        "Move"
+      ],
+      "kept": [
+        "Defend",
+        "Defend"
+      ]
+    },
+    "streamAfterTurn": 2335519090,
+    "frozenPlan": {
+      "length": 3,
+      "unchangedByReshuffle": true
+    }
+  },
+  "noCharges": {
+    "cases": [
+      {
+        "case": "rc:0: reshuffle",
+        "orders": [
+          {
+            "reshuffle": true
+          }
+        ],
+        "validate": "no-reshuffle-charges@0",
+        "apply": "no-reshuffle-charges@0",
+        "turn": "no-reshuffle-charges@0",
+        "message": "no reshuffle charges left"
+      },
+      {
+        "case": "rc:0: card then reshuffle",
+        "orders": [
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "reshuffle": true
+          }
+        ],
+        "validate": "no-reshuffle-charges@1",
+        "apply": "no-reshuffle-charges@1",
+        "turn": "no-reshuffle-charges@1",
+        "message": "no reshuffle charges left"
+      }
+    ],
+    "ui": {
+      "click": [
+        "reshuffle: refused"
+      ],
+      "validations": [
+        "[{\"reshuffle\":true}] -> no-reshuffle-charges@0"
+      ],
+      "buttonDisabled": true,
+      "canReshuffle": false
+    }
+  },
+  "atomic": {
+    "cases": [
+      {
+        "case": "card Move after a reshuffle",
+        "orders": [
+          {
+            "reshuffle": true
+          },
+          {
+            "unit": "P2",
+            "action": "Move"
+          }
+        ],
+        "validate": "hand-not-observed@1",
+        "apply": "hand-not-observed@1",
+        "turn": "hand-not-observed@1",
+        "message": "a reshuffle earlier in this list draws a hand that has not been observed: queue cards in a later call"
+      },
+      {
+        "case": "card Attack after a reshuffle",
+        "orders": [
+          {
+            "reshuffle": true
+          },
+          {
+            "unit": "P2",
+            "action": "Attack"
+          }
+        ],
+        "validate": "hand-not-observed@1",
+        "apply": "hand-not-observed@1",
+        "turn": "hand-not-observed@1",
+        "message": "a reshuffle earlier in this list draws a hand that has not been observed: queue cards in a later call"
+      },
+      {
+        "case": "card Defend after a reshuffle",
+        "orders": [
+          {
+            "reshuffle": true
+          },
+          {
+            "unit": "P2",
+            "action": "Defend"
+          }
+        ],
+        "validate": "hand-not-observed@1",
+        "apply": "hand-not-observed@1",
+        "turn": "hand-not-observed@1",
+        "message": "a reshuffle earlier in this list draws a hand that has not been observed: queue cards in a later call"
+      },
+      {
+        "case": "card, reshuffle, card",
+        "orders": [
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "reshuffle": true
+          },
+          {
+            "unit": "P2",
+            "action": "Move"
+          }
+        ],
+        "validate": "hand-not-observed@2",
+        "apply": "hand-not-observed@2",
+        "turn": "hand-not-observed@2",
+        "message": "a reshuffle earlier in this list draws a hand that has not been observed: queue cards in a later call"
+      },
+      {
+        "case": "three reshuffles with two charges",
+        "orders": [
+          {
+            "reshuffle": true
+          },
+          {
+            "reshuffle": true
+          },
+          {
+            "reshuffle": true
+          }
+        ],
+        "validate": "no-reshuffle-charges@2",
+        "apply": "no-reshuffle-charges@2",
+        "turn": "no-reshuffle-charges@2",
+        "message": "no reshuffle charges left"
+      },
+      {
+        "case": "card, reshuffle, then a bad unit",
+        "orders": [
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "reshuffle": true
+          },
+          {
+            "unit": "P9",
+            "action": "Move"
+          }
+        ],
+        "validate": "unknown-unit@2",
+        "apply": "unknown-unit@2",
+        "turn": "unknown-unit@2",
+        "message": "P9 is not a player wolf"
+      },
+      {
+        "case": "reshuffle: false",
+        "orders": [
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "reshuffle": false
+          }
+        ],
+        "validate": "malformed-order@1",
+        "apply": "malformed-order@1",
+        "turn": "malformed-order@1",
+        "message": "a reshuffle order is exactly { reshuffle: true }"
+      },
+      {
+        "case": "reshuffle with a unit",
+        "orders": [
+          {
+            "reshuffle": true,
+            "unit": "P1"
+          }
+        ],
+        "validate": "malformed-order@0",
+        "apply": "malformed-order@0",
+        "turn": "malformed-order@0",
+        "message": "a reshuffle order is exactly { reshuffle: true }"
+      },
+      {
+        "case": "reshuffle with an action",
+        "orders": [
+          {
+            "reshuffle": true,
+            "action": "Move"
+          }
+        ],
+        "validate": "malformed-order@0",
+        "apply": "malformed-order@0",
+        "turn": "malformed-order@0",
+        "message": "a reshuffle order is exactly { reshuffle: true }"
+      },
+      {
+        "case": "reshuffle-only turn",
+        "orders": [
+          {
+            "reshuffle": true
+          }
+        ],
+        "validate": "ok",
+        "turn": "no-player-orders@-1",
+        "message": "no player action is queued: Play would not start a turn"
+      },
+      {
+        "case": "card then reshuffle as a turn (the card is discarded)",
+        "orders": [
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "reshuffle": true
+          }
+        ],
+        "validate": "ok",
+        "turn": "no-player-orders@-1",
+        "message": "no player action is queued: Play would not start a turn"
+      },
+      {
+        "case": "turn executing (flag raised)",
+        "orders": [
+          {
+            "reshuffle": true
+          }
+        ],
+        "validate": "turn-executing@-1",
+        "apply": "turn-executing@-1",
+        "turn": "turn-executing@-1",
+        "message": "the battle is not open for orders (turn-executing)"
+      },
+      {
+        "case": "guided tutorial active (door only; the UI button stays usable in the tutorial)",
+        "orders": [
+          {
+            "reshuffle": true
+          }
+        ],
+        "validate": "ok",
+        "apply": "tutorial-active@-1",
+        "turn": "tutorial-active@-1",
+        "message": "the battle is not open for orders (tutorial-active)"
+      },
+      {
+        "case": "no charge left after two",
+        "orders": [
+          {
+            "reshuffle": true
+          }
+        ],
+        "validate": "no-reshuffle-charges@0",
+        "apply": "no-reshuffle-charges@0",
+        "turn": "no-reshuffle-charges@0",
+        "message": "no reshuffle charges left"
+      }
+    ],
+    "uiBusy": {
+      "click": [
+        "reshuffle: refused"
+      ],
+      "validations": [
+        "[{\"reshuffle\":true}] -> turn-executing@-1"
+      ]
+    },
+    "accepted": {
+      "verdict": {
+        "ok": true,
+        "queuedTotal": 0
+      },
+      "drawnHands": 2,
+      "charges": 0,
+      "hand": [
+        "Attack",
+        "Attack",
+        "Move",
+        "Attack",
+        "Move"
+      ],
+      "handBefore": [
+        "Attack",
+        "Move",
+        "Attack",
+        "Defend",
+        "Defend"
+      ]
+    }
+  },
+  "observation": {
+    "afterHeadlessReshuffle": {
+      "cards": [
+        "Move",
+        "Attack",
+        "Defend",
+        "Attack",
+        "Defend"
+      ],
+      "reshuffleChargesRemaining": 1
+    },
+    "keyWalk": {
+      "keysWalked": 94,
+      "rngKeyNames": [],
+      "rngValueHits": []
+    },
+    "keyWalkCurrent": {
+      "keysWalked": 88,
+      "rngKeyNames": [],
+      "rngValueHits": []
+    }
+  },
+  "usage": {
+    "contexts": 7,
+    "maxSteps": 55,
+    "totalSteps": 107,
+    "cap": 4000
+  }
+}

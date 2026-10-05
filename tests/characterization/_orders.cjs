@@ -1,6 +1,6 @@
 "use strict";
 // REQUIREMENT — L1 player orders
-// Shared helpers for the L1 fixtures (r41..r44): shared order validation, the headless order door / turn and the
+// Shared helpers for the L1 fixtures (r41..r44; L3a: r46): shared order validation, the headless order door / turn and the
 // player-limited observation. Not a fixture itself. Read-only reuse of _preview (probes, live fingerprint, spies),
 // _settings (boot with the hand counter) and _targets (the real tile handler).
 // HAND LEDGER (testing boundary): this step keeps its OWN ledger (reportOrderHands, asserted <= 60 in total), separate
