@@ -7,6 +7,8 @@
 // D3c REFUSALS (TypeError): mixed fixture / real battles, battles under different rules hashes, a real report without
 //     64-hex manifestHash / buildId, fixtureOnly disagreeing with the battles, non-data values (NaN, undefined).
 // D3d CANONICAL JSON: sorted keys at every depth, arrays keep their order.
+// D3e PAYLOAD NOTE (L3): a battle whose replay.payload is null is counted in a deterministic note; the L2-shaped records
+//     above (no payload key) are not counted.
 const { buildReport, serializeReport, reportHash, canonicalJson, FIXTURE_NOTE } = require("../../tools/lab/report.cjs");
 
 const ID = "d3-report-determinism";
@@ -65,7 +67,14 @@ function run() {
   const canon = canonicalJson({ b: [3, 1, { d: 1, c: 2 }], a: null });
   check(canon === '{"a":null,"b":[3,1,{"c":2,"d":1}]}', `D3d: canonical JSON ${canon}`);
 
-  return { header: "REQUIREMENT — L2 report", fixtureOnly: true, reportHash: hash, changedHash: changed, report: r1, refusals, canonical: canon };
+  // D3e
+  const noPayload = { ...recordB, replay: { ...recordB.replay, steps: [], payload: null, payloadNote: "no turn was played" } };
+  const r5 = buildReport(input([recordA, noPayload]));
+  check(r5.notes.includes("visual replay: 1 of 2 battle(s) have no replay payload (see replay.payloadNote)"), "D3e: payload note");
+  check(!r1.notes.some((n) => n.startsWith("visual replay:")), "D3e: no note for L2-shaped records");
+  check(serializeReport(r5) === serializeReport(buildReport(input([recordA, noPayload]))), "D3e: deterministic");
+
+  return { header: "REQUIREMENT — L2 report", payloadNotes: r5.notes, fixtureOnly: true, reportHash: hash, changedHash: changed, report: r1, refusals, canonical: canon };
 }
 
 module.exports = { id: ID, run };

@@ -9,7 +9,8 @@
  *   - fixtureOnly: every battle must agree with it (default: taken from the battles; mixed fixture / real battles are
  *     refused). A fixture report gets a leading FIXTURE note, and manifestHash / buildId may be any label string;
  *     a real report needs 64-hex values.
- *   - summary: metrics.summarize(battles). A note is added for every strategy with n < 30 (the interval is wide).
+ *   - summary: metrics.summarize(battles). A note is added for every strategy with n < 30 (the interval is wide), and
+ *     one counting battles whose replay.payload is null (L3; a missing payload key, as in L2 records, is not counted).
  *   - Deterministic: no wall-clock time, host or path inside the report; battles keep their given order.
  *   Any other key passed in (e.g. the manifest itself) is ignored.
  * canonicalJson(value): sorted-key compact JSON; refuses undefined, functions, symbols, bigints and non-finite numbers.
@@ -68,6 +69,8 @@ function buildReport({ manifestHash, buildId, battles, notes = [], fixtureOnly }
   Object.entries(summary).forEach(([strategy, s]) => {
     if (s.n < SMALL_N) derived.push(`small sample: ${strategy} n=${s.n}, win rate 95% interval [${s.winRateWilson95[0]}, ${s.winRateWilson95[1]}]`);
   });
+  const noPayload = battles.filter((b) => b.replay && b.replay.payload === null).length;
+  if (noPayload) derived.push(`visual replay: ${noPayload} of ${battles.length} battle(s) have no replay payload (see replay.payloadNote)`);
 
   const report = {
     schemaVersion: 1,

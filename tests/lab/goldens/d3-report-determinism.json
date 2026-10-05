@@ -1,8 +1,14 @@
 {
   "header": "REQUIREMENT — L2 report",
+  "payloadNotes": [
+    "FIXTURE ONLY: hand-authored scripted battles; these numbers say nothing about the game or any strategy.",
+    "small sample: scripted n=2, win rate 95% interval [0.094531, 0.905469]",
+    "visual replay: 1 of 2 battle(s) have no replay payload (see replay.payloadNote)",
+    "caller note"
+  ],
   "fixtureOnly": true,
-  "reportHash": "73a9fd4e587018c2954e466289247cbb4a1a720373ca5df8d0a78d32e90a243e",
-  "changedHash": "2d53b71ad2ead9feccc5860738e27f09be8d44c0c2c6cfb26fe24eb797ee2a85",
+  "reportHash": "e8368c950c10603763aafa247b0044a74e5b36956d7321387dd84b081fe01184",
+  "changedHash": "09a8e9a56571e5d2136fbb9f4d40499ba41d73bd20e628a1e257c7d3e7ce79f1",
   "report": {
     "schemaVersion": 1,
     "manifestHash": "fixture-manifest",
@@ -124,6 +130,13 @@
         "meanPlanned": 2,
         "meanExecuted": 2,
         "meanWasted": 0,
+        "turnSlots": 1,
+        "meanUnspentBudget": null,
+        "meanNotExecuted": null,
+        "meanAttacksHit": null,
+        "meanAttacksMissed": null,
+        "reshuffles": 0,
+        "meanReshuffles": null,
         "fixtureOnly": true
       }
     },
