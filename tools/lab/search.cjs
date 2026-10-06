@@ -18,6 +18,9 @@
  *                   to and including the turn-end "recovery" step. It STOPS THERE: the turn-end hand draw and the
  *                   next turn's enemy plan never run on the copy, and the copy's hand stream is replaced by a fixed
  *                   neutral seed (NEUTRAL_HAND_STATE), so an evaluation can neither compute nor reveal a future draw.
+ *                   Under the commanderdraw preset the copy's enemy draw stream is replaced the same way
+ *                   (NEUTRAL_ENEMY_DRAW_STATE); the next plan's draw runs at the turn end, after the stop, so it never
+ *                   happens on the copy. The CURRENT turn's drawn list (enemyPack.drawnPool) stays: it is the frozen plan.
  *                   Returns only units (id, team, row, col, health, defeated) after the turn.
  *   searchDecide(observation, { handle, limits, now, round, maxRounds }) -> { orders, stats, ms }: candidate generation,
  *     static ranking, real evaluation under the per-decision limits, scoring, deterministic tie-break and fallback.
@@ -37,6 +40,7 @@ const WOLF_IDS = ["P1", "P2", "P3"];
 const MAX_GENERATED = 60000; // internal hard cap on the candidate pool before ranking (limitHits.generation)
 const FALLBACK_VALIDATIONS = 10; // at most this many validator calls when nothing was evaluated
 const NEUTRAL_HAND_STATE = 0x5eed1e55 >>> 0; // the copy's hand stream: never the live stream position
+const NEUTRAL_ENEMY_DRAW_STATE = 0x0e5eed1e >>> 0; // commanderdraw: the copy's enemy draw stream, never the live position
 const LIMIT_KEYS = ["maxCandidates", "maxEvaluations", "maxMsPerDecision"];
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -71,7 +75,9 @@ const evaluateExpr = (orders) => `(function (orders) {
   if (!verdict.ok) return { ok: false, stage: "validate", reason: verdict.reason, index: verdict.index, message: verdict.message };
   if (verdict.queuedTotal === 0) return { ok: false, stage: "validate", reason: "no-player-orders", index: -1, message: "no player action would be queued" };
   const state = snapshotBattleState();
+  const hadEnemyDraw = "enemyDrawState" in state.rng;
   state.rng = { handSeed: 0, handState: ${NEUTRAL_HAND_STATE} };
+  if (hadEnemyDraw) state.rng.enemyDrawState = ${NEUTRAL_ENEMY_DRAW_STATE};
   try {
     return withBattleState(state, function () {
       runInTurnCore(function () {
@@ -387,5 +393,5 @@ function addStats(total, s) {
 
 module.exports = {
   createGameSearchHandle, searchDecide, generateCandidates, enumerateCandidates, staticScore, scoreOutcome, isPoor, addStats,
-  checkLimits, ordersOf, emptyStats, LIMIT_KEYS, MAX_GENERATED, NEUTRAL_HAND_STATE,
+  checkLimits, ordersOf, emptyStats, LIMIT_KEYS, MAX_GENERATED, NEUTRAL_HAND_STATE, NEUTRAL_ENEMY_DRAW_STATE,
 };
