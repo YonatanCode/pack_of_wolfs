@@ -13,10 +13,15 @@
  *     one counting battles whose replay.payload is null (L3; a missing payload key, as in L2 records, is not counted),
  *     and one counting turns that carry an accountingNote (driver accounting imbalance, never hidden).
  *   - Deterministic: no wall-clock time, host or path inside the report; battles keep their given order.
+ *   - Full-information strategies (summary label "full-information benchmark"): one note per such strategy saying its
+ *     win rate does NOT estimate human difficulty, and one with its search cost counts. Their records' wall-clock
+ *     `timing` is moved OUT of battles into the top-level `nonHashed` key ({ about, searchMs: { <strategy>: { decisions,
+ *     totalMs, maxMs } } }), present only when some battle carried timing. reportHash ignores `nonHashed`; serializeReport
+ *     writes it (so a report file with search timing is not byte-identical across runs; its reportHash is).
  *   Any other key passed in (e.g. the manifest itself) is ignored.
  * canonicalJson(value): sorted-key compact JSON; refuses undefined, functions, symbols, bigints and non-finite numbers.
  * serializeReport(report): sorted-key JSON, 2-space indent, trailing newline (byte-identical for equal reports).
- * reportHash(report): sha256 hex of canonicalJson(report).
+ * reportHash(report): sha256 hex of canonicalJson(report without its nonHashed key).
  */
 const crypto = require("node:crypto");
 const { summarize } = require("./metrics.cjs");
@@ -42,7 +47,13 @@ function sortKeys(value, path = "$") {
 
 const canonicalJson = (value) => JSON.stringify(sortKeys(value));
 const serializeReport = (report) => `${JSON.stringify(sortKeys(report), null, 2)}\n`;
-const reportHash = (report) => crypto.createHash("sha256").update(canonicalJson(report)).digest("hex");
+const NON_HASHED_ABOUT = "wall-clock search timing (not deterministic); excluded from reportHash";
+const hashedBody = (report) => {
+  if (!report || typeof report !== "object" || !("nonHashed" in report)) return report;
+  const { nonHashed, ...rest } = report;
+  return rest;
+};
+const reportHash = (report) => crypto.createHash("sha256").update(canonicalJson(hashedBody(report))).digest("hex");
 
 function buildReport({ manifestHash, buildId, battles, notes = [], fixtureOnly } = {}) {
   if (!Array.isArray(battles)) throw new TypeError("buildReport: battles must be an array");
@@ -68,6 +79,13 @@ function buildReport({ manifestHash, buildId, battles, notes = [], fixtureOnly }
   const derived = [];
   if (fixture) derived.push(FIXTURE_NOTE);
   Object.entries(summary).forEach(([strategy, s]) => {
+    if (s.fullInformation === true) {
+      derived.push(`${s.label}: ${strategy} reads hidden enemy plans and simulates candidate turns with the game's rules; its win rate does NOT estimate human difficulty`);
+      const c = s.search;
+      derived.push(`search cost: ${strategy} ${c.decisions} decisions, ${c.candidatesGenerated} candidates generated, ${c.candidatesKept} kept, ${c.evaluated} evaluated; limit hits generation ${c.limitHits.generation}, candidates ${c.limitHits.candidates}, evaluations ${c.limitHits.evaluations}, time ${c.limitHits.time}; fallbacks ${c.fallbacks}`);
+    }
+  });
+  Object.entries(summary).forEach(([strategy, s]) => {
     if (s.n < SMALL_N) derived.push(`small sample: ${strategy} n=${s.n}, win rate 95% interval [${s.winRateWilson95[0]}, ${s.winRateWilson95[1]}]`);
   });
   const noPayload = battles.filter((b) => b.replay && b.replay.payload === null).length;
@@ -75,18 +93,32 @@ function buildReport({ manifestHash, buildId, battles, notes = [], fixtureOnly }
   if (unbalanced) derived.push(`accounting: ${unbalanced} turn(s) do not balance planned = executed + attacksMissed + wasted (see perTurn[].accountingNote)`);
   if (noPayload) derived.push(`visual replay: ${noPayload} of ${battles.length} battle(s) have no replay payload (see replay.payloadNote)`);
 
+  const searchMs = {};
+  battles.forEach((b) => {
+    const t = b && b.timing && b.timing.searchMs;
+    if (!t) return;
+    const acc = (searchMs[b.strategy] ??= { decisions: 0, totalMs: 0, maxMs: 0 });
+    acc.decisions += Number(t.decisions) || 0;
+    acc.totalMs += Number(t.totalMs) || 0;
+    acc.maxMs = Math.max(acc.maxMs, Number(t.maxMs) || 0);
+  });
   const report = {
     schemaVersion: 1,
     manifestHash,
     buildId,
     rulesHash: hashes.length ? hashes[0] : null,
     fixtureOnly: fixture,
-    battles: JSON.parse(canonicalJson(battles)),
+    battles: JSON.parse(canonicalJson(battles.map((b) => {
+      if (!b || typeof b !== "object" || !("timing" in b)) return b;
+      const { timing, ...rest } = b; // wall clock: moved to nonHashed
+      return rest;
+    }))),
     summary,
     notes: [...derived, ...notes],
   };
+  if (Object.keys(searchMs).length) report.nonHashed = { about: NON_HASHED_ABOUT, searchMs };
   canonicalJson(report); // refuses anything that is not plain data
   return report;
 }
 
-module.exports = { buildReport, assembleReport: buildReport, canonicalJson, serializeReport, reportHash, FIXTURE_NOTE, SMALL_N };
+module.exports = { buildReport, assembleReport: buildReport, canonicalJson, serializeReport, reportHash, FIXTURE_NOTE, SMALL_N, NON_HASHED_ABOUT };

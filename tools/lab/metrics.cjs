@@ -15,6 +15,11 @@
  *     Field meanings (driver.cjs): executed excludes missed Attacks; planned = executed + attacksMissed + wasted;
  *     notExecuted = planned - executed.
  *   - fixtureOnly: true when any battle of the strategy is a hand-authored fixture (a label, never evidence).
+ *   - Full-information strategies (any battle with fullInformation: true, e.g. search-benchmark) also get
+ *     fullInformation: true, label: "full-information benchmark" (its win rate does NOT estimate human difficulty) and
+ *     search: the summed perTurn[].search counts (decisions, candidatesGenerated, candidatesKept, evaluated,
+ *     rejectedByValidator, engineErrors, fallbacks, reshuffles, limitHits {...}). Other strategies keep exactly the keys
+ *     above. Wall-clock search time is not here (report.cjs nonHashed).
  * Numbers are rounded to 6 decimals so the serialised report is stable.
  */
 const Z95 = 1.959963984540054;
@@ -80,8 +85,29 @@ function summarize(battles) {
       meanReshuffles: mean(numbers(turns, "reshuffles")),
       fixtureOnly: list.some((b) => b.fixtureOnly === true),
     };
+    if (list.some((b) => b.fullInformation === true)) {
+      out[strategy].fullInformation = true;
+      out[strategy].label = FULL_INFORMATION_LABEL;
+      out[strategy].search = sumSearch(turns);
+    }
   });
   return out;
 }
 
-module.exports = { summarize, wilson95, Z95, RESULTS };
+const FULL_INFORMATION_LABEL = "full-information benchmark";
+const SEARCH_COUNTS = ["decisions", "candidatesGenerated", "candidatesKept", "evaluated", "rejectedByValidator", "engineErrors", "fallbacks", "reshuffles"];
+const LIMIT_HITS = ["generation", "candidates", "evaluations", "time"];
+/** Sum of perTurn[].search over the turn slots that carry one. */
+function sumSearch(turns) {
+  const out = Object.fromEntries(SEARCH_COUNTS.map((k) => [k, 0]));
+  out.limitHits = Object.fromEntries(LIMIT_HITS.map((k) => [k, 0]));
+  turns.forEach((t) => {
+    const s = t && t.search;
+    if (!s || typeof s !== "object") return;
+    SEARCH_COUNTS.forEach((k) => { if (Number.isFinite(s[k])) out[k] += s[k]; });
+    LIMIT_HITS.forEach((k) => { if (s.limitHits && Number.isFinite(s.limitHits[k])) out.limitHits[k] += s.limitHits[k]; });
+  });
+  return out;
+}
+
+module.exports = { summarize, wilson95, Z95, RESULTS, FULL_INFORMATION_LABEL };

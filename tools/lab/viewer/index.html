@@ -756,7 +756,7 @@
           const row = document.createElement('tr');
 
           const nameCell = document.createElement('td');
-          nameCell.textContent = strategy;
+          nameCell.textContent = s.label ? `${strategy} (${s.label})` : strategy;
           row.appendChild(nameCell);
 
           const nCell = document.createElement('td');
