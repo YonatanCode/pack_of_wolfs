@@ -460,6 +460,10 @@ function setUp(load, record) {
     if (observation.rules.preset !== record.preset) {
       return { failure: `the battle booted with preset ${observation.rules.preset}, not ${record.preset} (rejected link?)` };
     }
+    if (rulesQueryOf(record.replay.query)) {
+      const link = evalJson(game, "window.devTest.getRulesLinkStatus()");
+      if (!link || link.status !== "applied") return { failure: `the rules link was not applied: ${link ? link.message : "no link status"}` };
+    }
     return { game, observation };
   } catch (e) {
     return { failure: `setup failed: ${errText(e)}` };
