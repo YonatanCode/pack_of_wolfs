@@ -12,7 +12,16 @@ const LIMIT_CAPS = Object.freeze({
   maxTotalTurns: 5000,
   maxRuntimeSeconds: 1800,
 });
+// Per-decision search limits (optional key `searchLimits`; REQUIRED when a full-information strategy is listed, refused
+// otherwise). Same rules as limits: every key required, positive integer, at or under its hard cap. Included in
+// manifestHash like every other key.
+const SEARCH_LIMIT_CAPS = Object.freeze({
+  maxCandidates: 2000,
+  maxEvaluations: 1000,
+  maxMsPerDecision: 10000,
+});
 const TOP_KEYS = ["schemaVersion", "label", "buildId", "preset", "scenarios", "strategies", "limits", "botSeed"];
+const OPTIONAL_TOP_KEYS = ["searchLimits"];
 const SCENARIO_KEYS = ["id", "seeds"];
 const MAX_LABEL = 200;
 const MAX_SEEDS_PER_SCENARIO = 200;
@@ -27,6 +36,17 @@ function loadBotIds() {
   try {
     const m = require("./bots.cjs");
     return m && m.BOTS ? Object.keys(m.BOTS).sort() : null;
+  } catch (e) {
+    if (e && e.code === "MODULE_NOT_FOUND" && /bots\.cjs/.test(e.message)) return null;
+    throw e;
+  }
+}
+
+/** Strategy ids whose bots.cjs entry is flagged `fullInformation: true` (null when bots.cjs is not available). */
+function loadFullInformationIds() {
+  try {
+    const m = require("./bots.cjs");
+    return m && m.BOTS ? Object.keys(m.BOTS).filter((k) => m.BOTS[k] && m.BOTS[k].fullInformation === true).sort() : null;
   } catch (e) {
     if (e && e.code === "MODULE_NOT_FOUND" && /bots\.cjs/.test(e.message)) return null;
     throw e;
@@ -82,6 +102,7 @@ function battleCount(m) {
  * validateManifest(manifest, { botIds }) -> { valid, errors: [string], battles, limits, manifestHash }
  * botIds: list of known strategy ids; defaults to the ids in bots.cjs. If neither is available the manifest is INVALID
  * (strategies cannot be verified), never silently accepted.
+ * fullInformationIds: strategy ids that need `searchLimits`; defaults to the bots.cjs entries flagged fullInformation.
  */
 function validateManifest(m, opts = {}) {
   const errors = [];
@@ -91,7 +112,7 @@ function validateManifest(m, opts = {}) {
   if (gameValues === undefined) { try { gameValues = loadGameValues(); } catch (e) { gameValues = null; gameValuesError = e.message; } }
   if (!isObj(m)) return { valid: false, errors: ["manifest must be a JSON object"], battles: 0, limits: null, manifestHash: null };
 
-  for (const k of Object.keys(m)) if (!TOP_KEYS.includes(k)) errors.push(`unknown key: ${k}`);
+  for (const k of Object.keys(m)) if (!TOP_KEYS.includes(k) && !OPTIONAL_TOP_KEYS.includes(k)) errors.push(`unknown key: ${k}`);
   for (const k of TOP_KEYS) if (!(k in m)) errors.push(`missing required key: ${k}`);
 
   if ("schemaVersion" in m && m.schemaVersion !== 1) errors.push("schemaVersion must be 1");
@@ -153,6 +174,24 @@ function validateManifest(m, opts = {}) {
     }
   }
 
+  if ("searchLimits" in m) {
+    if (!isObj(m.searchLimits)) errors.push("searchLimits must be an object");
+    else {
+      for (const k of Object.keys(m.searchLimits)) if (!(k in SEARCH_LIMIT_CAPS)) errors.push(`unknown key: searchLimits.${k}`);
+      for (const k of Object.keys(SEARCH_LIMIT_CAPS)) {
+        if (!(k in m.searchLimits)) errors.push(`missing required search limit: searchLimits.${k}`);
+        else if (!isPosInt(m.searchLimits[k])) errors.push(`searchLimits.${k} must be a positive integer`);
+        else if (m.searchLimits[k] > SEARCH_LIMIT_CAPS[k]) errors.push(`searchLimits.${k}=${m.searchLimits[k]} exceeds hard cap ${SEARCH_LIMIT_CAPS[k]}`);
+      }
+    }
+  }
+  if (Array.isArray(m.strategies) && m.strategies.every(isStr)) {
+    const fullIds = opts.fullInformationIds !== undefined ? opts.fullInformationIds : loadFullInformationIds();
+    const full = Array.isArray(fullIds) ? m.strategies.filter((s) => fullIds.includes(s)) : [];
+    if (full.length && !("searchLimits" in m)) errors.push(`searchLimits is required with a full-information strategy (${full.join(", ")})`);
+    if (!full.length && "searchLimits" in m) errors.push("searchLimits is only allowed with a full-information strategy (none listed)");
+  }
+
   const battles = battleCount(m);
   if (limits && isPosInt(limits.maxBattles) && battles > limits.maxBattles) {
     errors.push(`battle count ${battles} (scenario seeds x strategies) exceeds limits.maxBattles ${limits.maxBattles}`);
@@ -160,4 +199,4 @@ function validateManifest(m, opts = {}) {
   return { valid: errors.length === 0, errors, battles, limits, manifestHash: errors.length === 0 ? manifestHash(m) : null };
 }
 
-module.exports = { LIMIT_CAPS, validateManifest, battleCount, canonicalJson, manifestHash, loadBotIds, loadGameValues };
+module.exports = { LIMIT_CAPS, SEARCH_LIMIT_CAPS, validateManifest, battleCount, canonicalJson, manifestHash, loadBotIds, loadFullInformationIds, loadGameValues };
