@@ -1,0 +1,156 @@
+{
+  "id": "g6-search-limits",
+  "caps": {
+    "maxCandidates": 2000,
+    "maxEvaluations": 1000,
+    "maxMsPerDecision": 10000
+  },
+  "cases": {
+    "valid": {
+      "valid": true,
+      "errors": [],
+      "hasHash": true
+    },
+    "valid-default-registry": {
+      "valid": true,
+      "errors": [],
+      "hasHash": true
+    },
+    "missing-searchLimits": {
+      "valid": false,
+      "errors": [
+        "searchLimits is required with a full-information strategy (search-benchmark)"
+      ],
+      "hasHash": false
+    },
+    "searchLimits-without-search-strategy": {
+      "valid": false,
+      "errors": [
+        "searchLimits is only allowed with a full-information strategy (none listed)"
+      ],
+      "hasHash": false
+    },
+    "mixed-strategies": {
+      "valid": true,
+      "errors": [],
+      "hasHash": true
+    },
+    "unknown-key": {
+      "valid": false,
+      "errors": [
+        "unknown key: searchLimits.maxDepth"
+      ],
+      "hasHash": false
+    },
+    "missing-maxCandidates": {
+      "valid": false,
+      "errors": [
+        "missing required search limit: searchLimits.maxCandidates"
+      ],
+      "hasHash": false
+    },
+    "missing-maxEvaluations": {
+      "valid": false,
+      "errors": [
+        "missing required search limit: searchLimits.maxEvaluations"
+      ],
+      "hasHash": false
+    },
+    "missing-maxMsPerDecision": {
+      "valid": false,
+      "errors": [
+        "missing required search limit: searchLimits.maxMsPerDecision"
+      ],
+      "hasHash": false
+    },
+    "cap-exceeded-maxCandidates": {
+      "valid": false,
+      "errors": [
+        "searchLimits.maxCandidates=2001 exceeds hard cap 2000"
+      ],
+      "hasHash": false
+    },
+    "cap-exceeded-maxEvaluations": {
+      "valid": false,
+      "errors": [
+        "searchLimits.maxEvaluations=1001 exceeds hard cap 1000"
+      ],
+      "hasHash": false
+    },
+    "cap-exceeded-maxMsPerDecision": {
+      "valid": false,
+      "errors": [
+        "searchLimits.maxMsPerDecision=10001 exceeds hard cap 10000"
+      ],
+      "hasHash": false
+    },
+    "at-cap-maxCandidates": {
+      "valid": true,
+      "errors": [],
+      "hasHash": true
+    },
+    "at-cap-maxEvaluations": {
+      "valid": true,
+      "errors": [],
+      "hasHash": true
+    },
+    "at-cap-maxMsPerDecision": {
+      "valid": true,
+      "errors": [],
+      "hasHash": true
+    },
+    "zero": {
+      "valid": false,
+      "errors": [
+        "searchLimits.maxEvaluations must be a positive integer"
+      ],
+      "hasHash": false
+    },
+    "fractional": {
+      "valid": false,
+      "errors": [
+        "searchLimits.maxCandidates must be a positive integer"
+      ],
+      "hasHash": false
+    },
+    "string": {
+      "valid": false,
+      "errors": [
+        "searchLimits.maxMsPerDecision must be a positive integer"
+      ],
+      "hasHash": false
+    },
+    "not-an-object": {
+      "valid": false,
+      "errors": [
+        "searchLimits must be an object"
+      ],
+      "hasHash": false
+    },
+    "old-manifest": {
+      "valid": true,
+      "errors": [],
+      "hasHash": true
+    },
+    "hash": {
+      "coversSearchLimits": true,
+      "keyOrderIndependent": true,
+      "oldManifestHashIsPlainHash": true
+    },
+    "checkOnly": {
+      "code": 0,
+      "lines": [
+        "validation: VALID",
+        "battles: 3",
+        "searchLimits: {\"maxCandidates\":200,\"maxEvaluations\":200,\"maxMsPerDecision\":500}",
+        "check-only: nothing was run"
+      ]
+    }
+  },
+  "usage": {
+    "contexts": 0,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 0
+  }
+}
