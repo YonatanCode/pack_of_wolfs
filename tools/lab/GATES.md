@@ -17,6 +17,7 @@ Approvals live in `lab/approvals.json` (gitignored). No tool in this repo create
 - [ ] every limit required, positive integer, at or under its hard cap: maxBattles 200, maxTurnsPerBattle 60, maxTotalTurns 5000, maxRuntimeSeconds 1800
 - [ ] scenario ids and preset must be supported by the game (`unknown scenario: X (supported: ...)`, `unknown preset: X (supported: ...)`); read statically from scenarios/*.js and script.js; unreadable sources = refused. This happens before the authorization is consumed.
 - [ ] battle count (sum of seeds x strategies) must be <= `limits.maxBattles`
+- [ ] optional `searchLimits` (`maxCandidates`, `maxEvaluations`, `maxMsPerDecision`): object, no unknown key, every key a positive integer at or under its hard cap 2000 / 1000 / 10000; REQUIRED when a full-information strategy (`search-benchmark`) is listed (`searchLimits is required with a full-information strategy (...)`), refused otherwise (`searchLimits is only allowed with a full-information strategy (none listed)`); `--check-only` prints it
 
 ## Gate 2: build ID
 - [ ] `stale build: manifest.buildId X != current Y`
@@ -35,7 +36,7 @@ Approvals live in `lab/approvals.json` (gitignored). No tool in this repo create
 - [ ] `no authorization for manifest hash H (authorizations exist only for other manifests)`
 - [ ] `authorization for this build and manifest hash was already consumed (single-use)`
 - [ ] malformed approvals file (same message as above)
-- [ ] `authorization has no labVersion ...` / `authorization is bound to a different Lab version (current labVersion L)`: authorizations carry `labVersion` = sha256 of tools/lab/{driver,bots,manifest,approvals,run,report,metrics}.cjs; any edit to those files voids existing authorizations. Playchecks stay bound to the gameplay build only. `--check-only` prints the current labVersion.
+- [ ] `authorization has no labVersion ...` / `authorization is bound to a different Lab version (current labVersion L)`: authorizations carry `labVersion` = sha256 of tools/lab/{driver,bots,manifest,approvals,run,report,metrics,search}.cjs; any edit to those files voids existing authorizations. Playchecks stay bound to the gameplay build only. `--check-only` prints the current labVersion.
 - Approvals are matched to the CURRENT build and the manifest hash, never to a build the manifest merely claims.
 
 ## After the gates (still exit 2)
@@ -46,6 +47,7 @@ Approvals live in `lab/approvals.json` (gitignored). No tool in this repo create
 ## Runtime limits during a run
 - Authorization is consumed before the first battle starts.
 - Before each battle the runner stops (and notes it in the report) when `maxRuntimeSeconds` wall clock or `maxTotalTurns` is reached; each battle is also capped by `maxTurnsPerBattle`. The driver also receives the deadline and the remaining total turns, so both are enforced per turn inside a battle (the battle ends as `timeout`).
+- `search-benchmark` decisions are bounded by `searchLimits` (candidates, evaluate calls, `maxMsPerDecision` checked before each evaluation, so one decision can overrun it by at most one evaluation). Up to two decisions per turn (reshuffle round). The per-turn deadline check does not interrupt a decision; the child SIGKILL does.
 
 ## Runtime isolation
 - Each battle runs in a child process (`node run.cjs --worker`), SIGKILLed at the remaining `maxRuntimeSeconds`. The killed battle is kept as a `timeout` record with stopReason `runtime-deadline-killed`, completed records are kept, no further battles start, the report note is `stopped early: runtime deadline; N of M battles completed`, and the report is still emitted.
