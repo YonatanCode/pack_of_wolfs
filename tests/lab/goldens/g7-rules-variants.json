@@ -1,0 +1,206 @@
+{
+  "id": "g7-rules-variants",
+  "maxRulesVariants": 8,
+  "cases": {
+    "validRealParser": {
+      "valid": true,
+      "battles": 3,
+      "errors": [],
+      "hasHash": true
+    },
+    "battlesMultiply": {
+      "valid": false,
+      "battles": 12,
+      "errors": [
+        "battle count 12 (scenario seeds x strategies x rules variants) exceeds limits.maxBattles 10"
+      ],
+      "hasHash": false
+    },
+    "emptyStringVariant": {
+      "valid": true,
+      "battles": 2,
+      "errors": [],
+      "hasHash": true
+    },
+    "notArray": {
+      "valid": false,
+      "battles": 1,
+      "errors": [
+        "rulesVariants must be an array of 1 to 8 rules queries"
+      ],
+      "hasHash": false
+    },
+    "empty": {
+      "valid": false,
+      "battles": 1,
+      "errors": [
+        "rulesVariants must be an array of 1 to 8 rules queries"
+      ],
+      "hasHash": false
+    },
+    "tooMany": {
+      "valid": false,
+      "battles": 9,
+      "errors": [
+        "rulesVariants must be an array of 1 to 8 rules queries"
+      ],
+      "hasHash": false
+    },
+    "nonString": {
+      "valid": false,
+      "battles": 1,
+      "errors": [
+        "rulesVariants entries must be \"\" or \"rules=<key>:<integer>,...\" (at most 512 characters)"
+      ],
+      "hasHash": false
+    },
+    "noPrefix": {
+      "valid": false,
+      "battles": 1,
+      "errors": [
+        "rulesVariants entries must be \"\" or \"rules=<key>:<integer>,...\" (at most 512 characters)"
+      ],
+      "hasHash": false
+    },
+    "secondParam": {
+      "valid": false,
+      "battles": 1,
+      "errors": [
+        "rulesVariants entries must be \"\" or \"rules=<key>:<integer>,...\" (at most 512 characters)"
+      ],
+      "hasHash": false
+    },
+    "upperCase": {
+      "valid": false,
+      "battles": 1,
+      "errors": [
+        "rulesVariants entries must be \"\" or \"rules=<key>:<integer>,...\" (at most 512 characters)"
+      ],
+      "hasHash": false
+    },
+    "duplicate": {
+      "valid": false,
+      "battles": 2,
+      "errors": [
+        "rulesVariants must be unique"
+      ],
+      "hasHash": false
+    },
+    "gameOutOfBounds": {
+      "valid": false,
+      "battles": 1,
+      "errors": [
+        "rulesVariants[0] \"rules=pab:9\" rejected by the game: rules link rejected (playerActionBudget must be a whole number from 1 to 8)"
+      ],
+      "hasHash": false
+    },
+    "gameUnknownKey": {
+      "valid": false,
+      "battles": 1,
+      "errors": [
+        "rulesVariants[0] \"rules=zz:1\" rejected by the game: rules link rejected (unknown key \"zz\")"
+      ],
+      "hasHash": false
+    },
+    "gameUnfillableHand": {
+      "valid": false,
+      "battles": 1,
+      "errors": [
+        "rulesVariants[0] \"rules=hs:8,cap:2\" rejected by the game: rules link rejected (the hand cannot be filled: 3 drawable action(s) x maxSameAction 2 = 6, but handSize is 8)"
+      ],
+      "hasHash": false
+    },
+    "overMaxBattles": {
+      "valid": false,
+      "battles": 3,
+      "errors": [
+        "battle count 3 (scenario seeds x strategies x rules variants) exceeds limits.maxBattles 2"
+      ],
+      "hasHash": false
+    },
+    "checkerCalls": [
+      "commanderdraw rules=pab:4,hs:4,rc:2,cap:3,eab:4",
+      "commanderdraw rules=pab:5,hs:5,rc:2,cap:3,eab:5",
+      "commanderdraw rules=pab:6,hs:6,rc:2,cap:3,eab:6"
+    ],
+    "withoutVariantsNeverLoadsChecker": {
+      "valid": true,
+      "battles": 6,
+      "errors": [],
+      "hasHash": true
+    },
+    "hash": {
+      "coversVariants": true,
+      "coversOrder": true,
+      "oldManifestPlain": true
+    },
+    "report": {
+      "rulesHash": null,
+      "rulesVariants": [
+        {
+          "rulesQuery": "rules=pab:4,hs:4,rc:2,cap:3,eab:4",
+          "rulesVersion": "v-draw",
+          "rulesHash": "h4",
+          "n": 1,
+          "summary": {
+            "n": 1,
+            "wins": 1
+          }
+        },
+        {
+          "rulesQuery": "rules=pab:5,hs:5,rc:2,cap:3,eab:5",
+          "rulesVersion": "v-draw",
+          "rulesHash": "h5",
+          "n": 1,
+          "summary": {
+            "n": 1,
+            "wins": 0
+          }
+        },
+        {
+          "rulesQuery": "rules=pab:6,hs:6,rc:2,cap:3,eab:6",
+          "rulesVersion": "v-draw",
+          "rulesHash": "h6",
+          "n": 1,
+          "summary": {
+            "n": 1,
+            "wins": 1
+          }
+        }
+      ],
+      "note": "rules variants: 3 (\"rules=pab:4,hs:4,rc:2,cap:3,eab:4\" n=1, \"rules=pab:5,hs:5,rc:2,cap:3,eab:5\" n=1, \"rules=pab:6,hs:6,rc:2,cap:3,eab:6\" n=1); summary pools every variant, rulesVariants[].summary splits them",
+      "keys": [
+        "schemaVersion",
+        "manifestHash",
+        "buildId",
+        "rulesHash",
+        "fixtureOnly",
+        "battles",
+        "summary",
+        "rulesVariants",
+        "notes"
+      ]
+    },
+    "reportRefusals": {
+      "hashesWithinVariant": "TypeError: buildReport: battles of rules variant \"rules=pab:4,hs:4,rc:2,cap:3,eab:4\" ran under different rules hashes (h4, hX)",
+      "strayBattle": "TypeError: buildReport: 1 battle(s) match no rules variant",
+      "withoutVariants": "TypeError: buildReport: battles ran under different rules hashes (h4, h5, h6)",
+      "badVariantsArg": "TypeError: buildReport: rulesVariants must be a non-empty array of rulesQuery strings"
+    },
+    "checkOnly": {
+      "code": 0,
+      "lines": [
+        "validation: VALID",
+        "battles: 3",
+        "rulesVariants: [\"rules=pab:4,hs:4,rc:2,cap:3,eab:4\",\"rules=pab:5,hs:5,rc:2,cap:3,eab:5\",\"rules=pab:6,hs:6,rc:2,cap:3,eab:6\"]",
+        "check-only: nothing was run"
+      ]
+    }
+  },
+  "usage": {
+    "contexts": 6,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
