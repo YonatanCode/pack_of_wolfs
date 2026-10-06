@@ -236,4 +236,4 @@ const BOTS = {
   },
 };
 
-module.exports = { BOTS, legalOrderCheck };
+module.exports = { BOTS, legalOrderCheck, movesNeeded, NEEDED_CAP };
