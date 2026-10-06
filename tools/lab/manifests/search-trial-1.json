@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "label": "search-trial-1: search-benchmark (FULL-INFORMATION BENCHMARK, win rate does not estimate human difficulty), commander, intro, seeds 1-5; not a balance test",
+  "buildId": "7df983674acac7a2db5461a7164acf2f704108f0467fdae96cbb0f61a2a78d03",
+  "preset": "commander",
+  "scenarios": [{ "id": "intro", "seeds": [1, 2, 3, 4, 5] }],
+  "strategies": ["search-benchmark"],
+  "limits": { "maxBattles": 5, "maxTurnsPerBattle": 30, "maxTotalTurns": 150, "maxRuntimeSeconds": 120 },
+  "searchLimits": { "maxCandidates": 200, "maxEvaluations": 200, "maxMsPerDecision": 400 },
+  "botSeed": 1
+}
