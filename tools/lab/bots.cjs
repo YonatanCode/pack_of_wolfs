@@ -18,7 +18,7 @@ const aliveWolves = (obs) =>
 // Visible = alive and not concealed (concealment hides intent, not position, but bots only act on what is shown plainly).
 const visibleEnemies = (obs) =>
   obs.units.filter((u) => u.team === "enemy" && !u.defeated && !u.concealed).sort((a, b) => (a.id < b.id ? -1 : 1));
-const targetsActive = (obs) => obs.rules.preset === "commander" && obs.config.enemyMode === "wolves";
+const targetsActive = (obs) => (obs.rules.preset === "commander" || obs.rules.preset === "commanderdraw") && obs.config.enemyMode === "wolves";
 const queuedTotal = (obs) => obs.units.filter((u) => u.team === "player").reduce((n, u) => n + (u.queue ? u.queue.length : 0), 0);
 const manhattan = (a, b) => Math.abs(a.row - b.row) + Math.abs(a.col - b.col);
 const isAdjacent = (a, b) => Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col)) === 1; // 8 neighbours, as the engine
