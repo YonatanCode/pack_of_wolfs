@@ -18,6 +18,11 @@
  *     `timing` is moved OUT of battles into the top-level `nonHashed` key ({ about, searchMs: { <strategy>: { decisions,
  *     totalMs, maxMs } } }), present only when some battle carried timing. reportHash ignores `nonHashed`; serializeReport
  *     writes it (so a report file with search timing is not byte-identical across runs; its reportHash is).
+ *   - rulesVariants (optional, the manifest's list of rulesQuery strings): battles may then differ in rules hash BETWEEN
+ *     variants (each variant must still share one hash). The report adds `rulesVariants: [{ rulesQuery, rulesVersion,
+ *     rulesHash, n, summary }]` (a battle's variant = the rules= parameter of its replay.query; summary =
+ *     metrics.summarize of that variant's battles) and a note; top-level rulesHash is null when the variants differ.
+ *     Without rulesVariants nothing changes (one hash for all battles, no extra key).
  *   Any other key passed in (e.g. the manifest itself) is ignored.
  * canonicalJson(value): sorted-key compact JSON; refuses undefined, functions, symbols, bigints and non-finite numbers.
  * serializeReport(report): sorted-key JSON, 2-space indent, trailing newline (byte-identical for equal reports).
@@ -55,7 +60,9 @@ const hashedBody = (report) => {
 };
 const reportHash = (report) => crypto.createHash("sha256").update(canonicalJson(hashedBody(report))).digest("hex");
 
-function buildReport({ manifestHash, buildId, battles, notes = [], fixtureOnly } = {}) {
+const rulesQueryOfBattle = (b) => { const m = /[?&](rules=[^&]*)/.exec(b && b.replay && typeof b.replay.query === "string" ? b.replay.query : ""); return m ? m[1] : ""; };
+
+function buildReport({ manifestHash, buildId, battles, notes = [], fixtureOnly, rulesVariants } = {}) {
   if (!Array.isArray(battles)) throw new TypeError("buildReport: battles must be an array");
   if (!Array.isArray(notes) || notes.some((n) => typeof n !== "string")) throw new TypeError("buildReport: notes must be an array of strings");
   const flags = [...new Set(battles.map((b) => b && b.fixtureOnly))];
@@ -72,8 +79,22 @@ function buildReport({ manifestHash, buildId, battles, notes = [], fixtureOnly }
   label("manifestHash", manifestHash);
   label("buildId", buildId);
 
-  const hashes = [...new Set(battles.map((b) => b.rulesHash).filter((h) => h !== null && h !== undefined))];
-  if (hashes.length > 1) throw new TypeError(`buildReport: battles ran under different rules hashes (${hashes.sort().join(", ")})`);
+  if (rulesVariants !== undefined && (!Array.isArray(rulesVariants) || !rulesVariants.length || rulesVariants.some((q) => typeof q !== "string"))) {
+    throw new TypeError("buildReport: rulesVariants must be a non-empty array of rulesQuery strings");
+  }
+  const hashOf = (list) => [...new Set(list.map((b) => b.rulesHash).filter((h) => h !== null && h !== undefined))];
+  const hashes = hashOf(battles);
+  const variantRows = rulesVariants ? rulesVariants.map((rulesQuery) => {
+    const own = battles.filter((b) => rulesQueryOfBattle(b) === rulesQuery);
+    const h = hashOf(own);
+    if (h.length > 1) throw new TypeError(`buildReport: battles of rules variant "${rulesQuery}" ran under different rules hashes (${h.sort().join(", ")})`);
+    const versions = [...new Set(own.map((b) => b.rulesVersion).filter((x) => x !== null && x !== undefined))];
+    return { rulesQuery, rulesVersion: versions.length === 1 ? versions[0] : null, rulesHash: h.length ? h[0] : null, n: own.length, summary: summarize(own) };
+  }) : null;
+  if (variantRows) {
+    const stray = battles.filter((b) => !rulesVariants.includes(rulesQueryOfBattle(b))).length;
+    if (stray) throw new TypeError(`buildReport: ${stray} battle(s) match no rules variant`);
+  } else if (hashes.length > 1) throw new TypeError(`buildReport: battles ran under different rules hashes (${hashes.sort().join(", ")})`);
 
   const summary = summarize(battles);
   const derived = [];
@@ -92,6 +113,7 @@ function buildReport({ manifestHash, buildId, battles, notes = [], fixtureOnly }
   const unbalanced = battles.reduce((n, b) => n + (Array.isArray(b.perTurn) ? b.perTurn.filter((t) => t && typeof t.accountingNote === "string").length : 0), 0);
   if (unbalanced) derived.push(`accounting: ${unbalanced} turn(s) do not balance planned = executed + attacksMissed + wasted (see perTurn[].accountingNote)`);
   if (noPayload) derived.push(`visual replay: ${noPayload} of ${battles.length} battle(s) have no replay payload (see replay.payloadNote)`);
+  if (variantRows) derived.push(`rules variants: ${variantRows.length} (${variantRows.map((r) => `"${r.rulesQuery}" n=${r.n}`).join(", ")}); summary pools every variant, rulesVariants[].summary splits them`);
 
   const searchMs = {};
   battles.forEach((b) => {
@@ -106,7 +128,7 @@ function buildReport({ manifestHash, buildId, battles, notes = [], fixtureOnly }
     schemaVersion: 1,
     manifestHash,
     buildId,
-    rulesHash: hashes.length ? hashes[0] : null,
+    rulesHash: hashes.length === 1 ? hashes[0] : null,
     fixtureOnly: fixture,
     battles: JSON.parse(canonicalJson(battles.map((b) => {
       if (!b || typeof b !== "object" || !("timing" in b)) return b;
@@ -114,6 +136,7 @@ function buildReport({ manifestHash, buildId, battles, notes = [], fixtureOnly }
       return rest;
     }))),
     summary,
+    ...(variantRows ? { rulesVariants: variantRows } : {}),
     notes: [...derived, ...notes],
   };
   if (Object.keys(searchMs).length) report.nonHashed = { about: NON_HASHED_ABOUT, searchMs };

@@ -21,7 +21,14 @@ const SEARCH_LIMIT_CAPS = Object.freeze({
   maxMsPerDecision: 10000,
 });
 const TOP_KEYS = ["schemaVersion", "label", "buildId", "preset", "scenarios", "strategies", "limits", "botSeed"];
-const OPTIONAL_TOP_KEYS = ["searchLimits"];
+const OPTIONAL_TOP_KEYS = ["searchLimits", "rulesVariants"];
+// Optional `rulesVariants`: a list of rules link parameters ("" = the preset's default settings, or "rules=<k>:<v>,...");
+// every battle (scenario seed x strategy) runs once per variant, with that rulesQuery (record replay.query, replay payload
+// rulesQuery). Each entry must pass the GAME's strict link parser (parseRulesParams) together with `preset`. Part of
+// manifestHash like every other key. Absent = one implicit "" variant (unchanged behaviour).
+const MAX_RULES_VARIANTS = 8;
+const MAX_RULES_QUERY_LENGTH = 512; // the replay payload's rulesQuery limit (driver PAYLOAD_LIMITS.maxRulesQueryLength)
+const RULES_QUERY_SHAPE = /^rules=[a-z]+:(0|[1-9]\d*)(,[a-z]+:(0|[1-9]\d*))*$/;
 const SCENARIO_KEYS = ["id", "seeds"];
 const MAX_LABEL = 200;
 const MAX_SEEDS_PER_SCENARIO = 200;
@@ -79,6 +86,21 @@ function loadGameValues(root = ROOT) {
   return { scenarioIds: [...scenarioIds].sort(), presetIds: [...presetIds].sort() };
 }
 
+/**
+ * Default rules-variant checker: the GAME's strict link parser. Boots the unmodified script.js once in the headless loader
+ * (tests/harness/load-game.cjs; no battle, no turn, no bot) and asks parseRulesParams about "?preset=<p>&<rulesQuery>".
+ * -> (preset, rulesQuery) => null (accepted) | reason string. Loaded lazily: only a manifest WITH rulesVariants boots it.
+ */
+function loadRulesQueryChecker() {
+  const { loadGame } = require("../../tests/harness/load-game.cjs");
+  const game = loadGame({});
+  return (preset, rulesQuery) => {
+    const search = `?preset=${encodeURIComponent(preset)}${rulesQuery ? `&${rulesQuery}` : ""}`;
+    const r = JSON.parse(game.ev(`JSON.stringify(parseRulesParams(new URLSearchParams(${JSON.stringify(search)})))`));
+    return r && r.ok === true ? null : String(r && r.message ? r.message : "rejected").replace(/; default settings are used$/, "");
+  };
+}
+
 function canonicalize(v) {
   if (Array.isArray(v)) return v.map(canonicalize);
   if (isObj(v)) {
@@ -95,7 +117,7 @@ function battleCount(m) {
   if (!isObj(m) || !Array.isArray(m.scenarios) || !Array.isArray(m.strategies)) return 0;
   let seeds = 0;
   for (const s of m.scenarios) if (isObj(s) && Array.isArray(s.seeds)) seeds += s.seeds.length;
-  return seeds * m.strategies.length;
+  return seeds * m.strategies.length * (Array.isArray(m.rulesVariants) && m.rulesVariants.length ? m.rulesVariants.length : 1);
 }
 
 /**
@@ -103,6 +125,8 @@ function battleCount(m) {
  * botIds: list of known strategy ids; defaults to the ids in bots.cjs. If neither is available the manifest is INVALID
  * (strategies cannot be verified), never silently accepted.
  * fullInformationIds: strategy ids that need `searchLimits`; defaults to the bots.cjs entries flagged fullInformation.
+ * checkRulesQuery: (preset, rulesQuery) -> null | reason, for `rulesVariants`; defaults to the game's parser
+ *   (loadRulesQueryChecker), loaded only when the manifest lists rulesVariants.
  */
 function validateManifest(m, opts = {}) {
   const errors = [];
@@ -192,11 +216,24 @@ function validateManifest(m, opts = {}) {
     if (!full.length && "searchLimits" in m) errors.push("searchLimits is only allowed with a full-information strategy (none listed)");
   }
 
+  if ("rulesVariants" in m) {
+    const list = m.rulesVariants;
+    if (!Array.isArray(list) || list.length === 0 || list.length > MAX_RULES_VARIANTS) errors.push(`rulesVariants must be an array of 1 to ${MAX_RULES_VARIANTS} rules queries`);
+    else if (!list.every((q) => typeof q === "string" && q.length <= MAX_RULES_QUERY_LENGTH && (q === "" || RULES_QUERY_SHAPE.test(q)))) {
+      errors.push(`rulesVariants entries must be "" or "rules=<key>:<integer>,..." (at most ${MAX_RULES_QUERY_LENGTH} characters)`);
+    } else if (new Set(list).size !== list.length) errors.push("rulesVariants must be unique");
+    else if (isStr(m.preset) && gameValues && gameValues.presetIds.includes(m.preset)) {
+      let checkQuery = opts.checkRulesQuery;
+      if (checkQuery === undefined) { try { checkQuery = loadRulesQueryChecker(); } catch (e) { checkQuery = null; errors.push(`cannot verify rulesVariants: ${e.message}`); } }
+      if (checkQuery) list.forEach((q, i) => { const reason = checkQuery(m.preset, q); if (reason) errors.push(`rulesVariants[${i}] "${q}" rejected by the game: ${reason}`); });
+    }
+  }
+
   const battles = battleCount(m);
   if (limits && isPosInt(limits.maxBattles) && battles > limits.maxBattles) {
-    errors.push(`battle count ${battles} (scenario seeds x strategies) exceeds limits.maxBattles ${limits.maxBattles}`);
+    errors.push(`battle count ${battles} (scenario seeds x strategies${"rulesVariants" in m ? " x rules variants" : ""}) exceeds limits.maxBattles ${limits.maxBattles}`);
   }
   return { valid: errors.length === 0, errors, battles, limits, manifestHash: errors.length === 0 ? manifestHash(m) : null };
 }
 
-module.exports = { LIMIT_CAPS, SEARCH_LIMIT_CAPS, validateManifest, battleCount, canonicalJson, manifestHash, loadBotIds, loadFullInformationIds, loadGameValues };
+module.exports = { LIMIT_CAPS, SEARCH_LIMIT_CAPS, MAX_RULES_VARIANTS, validateManifest, battleCount, canonicalJson, manifestHash, loadBotIds, loadFullInformationIds, loadGameValues, loadRulesQueryChecker };

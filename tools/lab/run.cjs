@@ -127,7 +127,7 @@ function syntheticRecord(job, result, stopReason, error) {
     scenarioId: job.scenarioId, seed: job.seed, preset: job.preset, rulesVersion: null, rulesHash: null,
     strategy: job.strategy, botSeed: job.botSeed, fixtureOnly: false, ...(job.fullInformation ? { fullInformation: true } : {}),
     result, stopReason, error, turns: 0, perTurn: [], orders: [],
-    replay: { query: `?scenario=${encodeURIComponent(job.scenarioId)}&seed=${job.seed}&preset=${encodeURIComponent(job.preset)}`, orders: [] },
+    replay: { query: `?scenario=${encodeURIComponent(job.scenarioId)}&seed=${job.seed}&preset=${encodeURIComponent(job.preset)}${job.rulesQuery ? `&${job.rulesQuery}` : ""}`, orders: [] },
   };
 }
 
@@ -175,6 +175,7 @@ async function workerMain() {
     load: loadGame, bot: BOTS[job.strategy], strategy: job.strategy, scenarioId: job.scenarioId, seed: job.seed, preset: job.preset,
     limits: job.limits, botSeed: job.botSeed, fixtureOnly: false, turnsRemaining: job.turnsRemaining, deadlineMs: Date.now() + job.remainingMs, now: Date.now, buildId: job.buildId,
     ...(job.searchLimits ? { searchLimits: job.searchLimits } : {}),
+    ...(job.rulesQuery ? { rulesQuery: job.rulesQuery } : {}),
   });
   process.stdout.write(JSON.stringify(rec));
 }
@@ -188,39 +189,45 @@ async function execute(manifest, v, mods, startedMs, now, currentBuild, iso) {
   let totalTurns = 0;
   let stopped = null;
   let killedCount = 0;
+  // rulesVariants (optional): each scenario seed runs once per variant; absent = one variant with no rulesQuery (unchanged jobs).
+  const variants = Array.isArray(manifest.rulesVariants) ? manifest.rulesVariants : [null];
   outer:
   for (const sc of manifest.scenarios) {
     for (const seed of sc.seeds) {
-      for (const strategy of manifest.strategies) {
-        let b = null;
-        try { b = currentBuild(); } catch { /* treated as changed */ }
-        if (!b || b.buildId !== manifest.buildId || b.dirty !== false) { stopped = "aborted: gameplay build changed after authorization"; break outer; }
-        if (now() >= deadline) { stopped = "runtime deadline"; break outer; }
-        if (totalTurns >= L.maxTotalTurns) { stopped = `maxTotalTurns ${L.maxTotalTurns} reached`; break outer; }
-        let rec;
-        if (iso.mode === "child") {
-          const job = { scenarioId: sc.id, seed, preset: manifest.preset, strategy, limits: { ...L }, botSeed: manifest.botSeed,
-            turnsRemaining: L.maxTotalTurns - totalTurns, remainingMs: deadline - now(), buildId: manifest.buildId,
-            ...(manifest.searchLimits ? { searchLimits: { ...manifest.searchLimits } } : {}),
-            ...(bots && bots.BOTS && bots.BOTS[strategy] && bots.BOTS[strategy].fullInformation === true ? { fullInformation: true } : {}) };
-          const r = await runInChild(job, { childEntry: iso.childEntry, remainingMs: job.remainingMs, onSpawn: iso.onSpawn });
-          rec = r.record;
-          if (r.killed) { records.push(rec); killedCount++; stopped = "runtime deadline"; break outer; }
-        } else {
-          rec = await driver.runBattle({
-            load: loadGame, bot: bots.BOTS[strategy], strategy, scenarioId: sc.id, seed, preset: manifest.preset,
-            limits: { ...L }, botSeed: manifest.botSeed, fixtureOnly: false,
-            turnsRemaining: L.maxTotalTurns - totalTurns, deadlineMs: deadline, now, buildId: manifest.buildId,
-            ...(manifest.searchLimits ? { searchLimits: { ...manifest.searchLimits } } : {}),
-          });
+      for (const rulesQuery of variants) {
+        const variant = rulesQuery === null ? {} : { rulesQuery };
+        for (const strategy of manifest.strategies) {
+          let b = null;
+          try { b = currentBuild(); } catch { /* treated as changed */ }
+          if (!b || b.buildId !== manifest.buildId || b.dirty !== false) { stopped = "aborted: gameplay build changed after authorization"; break outer; }
+          if (now() >= deadline) { stopped = "runtime deadline"; break outer; }
+          if (totalTurns >= L.maxTotalTurns) { stopped = `maxTotalTurns ${L.maxTotalTurns} reached`; break outer; }
+          let rec;
+          if (iso.mode === "child") {
+            const job = { scenarioId: sc.id, seed, preset: manifest.preset, strategy, limits: { ...L }, botSeed: manifest.botSeed,
+              turnsRemaining: L.maxTotalTurns - totalTurns, remainingMs: deadline - now(), buildId: manifest.buildId,
+              ...(manifest.searchLimits ? { searchLimits: { ...manifest.searchLimits } } : {}), ...variant,
+              ...(bots && bots.BOTS && bots.BOTS[strategy] && bots.BOTS[strategy].fullInformation === true ? { fullInformation: true } : {}) };
+            const r = await runInChild(job, { childEntry: iso.childEntry, remainingMs: job.remainingMs, onSpawn: iso.onSpawn });
+            rec = r.record;
+            if (r.killed) { records.push(rec); killedCount++; stopped = "runtime deadline"; break outer; }
+          } else {
+            rec = await driver.runBattle({
+              load: loadGame, bot: bots.BOTS[strategy], strategy, scenarioId: sc.id, seed, preset: manifest.preset,
+              limits: { ...L }, botSeed: manifest.botSeed, fixtureOnly: false,
+              turnsRemaining: L.maxTotalTurns - totalTurns, deadlineMs: deadline, now, buildId: manifest.buildId,
+              ...(manifest.searchLimits ? { searchLimits: { ...manifest.searchLimits } } : {}), ...variant,
+            });
+          }
+          records.push(rec);
+          totalTurns += rec.turns || 0;
         }
-        records.push(rec);
-        totalTurns += rec.turns || 0;
       }
     }
   }
   if (stopped) notes.push(`${stopped.startsWith("aborted:") ? stopped : `stopped early: ${stopped}`}; ${records.length - killedCount} of ${v.battles} battles completed`);
-  return report.buildReport({ manifestHash: v.manifestHash, buildId: manifest.buildId, battles: records, notes, fixtureOnly: false });
+  return report.buildReport({ manifestHash: v.manifestHash, buildId: manifest.buildId, battles: records, notes, fixtureOnly: false,
+    ...(Array.isArray(manifest.rulesVariants) ? { rulesVariants: [...manifest.rulesVariants] } : {}) });
 }
 
 /** main(argv, deps) -> exit code. deps (all optional, for tests): currentBuild, loadModules, botIds, out, err, now. */
@@ -246,6 +253,7 @@ async function main(argv, deps = {}) {
     out(`battles: ${ev.v.battles}`);
     out(`limits: ${ev.v.limits ? JSON.stringify(ev.v.limits) : "n/a"}`);
     if (ev.manifest && ev.manifest.searchLimits !== undefined) out(`searchLimits: ${JSON.stringify(ev.manifest.searchLimits)}`);
+    if (ev.manifest && ev.manifest.rulesVariants !== undefined) out(`rulesVariants: ${JSON.stringify(ev.manifest.rulesVariants)}`);
     out(`manifestHash: ${ev.v.manifestHash || "n/a"}`);
     out(`labVersion: ${ev.labVersion || "unavailable"}`);
     out(`current build ID: ${ev.build ? ev.build.buildId : "unavailable"}`);
