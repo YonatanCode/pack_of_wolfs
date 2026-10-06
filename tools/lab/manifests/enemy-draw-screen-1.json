@@ -6,7 +6,7 @@
   "scenarios": [{ "id": "intro", "seeds": [1] }],
   "strategies": ["search-benchmark"],
   "rulesVariants": ["rules=pab:4,hs:4,rc:2,cap:3,eab:4", "rules=pab:5,hs:5,rc:2,cap:3,eab:5", "rules=pab:6,hs:6,rc:2,cap:3,eab:6"],
-  "limits": { "maxBattles": 3, "maxTurnsPerBattle": 30, "maxTotalTurns": 90, "maxRuntimeSeconds": 90 },
+  "limits": { "maxBattles": 3, "maxTurnsPerBattle": 30, "maxTotalTurns": 90, "maxRuntimeSeconds": 120 },
   "searchLimits": { "maxCandidates": 200, "maxEvaluations": 200, "maxMsPerDecision": 400 },
   "botSeed": 1
 }
