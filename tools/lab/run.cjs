@@ -27,7 +27,8 @@ function defaultCurrentBuild() {
   return { buildId: j.buildId, dirty: j.gameplayPathsDirty };
 }
 
-const LAB_FILES = ["driver", "bots", "manifest", "approvals", "run", "report", "metrics"].map((n) => `${n}.cjs`);
+// search.cjs decides the search-benchmark strategy's orders, so it is part of the Lab version like the bots.
+const LAB_FILES = ["driver", "bots", "manifest", "approvals", "run", "report", "metrics", "search"].map((n) => `${n}.cjs`);
 
 /** labVersion: sha256 over (name, bytes) of the Lab tooling files, sorted. A missing file hashes as "missing" (so adding it changes the version). */
 function computeLabVersion(dir = __dirname) {
@@ -124,7 +125,7 @@ const DEFAULT_CHILD_ENTRY = [__filename, "--worker"];
 function syntheticRecord(job, result, stopReason, error) {
   return {
     scenarioId: job.scenarioId, seed: job.seed, preset: job.preset, rulesVersion: null, rulesHash: null,
-    strategy: job.strategy, botSeed: job.botSeed, fixtureOnly: false,
+    strategy: job.strategy, botSeed: job.botSeed, fixtureOnly: false, ...(job.fullInformation ? { fullInformation: true } : {}),
     result, stopReason, error, turns: 0, perTurn: [], orders: [],
     replay: { query: `?scenario=${encodeURIComponent(job.scenarioId)}&seed=${job.seed}&preset=${encodeURIComponent(job.preset)}`, orders: [] },
   };
@@ -173,6 +174,7 @@ async function workerMain() {
   const rec = driver.runBattle({
     load: loadGame, bot: BOTS[job.strategy], strategy: job.strategy, scenarioId: job.scenarioId, seed: job.seed, preset: job.preset,
     limits: job.limits, botSeed: job.botSeed, fixtureOnly: false, turnsRemaining: job.turnsRemaining, deadlineMs: Date.now() + job.remainingMs, now: Date.now, buildId: job.buildId,
+    ...(job.searchLimits ? { searchLimits: job.searchLimits } : {}),
   });
   process.stdout.write(JSON.stringify(rec));
 }
@@ -198,7 +200,9 @@ async function execute(manifest, v, mods, startedMs, now, currentBuild, iso) {
         let rec;
         if (iso.mode === "child") {
           const job = { scenarioId: sc.id, seed, preset: manifest.preset, strategy, limits: { ...L }, botSeed: manifest.botSeed,
-            turnsRemaining: L.maxTotalTurns - totalTurns, remainingMs: deadline - now(), buildId: manifest.buildId };
+            turnsRemaining: L.maxTotalTurns - totalTurns, remainingMs: deadline - now(), buildId: manifest.buildId,
+            ...(manifest.searchLimits ? { searchLimits: { ...manifest.searchLimits } } : {}),
+            ...(bots && bots.BOTS && bots.BOTS[strategy] && bots.BOTS[strategy].fullInformation === true ? { fullInformation: true } : {}) };
           const r = await runInChild(job, { childEntry: iso.childEntry, remainingMs: job.remainingMs, onSpawn: iso.onSpawn });
           rec = r.record;
           if (r.killed) { records.push(rec); killedCount++; stopped = "runtime deadline"; break outer; }
@@ -207,6 +211,7 @@ async function execute(manifest, v, mods, startedMs, now, currentBuild, iso) {
             load: loadGame, bot: bots.BOTS[strategy], strategy, scenarioId: sc.id, seed, preset: manifest.preset,
             limits: { ...L }, botSeed: manifest.botSeed, fixtureOnly: false,
             turnsRemaining: L.maxTotalTurns - totalTurns, deadlineMs: deadline, now, buildId: manifest.buildId,
+            ...(manifest.searchLimits ? { searchLimits: { ...manifest.searchLimits } } : {}),
           });
         }
         records.push(rec);
@@ -240,6 +245,7 @@ async function main(argv, deps = {}) {
     ev.v.errors.forEach((e) => out(`  error: ${e}`));
     out(`battles: ${ev.v.battles}`);
     out(`limits: ${ev.v.limits ? JSON.stringify(ev.v.limits) : "n/a"}`);
+    if (ev.manifest && ev.manifest.searchLimits !== undefined) out(`searchLimits: ${JSON.stringify(ev.manifest.searchLimits)}`);
     out(`manifestHash: ${ev.v.manifestHash || "n/a"}`);
     out(`labVersion: ${ev.labVersion || "unavailable"}`);
     out(`current build ID: ${ev.build ? ev.build.buildId : "unavailable"}`);
