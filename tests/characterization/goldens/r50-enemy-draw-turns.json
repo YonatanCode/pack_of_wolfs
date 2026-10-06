@@ -1,0 +1,181 @@
+{
+  "header": "REQUIREMENT — commanderdraw enemy draw",
+  "result": {
+    "frozen": {
+      "orders": [
+        "Attack",
+        "Attack",
+        "Move"
+      ],
+      "plan0": [
+        {
+          "unit": "E3",
+          "action": "Move"
+        },
+        {
+          "unit": "E2",
+          "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Defend"
+        },
+        {
+          "unit": "E1",
+          "action": "Defend"
+        }
+      ],
+      "pool0": [
+        "Move",
+        "Move",
+        "Defend",
+        "Defend",
+        "Attack"
+      ],
+      "nextPool": [
+        "Move",
+        "Move",
+        "Move",
+        "Attack",
+        "Attack"
+      ],
+      "finalStateHash": "e799271aceecae760e8c8bc93ccf9e478a6665efd26c3f18a53f07d6fab2c231",
+      "eventHash": "b6a29d6e7da223b49bec8556680cc7f9a2df5d6b359897e52b0a95d664581e37"
+    },
+    "unassigned": {
+      "turn1": {
+        "budget": 5,
+        "assigned": 4,
+        "spent": 4,
+        "forfeited": 0,
+        "unplayed": 0,
+        "unassigned": 1,
+        "reasons": [
+          "no-valid-assignment x1"
+        ]
+      },
+      "turn2": {
+        "pool": [
+          "Move",
+          "Move",
+          "Move",
+          "Attack",
+          "Attack"
+        ],
+        "budget": 5,
+        "assigned": 5,
+        "spent": 5,
+        "forfeited": 0,
+        "unplayed": 0,
+        "unassigned": 0,
+        "reasons": []
+      }
+    },
+    "edgeBudgets": {
+      "eab0": {
+        "budget": 0,
+        "assigned": 0,
+        "spent": 0,
+        "forfeited": 0,
+        "unplayed": 0,
+        "unassigned": 0,
+        "reasons": [
+          "budget-zero x0"
+        ]
+      },
+      "eab10Pool": [
+        "Move",
+        "Move",
+        "Move",
+        "Move",
+        "Defend",
+        "Defend",
+        "Attack",
+        "Attack",
+        "Attack",
+        "Attack"
+      ],
+      "eab10Plan": [
+        {
+          "unit": "E3",
+          "action": "Move"
+        },
+        {
+          "unit": "E2",
+          "action": "Move"
+        },
+        {
+          "unit": "E2",
+          "action": "Move"
+        },
+        {
+          "unit": "E3",
+          "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Defend"
+        },
+        {
+          "unit": "E1",
+          "action": "Defend"
+        }
+      ]
+    },
+    "forfeit": {
+      "orders": [
+        "P1:Attack",
+        "P2:Attack,Defend",
+        "P3:Move"
+      ],
+      "plan": [
+        {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E2",
+          "action": "Move"
+        },
+        {
+          "unit": "E3",
+          "action": "Move"
+        },
+        {
+          "unit": "E2",
+          "action": "Move"
+        }
+      ],
+      "accounting": {
+        "budget": 5,
+        "assigned": 5,
+        "spent": 4,
+        "forfeited": 1,
+        "unplayed": 0,
+        "unassigned": 0,
+        "reasons": []
+      },
+      "note": [
+        "Enemy actions (commanderdraw, experimental: commander + random enemy action draw):",
+        "Budget 5 | drawn 5: Move, Move, Move, Attack, Attack",
+        "Assigned 5: E1 Attack, E1 Attack, E2 Move, E3 Move, E2 Move",
+        "Spent 4: E1 Attack (tick 1), E2 Move (tick 1), E3 Move (tick 1), E2 Move (tick 2)",
+        "Forfeited 1: E1 Attack (died tick 1)",
+        "Unplayed 0: -",
+        "Unassigned 0: -",
+        "Check: assigned 5 = spent 4 + forfeited 1 + unplayed 0; budget 5 = assigned 5 + unassigned 0"
+      ]
+    },
+    "hands": 11
+  },
+  "usage": {
+    "contexts": 4,
+    "maxSteps": 123,
+    "totalSteps": 202,
+    "cap": 4000
+  }
+}

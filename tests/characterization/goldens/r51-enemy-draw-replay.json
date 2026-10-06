@@ -1,0 +1,129 @@
+{
+  "header": "REQUIREMENT — commanderdraw enemy draw",
+  "battle": {
+    "query": "?scenario=intro&seed=1&preset=commanderdraw&rules=pab:4,hs:4,eab:4",
+    "turns": [
+      [
+        [
+          {
+            "unit": "P1",
+            "target": "E1"
+          },
+          {
+            "unit": "P1",
+            "action": "Move"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "unit": "P2",
+            "action": "Defend"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "reshuffle": true
+          }
+        ],
+        [
+          {
+            "unit": "P2",
+            "target": "E2"
+          },
+          {
+            "unit": "P2",
+            "action": "Attack"
+          },
+          {
+            "unit": "P3",
+            "action": "Defend"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "unit": "P3",
+            "action": "Move"
+          },
+          {
+            "unit": "P3",
+            "action": "Attack"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "unit": "P2",
+            "action": "Defend"
+          }
+        ]
+      ]
+    ],
+    "rules": {
+      "preset": "commanderdraw",
+      "version": "0.1.0-commanderdraw-enemy-random-draw",
+      "hash": "149db90d99fe1b",
+      "playerActionBudget": 4,
+      "enemyActionBudget": 4,
+      "handSize": 4,
+      "maxSameAction": 3
+    },
+    "recordedEventHashes": [
+      "13538755893aef",
+      "14abde9e5c1292",
+      "1147e837b241a0"
+    ],
+    "drawnPools": [
+      [
+        "Move",
+        "Move",
+        "Defend",
+        "Defend"
+      ],
+      [
+        "Move",
+        "Move",
+        "Attack",
+        "Attack"
+      ],
+      [
+        "Move",
+        "Move",
+        "Attack",
+        "Attack"
+      ],
+      [
+        "Move",
+        "Defend",
+        "Defend",
+        "Attack"
+      ]
+    ],
+    "finalStateHash": "dfb8f28f17936955e3ad4b2f905d459484410d482ca38532f843e5b2f47a1a8b"
+  },
+  "replay": {
+    "status": "done",
+    "matches": [
+      true,
+      true,
+      true
+    ]
+  },
+  "hands": 12,
+  "usage": {
+    "contexts": 2,
+    "maxSteps": 360,
+    "totalSteps": 360,
+    "cap": 4000
+  }
+}

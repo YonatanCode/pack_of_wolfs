@@ -1,0 +1,120 @@
+{
+  "header": "REQUIREMENT — commanderdraw enemy draw",
+  "result": {
+    "identity": {
+      "commanderdraw": {
+        "preset": "commanderdraw",
+        "version": "0.1.0-commanderdraw-enemy-random-draw",
+        "hash": "197edd95522f77",
+        "playerActionBudget": 5,
+        "enemyActionBudget": 5,
+        "handSize": 5,
+        "maxSameAction": 3
+      },
+      "commanderHash": "1ee7c8d5a26ec1",
+      "currentHash": "0d3ce2ec6fa6de"
+    },
+    "equalBudgets": {
+      "4v4": {
+        "query": "rules=pab:4,hs:4,rc:2,cap:3,eab:4",
+        "hash": "149db90d99fe1b"
+      },
+      "5v5": {
+        "query": "rules=pab:5,hs:5,rc:2,cap:3,eab:5",
+        "hash": "197edd95522f77"
+      },
+      "6v6": {
+        "query": "rules=pab:6,hs:6,rc:2,cap:3,eab:6",
+        "hash": "0c62352e2b5ed9"
+      }
+    },
+    "seedMix": {
+      "0": 2473448538,
+      "1": 425303749,
+      "2": 2274770820,
+      "3": 226626031,
+      "4294967295": 3137918042
+    },
+    "pinnedLists": {
+      "1": [
+        "Defend,Move,Move,Defend,Attack",
+        "Attack,Move,Move,Move,Attack",
+        "Attack,Attack,Attack,Defend,Move"
+      ],
+      "2": [
+        "Attack,Attack,Move,Defend,Move",
+        "Defend,Attack,Move,Attack,Defend",
+        "Defend,Defend,Attack,Move,Defend"
+      ],
+      "3": [
+        "Defend,Attack,Move,Attack,Move",
+        "Attack,Defend,Defend,Attack,Defend",
+        "Move,Move,Attack,Attack,Attack"
+      ]
+    },
+    "budgets0to10Seed1": [
+      "0: -",
+      "1: Defend",
+      "2: Defend,Move",
+      "3: Defend,Move,Move",
+      "4: Defend,Move,Move,Defend",
+      "5: Defend,Move,Move,Defend,Attack",
+      "6: Defend,Move,Move,Defend,Attack,Attack",
+      "7: Defend,Move,Move,Defend,Attack,Attack,Move",
+      "8: Defend,Move,Move,Defend,Attack,Attack,Move,Attack",
+      "9: Defend,Move,Move,Defend,Attack,Attack,Move,Attack,Defend",
+      "10: Defend,Move,Move,Defend,Attack,Attack,Move,Move,Attack,Attack"
+    ],
+    "livePlans": {
+      "1": [
+        "Move,Move,Defend,Defend,Attack",
+        "Move,Move,Move,Attack,Attack",
+        "Move,Defend,Attack,Attack,Attack"
+      ],
+      "2": [
+        "Move,Move,Defend,Attack,Attack",
+        "Move,Defend,Defend,Attack,Attack",
+        "Move,Defend,Defend,Defend,Attack"
+      ],
+      "3": [
+        "Move,Move,Defend,Attack,Attack",
+        "Defend,Defend,Defend,Attack,Attack",
+        "Move,Move,Attack,Attack,Attack"
+      ]
+    },
+    "handIsolation": {
+      "afterTurn": {
+        "hand": [
+          "Attack",
+          "Attack",
+          "Defend",
+          "Attack",
+          "Defend"
+        ],
+        "handState": 503953277,
+        "handSeed": 1
+      }
+    },
+    "validation": {
+      "asIs": "ok",
+      "missingPosition": "BattleStateError: Invalid battle state: enemy draw (rng.enemyDrawState / enemyPack.drawnPool)",
+      "negative": "BattleStateError: Invalid battle state: enemy draw (rng.enemyDrawState / enemyPack.drawnPool)",
+      "tooLarge": "BattleStateError: Invalid battle state: enemy draw (rng.enemyDrawState / enemyPack.drawnPool)",
+      "fraction": "BattleStateError: Invalid battle state: enemy draw (rng.enemyDrawState / enemyPack.drawnPool)",
+      "badAction": "BattleStateError: Invalid battle state: enemy draw (rng.enemyDrawState / enemyPack.drawnPool)",
+      "nullPool": "ok",
+      "missingPool": "BattleStateError: Invalid battle state: enemy draw (rng.enemyDrawState / enemyPack.drawnPool)"
+    },
+    "validationOtherPresets": {
+      "commanderWithPosition": "BattleStateError: Invalid battle state: enemy draw (rng.enemyDrawState / enemyPack.drawnPool)",
+      "currentWithPool": "BattleStateError: Invalid battle state: enemy draw (rng.enemyDrawState / enemyPack.drawnPool)"
+    },
+    "hands": 20
+  },
+  "usage": {
+    "contexts": 9,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
