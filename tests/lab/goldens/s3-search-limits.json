@@ -1,0 +1,265 @@
+{
+  "header": "REQUIREMENT — search-benchmark limits",
+  "fixtureOnly": true,
+  "result": {
+    "candidateCap": {
+      "orders": [
+        {
+          "unit": "P2",
+          "target": "E1"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P3",
+          "action": "Defend"
+        },
+        {
+          "unit": "P3",
+          "action": "Defend"
+        }
+      ],
+      "stats": {
+        "decisions": 1,
+        "candidatesGenerated": 4515,
+        "candidatesKept": 7,
+        "evaluated": 7,
+        "rejectedByValidator": 0,
+        "engineErrors": 0,
+        "limitHits": {
+          "generation": 0,
+          "candidates": 1,
+          "evaluations": 0,
+          "time": 0
+        },
+        "fallbacks": 0,
+        "reshuffles": 0
+      },
+      "ms": 0
+    },
+    "evaluationCap": {
+      "orders": [
+        {
+          "unit": "P2",
+          "target": "E1"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P3",
+          "action": "Defend"
+        },
+        {
+          "unit": "P3",
+          "action": "Defend"
+        }
+      ],
+      "stats": {
+        "decisions": 1,
+        "candidatesGenerated": 4515,
+        "candidatesKept": 100,
+        "evaluated": 3,
+        "rejectedByValidator": 0,
+        "engineErrors": 0,
+        "limitHits": {
+          "generation": 0,
+          "candidates": 1,
+          "evaluations": 1,
+          "time": 0
+        },
+        "fallbacks": 0,
+        "reshuffles": 0
+      },
+      "ms": 0
+    },
+    "timeLimit": {
+      "orders": [
+        {
+          "unit": "P2",
+          "target": "E1"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P3",
+          "action": "Defend"
+        },
+        {
+          "unit": "P3",
+          "action": "Defend"
+        }
+      ],
+      "stats": {
+        "decisions": 1,
+        "candidatesGenerated": 4515,
+        "candidatesKept": 100,
+        "evaluated": 2,
+        "rejectedByValidator": 0,
+        "engineErrors": 0,
+        "limitHits": {
+          "generation": 0,
+          "candidates": 1,
+          "evaluations": 0,
+          "time": 1
+        },
+        "fallbacks": 0,
+        "reshuffles": 0
+      },
+      "ms": 40
+    },
+    "fallback": {
+      "orders": [
+        {
+          "unit": "P2",
+          "target": "E1"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P3",
+          "action": "Defend"
+        },
+        {
+          "unit": "P3",
+          "action": "Defend"
+        }
+      ],
+      "stats": {
+        "decisions": 1,
+        "candidatesGenerated": 4515,
+        "candidatesKept": 100,
+        "evaluated": 0,
+        "rejectedByValidator": 0,
+        "engineErrors": 0,
+        "limitHits": {
+          "generation": 0,
+          "candidates": 1,
+          "evaluations": 0,
+          "time": 1
+        },
+        "fallbacks": 1,
+        "reshuffles": 0
+      },
+      "ms": 1000000000
+    },
+    "failedEvaluations": {
+      "orders": [
+        {
+          "unit": "P2",
+          "target": "E1"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P3",
+          "action": "Defend"
+        },
+        {
+          "unit": "P3",
+          "action": "Defend"
+        }
+      ],
+      "stats": {
+        "decisions": 1,
+        "candidatesGenerated": 4515,
+        "candidatesKept": 100,
+        "evaluated": 0,
+        "rejectedByValidator": 0,
+        "engineErrors": 4,
+        "limitHits": {
+          "generation": 0,
+          "candidates": 1,
+          "evaluations": 1,
+          "time": 0
+        },
+        "fallbacks": 1,
+        "reshuffles": 0
+      },
+      "ms": 0
+    },
+    "nothingLegal": {
+      "orders": [],
+      "stats": {
+        "decisions": 1,
+        "candidatesGenerated": 0,
+        "candidatesKept": 0,
+        "evaluated": 0,
+        "rejectedByValidator": 0,
+        "engineErrors": 0,
+        "limitHits": {
+          "generation": 0,
+          "candidates": 0,
+          "evaluations": 0,
+          "time": 0
+        },
+        "fallbacks": 0,
+        "reshuffles": 0
+      },
+      "ms": 0
+    },
+    "limitRefusals": [
+      "search limit maxMsPerDecision must be a positive integer",
+      "search limit maxCandidates must be a positive integer",
+      "search limit maxCandidates must be a positive integer",
+      "unknown search limit: maxDepth",
+      "search limits must be an object"
+    ],
+    "hands": 2
+  },
+  "usage": {
+    "contexts": 2,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

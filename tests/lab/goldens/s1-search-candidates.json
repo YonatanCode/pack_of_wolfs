@@ -1,0 +1,43 @@
+{
+  "header": "REQUIREMENT — search-benchmark candidates",
+  "fixtureOnly": true,
+  "result": {
+    "enumeration": {
+      "V1": 4,
+      "V2": 2,
+      "V3": 30
+    },
+    "legal": "every V1..V3 candidate passes legalOrderCheck",
+    "ranking": [
+      {
+        "orders": "Move,Attack",
+        "staticScore": 63
+      },
+      {
+        "orders": "Move",
+        "staticScore": 3
+      },
+      {
+        "orders": "Attack,Move",
+        "staticScore": 1
+      }
+    ],
+    "generationCap": {
+      "capped": 50,
+      "uncapped": 12945
+    },
+    "realValidator": {
+      "hand": "Attack,Move,Attack,Defend,Defend",
+      "generated": 10107,
+      "accepted": 10107,
+      "concealedTargeted": true
+    },
+    "hands": 1
+  },
+  "usage": {
+    "contexts": 1,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

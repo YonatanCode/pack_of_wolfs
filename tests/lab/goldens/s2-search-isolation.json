@@ -1,0 +1,128 @@
+{
+  "header": "REQUIREMENT — search-benchmark isolation",
+  "fixtureOnly": true,
+  "result": {
+    "commander": {
+      "orders": [
+        {
+          "unit": "P2",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        }
+      ],
+      "stats": {
+        "decisions": 1,
+        "candidatesGenerated": 10107,
+        "candidatesKept": 300,
+        "evaluated": 300,
+        "rejectedByValidator": 0,
+        "engineErrors": 0,
+        "limitHits": {
+          "generation": 0,
+          "candidates": 1,
+          "evaluations": 0,
+          "time": 0
+        },
+        "fallbacks": 0,
+        "reshuffles": 0
+      },
+      "predicted": "P1:6,6:3 P2:6,5:10 P3:9,9:10 E1:5,5:0x E2:6,7:10 E3:5,6:10",
+      "real": "P1:6,6:3 P2:6,5:10 P3:9,9:10 E1:5,5:0x E2:6,7:10 E3:5,6:10",
+      "spiesDuringSearch": {
+        "mathRandom": 0,
+        "liveHand": 0,
+        "randomAction": 0,
+        "draw": 0,
+        "reshuffle": 0
+      }
+    },
+    "current": {
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        }
+      ],
+      "stats": {
+        "decisions": 1,
+        "candidatesGenerated": 1317,
+        "candidatesKept": 300,
+        "evaluated": 300,
+        "rejectedByValidator": 0,
+        "engineErrors": 0,
+        "limitHits": {
+          "generation": 0,
+          "candidates": 1,
+          "evaluations": 0,
+          "time": 0
+        },
+        "fallbacks": 0,
+        "reshuffles": 0
+      },
+      "predicted": "P1:6,6:2 P2:6,5:10 P3:9,9:10 E1:5,5:4 E2:5,7:10 E3:5,6:4",
+      "real": "P1:6,6:2 P2:6,5:10 P3:9,9:10 E1:5,5:4 E2:5,7:10 E3:5,6:4",
+      "spiesDuringSearch": {
+        "mathRandom": 0,
+        "liveHand": 0,
+        "randomAction": 0,
+        "draw": 0,
+        "reshuffle": 0
+      }
+    },
+    "streamIndependent": {
+      "orders": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        }
+      ],
+      "units": "P1:6,6:1 P2:6,5:10 P3:9,9:10 E1:5,5:1 E2:6,7:10 E3:5,6:10"
+    },
+    "refusals": {
+      "reshuffle": "reshuffle-not-evaluated",
+      "thirdAttack": "card-not-in-hand@2"
+    },
+    "hands": 5
+  },
+  "usage": {
+    "contexts": 3,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

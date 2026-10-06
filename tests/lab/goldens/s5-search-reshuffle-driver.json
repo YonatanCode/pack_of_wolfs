@@ -1,0 +1,166 @@
+{
+  "header": "REQUIREMENT — search-benchmark reshuffle, driver seam and report",
+  "fixtureOnly": true,
+  "result": {
+    "reshuffle": {
+      "round0": [
+        {
+          "reshuffle": true
+        }
+      ],
+      "poorBest": {
+        "tuple": [
+          0,
+          1,
+          3,
+          0,
+          0,
+          -27,
+          -1
+        ],
+        "dealt": 0,
+        "received": 0,
+        "killed": 0,
+        "proximityBefore": 27,
+        "proximityAfter": 27
+      },
+      "round1": [
+        {
+          "unit": "P3",
+          "action": "Defend"
+        }
+      ],
+      "noCharge": [
+        {
+          "unit": "P3",
+          "action": "Defend"
+        }
+      ]
+    },
+    "driver": {
+      "steps": [
+        [
+          {
+            "reshuffle": true
+          }
+        ],
+        [
+          {
+            "unit": "P3",
+            "target": "E1"
+          },
+          {
+            "unit": "P3",
+            "action": "Move"
+          },
+          {
+            "unit": "P3",
+            "action": "Defend"
+          },
+          {
+            "unit": "P3",
+            "action": "Defend"
+          }
+        ]
+      ],
+      "search": {
+        "decisions": 2,
+        "candidatesGenerated": 10126,
+        "candidatesKept": 79,
+        "evaluated": 79,
+        "rejectedByValidator": 0,
+        "engineErrors": 0,
+        "limitHits": {
+          "generation": 0,
+          "candidates": 1,
+          "evaluations": 0,
+          "time": 0
+        },
+        "fallbacks": 0,
+        "reshuffles": 1
+      },
+      "timing": {
+        "searchMs": {
+          "decisions": 2,
+          "totalMs": 81,
+          "maxMs": 61
+        }
+      },
+      "planned": 3,
+      "executed": 3,
+      "reshuffleChargesAfter": 1,
+      "refused": "runBattle: searchLimits (required for a full-information bot): search limits must be an object"
+    },
+    "replay": "identical",
+    "report": {
+      "summary": {
+        "n": 1,
+        "wins": 0,
+        "losses": 0,
+        "draws": 0,
+        "timeouts": 1,
+        "errors": 0,
+        "winRate": 0,
+        "winRateWilson95": [
+          0,
+          0.793451
+        ],
+        "meanTurns": 1,
+        "meanBudget": 5,
+        "meanPlanned": 3,
+        "meanExecuted": 3,
+        "meanWasted": 0,
+        "turnSlots": 1,
+        "meanUnspentBudget": 2,
+        "meanNotExecuted": 0,
+        "meanAttacksHit": 0,
+        "meanAttacksMissed": 0,
+        "reshuffles": 1,
+        "meanReshuffles": 1,
+        "fixtureOnly": true,
+        "fullInformation": true,
+        "label": "full-information benchmark",
+        "search": {
+          "decisions": 2,
+          "candidatesGenerated": 10126,
+          "candidatesKept": 79,
+          "evaluated": 79,
+          "rejectedByValidator": 0,
+          "engineErrors": 0,
+          "fallbacks": 0,
+          "reshuffles": 1,
+          "limitHits": {
+            "generation": 0,
+            "candidates": 1,
+            "evaluations": 0,
+            "time": 0
+          }
+        }
+      },
+      "notes": [
+        "FIXTURE ONLY: hand-authored scripted battles; these numbers say nothing about the game or any strategy.",
+        "full-information benchmark: search-benchmark reads hidden enemy plans and simulates candidate turns with the game's rules; its win rate does NOT estimate human difficulty",
+        "search cost: search-benchmark 2 decisions, 10126 candidates generated, 79 kept, 79 evaluated; limit hits generation 0, candidates 1, evaluations 0, time 0; fallbacks 0",
+        "small sample: search-benchmark n=1, win rate 95% interval [0, 0.793451]",
+        "visual replay: 1 of 1 battle(s) have no replay payload (see replay.payloadNote)"
+      ],
+      "nonHashed": {
+        "about": "wall-clock search timing (not deterministic); excluded from reportHash",
+        "searchMs": {
+          "search-benchmark": {
+            "decisions": 2,
+            "totalMs": 81,
+            "maxMs": 61
+          }
+        }
+      }
+    },
+    "hands": 10
+  },
+  "usage": {
+    "contexts": 5,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
