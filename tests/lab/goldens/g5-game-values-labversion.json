@@ -6,6 +6,7 @@
     ],
     "presetIds": [
       "commander",
+      "commanderdraw",
       "current"
     ]
   },
@@ -25,27 +26,27 @@
   "typoPreset": {
     "code": 2,
     "errs": [
-      "REFUSED (manifest): manifest invalid: unknown preset: comander (supported: commander, current)"
+      "REFUSED (manifest): manifest invalid: unknown preset: comander (supported: commander, commanderdraw, current)"
     ],
     "moduleLoads": 0,
     "authorizationUntouched": true,
     "checkOnlyCode": 2,
     "checkOnlyValidation": [
       "validation: INVALID",
-      "  error: unknown preset: comander (supported: commander, current)"
+      "  error: unknown preset: comander (supported: commander, commanderdraw, current)"
     ]
   },
   "both": {
     "code": 2,
     "errs": [
-      "REFUSED (manifest): manifest invalid: unknown preset: comander (supported: commander, current); unknown scenario: intr0 (supported: intro)"
+      "REFUSED (manifest): manifest invalid: unknown preset: comander (supported: commander, commanderdraw, current); unknown scenario: intr0 (supported: intro)"
     ],
     "moduleLoads": 0,
     "authorizationUntouched": true,
     "checkOnlyCode": 2,
     "checkOnlyValidation": [
       "validation: INVALID",
-      "  error: unknown preset: comander (supported: commander, current)",
+      "  error: unknown preset: comander (supported: commander, commanderdraw, current)",
       "  error: unknown scenario: intr0 (supported: intro)"
     ]
   },

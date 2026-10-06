@@ -34,7 +34,8 @@ async function run() {
     ["Move", "Defend", "Defend", "Attack", "Attack", "Attack"], "pool order is canonical: Move, Defend, Attack");
   check(g.ev("computeRulesHash(computeEffectiveRules(getDefaultSettings()))") === DEFAULT_HASH && g.ev("RULES_HASH") === DEFAULT_HASH, "default effective hash is 0d3ce2ec6fa6de");
   same(J(g, "window.RULESET_PRESETS"), { current: { label: "Current rules", available: true },
-    commander: { label: "Commander ruleset (experimental: enemy-action and target-selection rules)", available: true } }, "preset registry");
+    commander: { label: "Commander ruleset (experimental: enemy-action and target-selection rules)", available: true },
+    commanderdraw: { label: "Commander draw ruleset (experimental: commander + random enemy action draw)", available: true } }, "preset registry");
 
   // ---- R21b
   const fieldReport = {};

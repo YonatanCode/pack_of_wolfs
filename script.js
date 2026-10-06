@@ -127,6 +127,7 @@ window.SETTINGS_LINK_KEYS = deepFreeze({
 window.RULESET_PRESETS = deepFreeze({
   current: { label: "Current rules", available: true },
   commander: { label: "Commander ruleset (experimental: enemy-action and target-selection rules)", available: true },
+  commanderdraw: { label: "Commander draw ruleset (experimental: commander + random enemy action draw)", available: true },
 });
 
 // Commander preset (LIMITED EXPERIMENT): its ONLY differences from "current" are these enemy-action rules and the player
@@ -141,6 +142,22 @@ window.COMMANDER_RULES = deepFreeze({
   version: "0.4.0-commander-enemy-actions-targets-fallback",
   scopeLabel: "experimental: enemy-action and target-selection rules",
   enemyRules: { frozenPlan: true, forfeitOnDeath: true, budgetCeiling: true, enemyQueueLimitByEnemyBudget: true, accounting: true },
+});
+
+// Commander draw preset ("commanderdraw", LIMITED EXPERIMENT, ENGINE-NOTES section 13): EVERY commander rule above plus ONE
+// change: once per planning phase the enemy DRAWS exactly enemyActionBudget actions from its own seeded stream, and that
+// drawn list replaces the fixed pool expansion (epm / epd / epa are ignored under this preset). The name has lowercase
+// letters only because the replay payload, the Lab driver and the Lab manifest accept only such preset names.
+//   weights        draw weights Move / Attack / Defend (constants, mirror the player's default weights; not settings)
+//   maxSameAction  same-action cap per drawn list; raised to ceil(budget / 3) when the budget exceeds 3 x cap (budget 10)
+//   seedMix        enemy stream seed = mix(battle seed): x = (seed ^ xor) >>> 0; imul(x ^ (x >>> 16), multiply) >>> 0
+//                  (a bijection on 32-bit seeds; the hand stream keeps the battle seed itself and is never touched)
+window.COMMANDER_DRAW_RULES = deepFreeze({
+  version: "0.1.0-commanderdraw-enemy-random-draw",
+  scopeLabel: "experimental: commander + random enemy action draw",
+  weights: { Move: 1, Attack: 1, Defend: 1 },
+  maxSameAction: 3,
+  seedMix: { xor: 0x9e3779b9, multiply: 0x85ebca6b },
 });
 
 function getSettingsKeys() {
@@ -330,9 +347,15 @@ function setPendingPreset(name) {
   return { ok: true, pending: name };
 }
 
-// Is the given (default: active) rules snapshot the commander preset?
+// Is the given (default: active) rules snapshot the commander preset? The commanderdraw preset is commander plus the enemy
+// draw (isEnemyDrawRules), so every commander rule applies to it too.
 function isCommanderRules(rules = activeRules) {
-  return rules?.preset === "commander";
+  return rules?.preset === "commander" || rules?.preset === "commanderdraw";
+}
+
+// Is the given (default: active) rules snapshot the commanderdraw preset (random enemy action draw)?
+function isEnemyDrawRules(rules = activeRules) {
+  return rules?.preset === "commanderdraw";
 }
 
 function getActiveSettings() {
@@ -359,14 +382,14 @@ function formatRulesParam(settings) {
     .join(",");
 }
 
-// "?scenario=<id>&seed=<n>" plus, only for non-default settings, "&preset=current&rules=...". The commander preset
-// always emits "&preset=commander" (with "&rules=..." only for non-default settings).
+// "?scenario=<id>&seed=<n>" plus, only for non-default settings, "&preset=current&rules=...". Any other preset
+// (commander, commanderdraw) always emits "&preset=<name>" (with "&rules=..." only for non-default settings).
 function buildRulesLink(settings, scenarioId, seed, preset = "current") {
   const rules = formatRulesParam(settings);
   const base = `?scenario=${encodeURIComponent(scenarioId)}&seed=${seed}`;
 
-  if (preset === "commander") {
-    return `${base}&preset=commander${rules ? `&rules=${rules}` : ""}`;
+  if (preset !== "current") {
+    return `${base}&preset=${preset}${rules ? `&rules=${rules}` : ""}`;
   }
 
   return rules ? `${base}&preset=current&rules=${rules}` : base;
@@ -388,8 +411,8 @@ function parseRulesParams(params) {
     return reject(`unknown preset "${presets[0]}"`);
   }
 
-  // The current preset keeps its result shape; only the commander preset adds `preset`.
-  const presetField = presets[0] === "commander" ? { preset: "commander" } : {};
+  // The current preset keeps its result shape; any other (available) preset adds `preset`.
+  const presetField = presets.length === 1 && presets[0] !== "current" ? { preset: presets[0] } : {};
 
   if (rulesParams.length === 0) {
     return { ok: true, settings: defaults, hasRules: false, ...presetField };
@@ -468,8 +491,17 @@ function getRulesLinkStatus() {
 // The current preset hashes the effective rules exactly as before; the commander preset adds its preset name, its
 // version (so a commander rules change that bumps the version also changes the hash) and its enemy-action rule switches
 // to what is hashed (so its hash differs for identical numbers).
+// The commanderdraw preset hashes the commander record under its own name plus its draw constants (version, weights, cap,
+// seed mix; not the scope label).
 function computeEffectiveRulesForPreset(settings, preset) {
   const effective = computeEffectiveRules(settings);
+
+  if (preset === "commanderdraw") {
+    const { scopeLabel, ...draw } = window.COMMANDER_DRAW_RULES;
+
+    return { ...effective, preset: "commanderdraw", commanderVersion: window.COMMANDER_RULES.version, enemyRules: cloneRulesData(window.COMMANDER_RULES.enemyRules),
+      enemyDraw: cloneRulesData(draw) };
+  }
 
   return preset === "commander"
     ? { ...effective, preset: "commander", commanderVersion: window.COMMANDER_RULES.version, enemyRules: cloneRulesData(window.COMMANDER_RULES.enemyRules) }
@@ -479,6 +511,10 @@ function computeEffectiveRulesForPreset(settings, preset) {
 function createActiveRulesSnapshot() {
   const preset = getActivePreset();
   const effective = computeEffectiveRulesForPreset(getRulesState().active, preset);
+
+  if (preset === "commanderdraw") {
+    return deepFreeze({ version: window.COMMANDER_DRAW_RULES.version, hash: computeRulesHash(effective), ...effective.perBattle, preset: "commanderdraw" });
+  }
 
   if (preset === "commander") {
     return deepFreeze({ version: window.COMMANDER_RULES.version, hash: computeRulesHash(effective), ...effective.perBattle, preset: "commander" });
@@ -4920,10 +4956,98 @@ function getEnemyPlanState() {
   return getEnemyPlanState.store;
 }
 
+// Commanderdraw enemy draw (ENGINE-NOTES section 13). Kept off the top level (r19 pins the declaration inventory).
+//   state  the enemy draw stream's 32-bit position (createSeededRandom state; seeded at every scenario load from the battle
+//          seed through deriveEnemyDrawSeed, so it is a pure function of (battle seed, number of lists drawn))
+//   pool   the current plan's drawn list in canonical pool order (Move, Defend, Attack), or null (no plan drawn)
+// BattleState under commanderdraw only (snapshot rng.enemyDrawState and enemyPack.drawnPool; swapped by withBattleState,
+// written by loadBattleState). Never read under current / commander.
+function getEnemyDrawState() {
+  if (!getEnemyDrawState.store) {
+    getEnemyDrawState.store = { state: null, pool: null };
+  }
+
+  return getEnemyDrawState.store;
+}
+
+function deriveEnemyDrawSeed(battleSeed) {
+  const { xor, multiply } = window.COMMANDER_DRAW_RULES.seedMix;
+  const x = ((battleSeed >>> 0) ^ xor) >>> 0;
+
+  return Math.imul(x ^ (x >>> 16), multiply) >>> 0;
+}
+
+function seedEnemyDrawRandom(battleSeed) {
+  const store = getEnemyDrawState();
+
+  store.state = deriveEnemyDrawSeed(battleSeed);
+  store.pool = null;
+}
+
+// Pure: draw exactly `budget` actions from `random` (one value per action). Each slot picks among the actions still under
+// the cap (fixed order Move, Attack, Defend), proportionally to the constant weights: floor(r * total) walked through the
+// cumulative weights (randomAction's walk). cap = max(maxSameAction, ceil(budget / 3)), so with all weights > 0 an
+// eligible action always exists and the loop ends after exactly `budget` values (budget 0..10).
+function drawEnemyActionList(random, budget) {
+  const { weights, maxSameAction } = window.COMMANDER_DRAW_RULES;
+  const cap = Math.max(maxSameAction, Math.ceil(budget / ACTIONS.length));
+  const counts = {};
+  const drawn = [];
+
+  for (let slot = 0; slot < budget; slot += 1) {
+    const eligible = ACTIONS.filter((action) => (counts[action] ?? 0) < cap && weights[action] > 0);
+    const total = eligible.reduce((sum, action) => sum + weights[action], 0);
+    let ticket = Math.floor(random() * total);
+    let pick = eligible[eligible.length - 1];
+
+    for (const action of eligible) {
+      ticket -= weights[action];
+
+      if (ticket < 0) {
+        pick = action;
+        break;
+      }
+    }
+
+    counts[pick] = (counts[pick] ?? 0) + 1;
+    drawn.push(pick);
+  }
+
+  return drawn;
+}
+
+// Canonical pool order of a drawn list (the order settingsToPerBattle expands the fixed pool in).
+function toCanonicalEnemyPool(actions) {
+  return ["Move", "Defend", "Attack"].flatMap((action) => actions.filter((entry) => entry === action));
+}
+
+// RULES (core-safe): the planning moment's ONE draw under commanderdraw: advances the enemy stream by exactly one list of
+// enemyActionBudget actions and stores it (canonical order) as this plan's pool.
+function drawEnemyPlanPool() {
+  const store = getEnemyDrawState();
+
+  if (store.state === null) {
+    store.state = deriveEnemyDrawSeed(activeScenarioSeed ?? 0); // not reachable through a scenario load (it seeds the stream)
+  }
+
+  const stream = createSeededRandom(store.state);
+  const pool = toCanonicalEnemyPool(drawEnemyActionList(stream, activeRules.enemyActionBudget));
+
+  store.state = stream.getState();
+  store.pool = pool;
+  return pool;
+}
+
+// The pool the pack planner and the commander accounting use: the drawn list under commanderdraw, else the fixed pool.
+function getEnemyPlanPool() {
+  return isEnemyDrawRules() ? [...(getEnemyDrawState().pool ?? [])] : [...activeRules.enemyActionPool];
+}
+
 function clearEnemyPackActionQueue() {
   enemyPackActionQueue.length = 0;
   enemyPackFocusTarget = null;
   getEnemyPlanState().frozen = false;
+  getEnemyDrawState().pool = null; // the drawn list belongs to the plan it was drawn for
 }
 
 function getEnemyPackActionsForUnit(unit) {
@@ -4964,6 +5088,10 @@ function planEnemyPackTurnRules(enemyUnits, playerUnits) {
     getEnemyPlanState().frozen = true; // commander: this plan stands for the whole planning phase
   }
 
+  if (isEnemyDrawRules()) {
+    drawEnemyPlanPool(); // commanderdraw: exactly one drawn list per planning moment
+  }
+
   if (aliveEnemies.length === 0 || alivePlayers.length === 0) {
     return enemyPackActionQueue;
   }
@@ -4981,7 +5109,7 @@ function planEnemyPackTurnRules(enemyUnits, playerUnits) {
   assignEnemyPackObjectives(aliveEnemies, enemyPackFocusTarget, targetedPlayers, plannedStates);
 
   const reservedMoveTargets = new Set();
-  const doctrinePool = [...activeRules.enemyActionPool];
+  const doctrinePool = getEnemyPlanPool(); // commanderdraw: the drawn list; else the fixed pool (a copy either way)
 
   while (enemyPackActionQueue.length < activeRules.enemyActionBudget) {
     const assignment = getBestEnemyPackAction(
@@ -6256,7 +6384,7 @@ function getBattleOutcome() {
 // spent <= enemyActionBudget (a casualty never creates budget; nothing carries over to the next turn).
 function beginEnemyAccounting(context) {
   const budget = activeRules.enemyActionBudget;
-  const pool = [...activeRules.enemyActionPool];
+  const pool = getEnemyPlanPool(); // commanderdraw: this plan's drawn list
   const assigned = getPackQueueData();
   const leftover = [...pool];
 
@@ -6374,10 +6502,12 @@ function formatEnemyActionsNote(summary) {
     ? summary.reasons.map((reason) => `${reason.code}${reason.count ? ` x${reason.count}` : ""} (${reason.message})`).join("; ")
     : "-";
 
+  const draw = isEnemyDrawRules(); // commanderdraw: the pool is this turn's drawn list
+
   return [
     "",
-    `Enemy actions (commander, ${window.COMMANDER_RULES.scopeLabel}):`,
-    `Budget ${summary.budget} | pool ${summary.pool.length}: ${summary.pool.join(", ") || "-"}`,
+    draw ? `Enemy actions (commanderdraw, ${window.COMMANDER_DRAW_RULES.scopeLabel}):` : `Enemy actions (commander, ${window.COMMANDER_RULES.scopeLabel}):`,
+    `Budget ${summary.budget} | ${draw ? "drawn" : "pool"} ${summary.pool.length}: ${summary.pool.join(", ") || "-"}`,
     `Assigned ${summary.assigned}: ${list(summary.assignedActions, (entry) => `${entry.unit} ${entry.action}`)}`,
     `Spent ${summary.spent}: ${list(summary.spentActions, (entry) => `${entry.unit} ${entry.action} (tick ${entry.tick})`)}`,
     `Forfeited ${summary.forfeited}: ${forfeited}`,
@@ -7199,10 +7329,11 @@ function hashTurnEvents(events) {
 //              turnsSinceHit, tookDamageThisTurn, isFleeing, isHidden, packObjective, queue } ] in P1,P2,P3,E1,E2,E3
 //            order; queue = the unit's player action queue (unitActionQueues), [] if it has none; commander preset
 //            only, player records: target (enemy id | null) and targetSource ("chosen" | "auto" | null)
-//   enemyPack { queue: [{ unit, action }], focus: unit id | null, planFrozen (commander preset only: the frozen-plan
-//            flag, getEnemyPlanState().frozen) }
+//   enemyPack { queue: [{ unit, action }], focus: unit id | null, planFrozen (commander presets only: the frozen-plan
+//            flag, getEnemyPlanState().frozen), drawnPool (commanderdraw only: the plan's drawn list or null) }
 //   hand     { cards: [ordered playerHand], reshuffleChargesRemaining }
-//   rng      { handSeed, handState }             the hand stream's CURRENT 32-bit position (not just its seed)
+//   rng      { handSeed, handState }             the hand stream's CURRENT 32-bit position (not just its seed); commanderdraw
+//            only also enemyDrawState (the enemy draw stream's CURRENT position, getEnemyDrawState().state)
 // EXCLUDED on purpose: DOM, selection / hover / move preview / action menu / tutorial, sprite and animation
 // fields (element, healthBar, intentTags, hiddenTag, x, y, animationName, animation requests and promises,
 // hasPlayedDeathAnimation, idleStartFrame: cosmetic Math.random), the result overlay, world / scenario /
@@ -7218,7 +7349,9 @@ function hashTurnEvents(events) {
 //   (a) unitActionQueues: player action queues (WeakMap keyed by unit)
 //   (a) enemyPackActionQueue, enemyPackFocusTarget: enemy pack plan
 //   also BattleState, off the top level (no row; fingerprinted by the follow-up fixtures): getEnemyPlanState().frozen
-//   (commander frozen-plan flag; snapshot enemyPack.planFrozen under commander, swapped by withBattleState). Settings
+//   (commander frozen-plan flag; snapshot enemyPack.planFrozen under commander, swapped by withBattleState) and
+//   getEnemyDrawState() (commanderdraw enemy stream position + drawn pool; snapshot rng.enemyDrawState and
+//   enemyPack.drawnPool under commanderdraw only, swapped by withBattleState, written by loadBattleState). Settings
 //   state off the top level: getRulesState() (settings store) and getRulesPresetState() (active / pending preset).
 //   also BattleState, on the unit records (no row): unit.targetId / unit.targetSource (commander target selection;
 //   snapshot keys target / targetSource under commander only; never set under current). Presentation, on the unit
@@ -7352,10 +7485,27 @@ function snapshotBattleState() {
       queue: enemyPackActionQueue.map((entry) => ({ unit: getBattleDebugUnitId(entry.unit), action: entry.action })),
       focus: enemyPackFocusTarget ? getBattleDebugUnitId(enemyPackFocusTarget) : null,
       ...(isCommanderRules() ? { planFrozen: getEnemyPlanState().frozen } : {}), // commander only
+      ...(isEnemyDrawRules() ? { drawnPool: getEnemyDrawState().pool === null ? null : [...getEnemyDrawState().pool] } : {}), // commanderdraw only
     },
     hand: { cards: [...playerHand], reshuffleChargesRemaining },
-    rng: { handSeed, handState: getHandRandomState() },
+    rng: { handSeed, handState: getHandRandomState(), ...(isEnemyDrawRules() ? { enemyDrawState: getEnemyDrawState().state } : {}) },
   };
+}
+
+// Commanderdraw fields: required (enemy stream position 0..2^32-1; drawn pool null or a list of actions) under commanderdraw,
+// absent under every other preset.
+function isValidBattleStateEnemyDraw(state) {
+  const hasFields = "enemyDrawState" in state.rng || "drawnPool" in state.enemyPack;
+
+  if (!isEnemyDrawRules(state.rules.values)) {
+    return !hasFields;
+  }
+
+  const position = state.rng.enemyDrawState;
+  const pool = state.enemyPack.drawnPool;
+
+  return Number.isInteger(position) && position >= 0 && position <= 0xffffffff &&
+    (pool === null || (Array.isArray(pool) && pool.every((action) => ACTIONS.includes(action))));
 }
 
 // Commander target fields on a unit record: absent, or (commander state, player record) a known enemy id or null with a
@@ -7367,7 +7517,7 @@ function isValidBattleStateTarget(state, record) {
 
   const enemyIds = state.units.filter((unit) => unit.team === "enemy").map((unit) => unit.id);
 
-  return state.rules.values.preset === "commander" && record.team === "player" && "target" in record && "targetSource" in record &&
+  return isCommanderRules(state.rules.values) && record.team === "player" && "target" in record && "targetSource" in record &&
     (record.target === null
       ? record.targetSource === null
       : enemyIds.includes(record.target) && (record.targetSource === "chosen" || record.targetSource === "auto"));
@@ -7393,6 +7543,7 @@ function validateBattleState(state) {
   if (state.enemyPack.planFrozen !== undefined && typeof state.enemyPack.planFrozen !== "boolean") fail("enemyPack.planFrozen");
   if (!state.hand || !isStringList(state.hand.cards) || !Number.isFinite(state.hand.reshuffleChargesRemaining)) fail("hand");
   if (!state.rng || !Number.isInteger(state.rng.handState)) fail("rng");
+  if (!isValidBattleStateEnemyDraw(state)) fail("enemy draw (rng.enemyDrawState / enemyPack.drawnPool)");
 }
 
 function createFrozenRulesFromState(rules) {
@@ -7440,6 +7591,15 @@ function createBattleStateUnitClone(record) {
   return clone;
 }
 
+// The commanderdraw fields of a (validated) BattleState into the enemy draw store; a state without them (any other preset)
+// leaves the store empty (state null, pool null), which nothing reads under those presets.
+function writeEnemyDrawFromState(state) {
+  const store = getEnemyDrawState();
+
+  store.state = "enemyDrawState" in state.rng ? state.rng.enemyDrawState : null;
+  store.pool = Array.isArray(state.enemyPack.drawnPool) ? [...state.enemyPack.drawnPool] : null;
+}
+
 function withBattleState(state, fn) {
   rejectIfBattleStateBusy("withBattleState");
   validateBattleState(state);
@@ -7467,6 +7627,7 @@ function withBattleState(state, fn) {
     turnCoreDepth,
     turnDriverDepth,
     planFrozen: getEnemyPlanState().frozen,
+    enemyDraw: { ...getEnemyDrawState() }, // commanderdraw stream position + drawn pool (plain values)
   };
   const clones = state.units.map(createBattleStateUnitClone);
   const cloneById = new Map(state.units.map((record, index) => [record.id, clones[index]]));
@@ -7484,6 +7645,7 @@ function withBattleState(state, fn) {
     );
     enemyPackFocusTarget = state.enemyPack.focus === null ? null : cloneById.get(state.enemyPack.focus);
     getEnemyPlanState().frozen = state.enemyPack.planFrozen === true;
+    writeEnemyDrawFromState(state);
     playerHand.splice(0, playerHand.length, ...state.hand.cards);
     reshuffleChargesRemaining = state.hand.reshuffleChargesRemaining;
     handRandom = createSeededRandom(state.rng.handState);
@@ -7505,6 +7667,7 @@ function withBattleState(state, fn) {
     enemyPackActionQueue.splice(0, enemyPackActionQueue.length, ...saved.packQueue);
     enemyPackFocusTarget = saved.focus;
     getEnemyPlanState().frozen = saved.planFrozen;
+    Object.assign(getEnemyDrawState(), saved.enemyDraw);
     playerHand.splice(0, playerHand.length, ...saved.hand);
     reshuffleChargesRemaining = saved.reshuffleChargesRemaining;
     handRandom = saved.handRandom;
@@ -7628,6 +7791,11 @@ function loadBattleState(state) {
   );
   enemyPackFocusTarget = state.enemyPack.focus === null ? null : getUnitByBattleId(state.enemyPack.focus);
   getEnemyPlanState().frozen = state.enemyPack.planFrozen === true;
+
+  if (isEnemyDrawRules(state.rules.values)) {
+    writeEnemyDrawFromState(state); // commanderdraw only: other presets never read (or write) the enemy draw store here
+  }
+
   playerHand.splice(0, playerHand.length, ...state.hand.cards);
   reshuffleChargesRemaining = state.hand.reshuffleChargesRemaining;
   handSeed = state.rng.handSeed;
@@ -7845,7 +8013,7 @@ function observeBattle() {
     schema: "player-observation/1",
     config: { gridSize: GRID_SIZE, enemyMode },
     rules: {
-      preset: isCommanderRules() ? "commander" : "current",
+      preset: isEnemyDrawRules() ? "commanderdraw" : isCommanderRules() ? "commander" : "current",
       version: activeRules.version,
       hash: activeRules.hash,
       playerActionBudget: activeRules.playerActionBudget,
@@ -11581,7 +11749,7 @@ function updateScenarioLabel(text = null) {
 
 function getScenarioLabelText() {
   return activeScenario
-    ? `${activeScenario.id} · seed ${activeScenarioSeed}${isDefaultSettings(getRulesState().active) ? "" : ` · custom rules ${activeRules.hash.slice(0, 6)}`}${getActivePreset() === "commander" ? " · commander (experimental)" : ""}`
+    ? `${activeScenario.id} · seed ${activeScenarioSeed}${isDefaultSettings(getRulesState().active) ? "" : ` · custom rules ${activeRules.hash.slice(0, 6)}`}${getActivePreset() === "commander" ? " · commander (experimental)" : getActivePreset() === "commanderdraw" ? " · commander draw (experimental)" : ""}`
     : "";
 }
 
@@ -11674,6 +11842,7 @@ function loadScenario(id = "intro", seed) {
   activeScenario = scenario;
   activeScenarioSeed = parseSeed(seed, scenario.seed >>> 0);
   seedHandRandom(activeScenarioSeed);
+  seedEnemyDrawRandom(activeScenarioSeed); // commanderdraw's separate enemy stream (unused under other presets)
 
   if (gameResultOverlay) {
     gameResultOverlay.hidden = true;
@@ -11821,7 +11990,9 @@ function applyPendingSettings() {
   store.linkStatusStale = true;
   setRulesNotice("info", presetStore.active === "commander"
     ? `Applied: commander ruleset (${window.COMMANDER_RULES.scopeLabel}). The battle was restarted; custom settings change gameplay and are not balanced.`
-    : "Applied. The battle was restarted; custom settings change gameplay and are not balanced.");
+    : presetStore.active === "commanderdraw"
+      ? `Applied: commander draw ruleset (${window.COMMANDER_DRAW_RULES.scopeLabel}). The battle was restarted; custom settings change gameplay and are not balanced.`
+      : "Applied. The battle was restarted; custom settings change gameplay and are not balanced.");
   refreshRulesPanel();
   return { ok: true, warnings: validation.warnings, record: getEffectiveRulesRecord() };
 }
@@ -11906,12 +12077,14 @@ function resolveBootRules(route, search = window.location?.search) {
   setActiveSettingsUnchecked(parsed.settings);
   store.pending = normalizeSettings(parsed.settings);
 
-  if (parsed.preset === "commander") {
-    getRulesPresetState().active = "commander";
-    getRulesPresetState().pending = "commander";
+  if (parsed.preset === "commander" || parsed.preset === "commanderdraw") {
+    const scopeLabel = parsed.preset === "commander" ? window.COMMANDER_RULES.scopeLabel : window.COMMANDER_DRAW_RULES.scopeLabel;
+
+    getRulesPresetState().active = parsed.preset;
+    getRulesPresetState().pending = parsed.preset;
     store.linkStatus = {
       status: "applied",
-      message: `preset commander (${window.COMMANDER_RULES.scopeLabel})${parsed.hasRules ? "; rules link applied" : "; default settings"}`,
+      message: `preset ${parsed.preset} (${scopeLabel})${parsed.hasRules ? "; rules link applied" : "; default settings"}`,
     };
     return;
   }
@@ -11963,6 +12136,9 @@ function refreshRulesPanel() {
       + "Restart / R / Play Again keep the ACTIVE settings; pending values are not applied until you click Apply."
       + (presetStore.active === "commander" || presetStore.pending === "commander"
         ? ` Commander ruleset (${window.COMMANDER_RULES.scopeLabel}): only the enemy-action and target-selection rules differ from the current ruleset.`
+        : "")
+      + (presetStore.active === "commanderdraw" || presetStore.pending === "commanderdraw"
+        ? ` Commander draw ruleset (${window.COMMANDER_DRAW_RULES.scopeLabel}): the commander rules, and each turn the enemy draws its enemy-budget actions at random (the enemy pool settings are ignored).`
         : "");
   }
 
@@ -11992,7 +12168,10 @@ function refreshRulesPanel() {
   const summary = getRulesPanelElement("rules-active-summary");
 
   if (summary) {
-    summary.textContent = `active: ${presetStore.active === "commander" ? `commander (${window.COMMANDER_RULES.scopeLabel}) · ` : ""}${describeRulesSettings(store.active)} · hash ${activeRules.hash.slice(0, 6)}${isCustom ? " (custom)" : ""}`;
+    const presetText = presetStore.active === "commander" ? `commander (${window.COMMANDER_RULES.scopeLabel}) · `
+      : presetStore.active === "commanderdraw" ? `commanderdraw (${window.COMMANDER_DRAW_RULES.scopeLabel}) · ` : "";
+
+    summary.textContent = `active: ${presetText}${describeRulesSettings(store.active)} · hash ${activeRules.hash.slice(0, 6)}${isCustom ? " (custom)" : ""}`;
   }
 
   const pendingState = getRulesPanelElement("rules-pending-state");
