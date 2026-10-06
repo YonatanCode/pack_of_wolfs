@@ -16,7 +16,8 @@ Approvals live in `lab/approvals.json` (gitignored). No tool in this repo create
 - [ ] strategies: non-empty, unique, each must exist in `bots.cjs` BOTS (no registry = refused)
 - [ ] every limit required, positive integer, at or under its hard cap: maxBattles 200, maxTurnsPerBattle 60, maxTotalTurns 5000, maxRuntimeSeconds 1800
 - [ ] scenario ids and preset must be supported by the game (`unknown scenario: X (supported: ...)`, `unknown preset: X (supported: ...)`); read statically from scenarios/*.js and script.js; unreadable sources = refused. This happens before the authorization is consumed.
-- [ ] battle count (sum of seeds x strategies) must be <= `limits.maxBattles`
+- [ ] battle count (sum of seeds x strategies, x the number of `rulesVariants` when listed) must be <= `limits.maxBattles`
+- [ ] optional `rulesVariants`: array of 1..8 unique strings, each `""` or `"rules=<key>:<integer>,..."` (<= 512 chars); each must be accepted by the game's strict link parser with `preset` (`rulesVariants[i] "..." rejected by the game: ...`); `--check-only` prints it
 - [ ] optional `searchLimits` (`maxCandidates`, `maxEvaluations`, `maxMsPerDecision`): object, no unknown key, every key a positive integer at or under its hard cap 2000 / 1000 / 10000; REQUIRED when a full-information strategy (`search-benchmark`) is listed (`searchLimits is required with a full-information strategy (...)`), refused otherwise (`searchLimits is only allowed with a full-information strategy (none listed)`); `--check-only` prints it
 
 ## Gate 2: build ID
