@@ -75,6 +75,16 @@
  *
  * replayBattle(record, load) re-applies the recorded steps on a fresh context through the same slot function and
  * returns the reproduced record (bot errors are re-raised from the record; wall-clock / run-wide stops are taken from it).
+ *
+ * Full-information strategies (a bot with `fullInformation: true`, e.g. search-benchmark; CONTRACT "Full-information
+ * strategies"): options.searchLimits ({ maxCandidates, maxEvaluations, maxMsPerDecision }) is then required, and ctx also
+ * carries `search: { decide(observation) -> orders }`, bound to this battle's game through search.cjs (read-only seams;
+ * the live battle is never mutated by it) with the slot's round and the driver's now(). Every other bot gets exactly
+ * { rng, round, maxRounds } as before. Such records also carry: fullInformation: true; perTurn[i].search = the slot's
+ * summed search counts (decisions, candidatesGenerated, candidatesKept, evaluated, rejectedByValidator, engineErrors,
+ * limitHits { generation, candidates, evaluations, time }, fallbacks, reshuffles); record.timing = { searchMs: { decisions,
+ * totalMs, maxMs } } (wall clock: report.cjs moves it out of the hashed report body). replayBattle copies these three
+ * from the record (it re-applies orders and never re-runs a search).
  */
 const crypto = require("node:crypto");
 const { mulberry32 } = require("../../tests/harness/load-game.cjs");
@@ -496,6 +506,9 @@ function checkOptions(options) {
   if (typeof o.fixtureOnly !== "boolean") fail("fixtureOnly must be a boolean");
   if (o.turnsRemaining !== undefined && (!Number.isInteger(o.turnsRemaining) || o.turnsRemaining < 0)) fail("turnsRemaining must be a non-negative integer");
   if (o.deadlineMs !== undefined && !Number.isFinite(o.deadlineMs)) fail("deadlineMs must be a finite number");
+  if (o.bot.fullInformation === true) {
+    try { require("./search.cjs").checkLimits(o.searchLimits); } catch (e) { fail(`searchLimits (required for a full-information bot): ${e.message}`); }
+  }
   const strategy = resolveStrategy(o);
   if (!strategy) fail("strategy unknown: pass options.strategy or a bot with an id");
   return strategy;
@@ -510,6 +523,10 @@ function runBattle(options) {
   const turnsRemaining = options.turnsRemaining ?? limits.maxTotalTurns;
   const now = typeof options.now === "function" ? options.now : Date.now;
   const record = emptyRecord(meta);
+  if (bot.fullInformation === true) {
+    record.fullInformation = true;
+    record.timing = { searchMs: { decisions: 0, totalMs: 0, maxMs: 0 } };
+  }
 
   const setup = setUp(load, record);
   if (setup.failure) return finish(record, meta, "error", "setup-error", setup.failure);
@@ -517,10 +534,12 @@ function runBattle(options) {
   let observation = setup.observation;
   const rng = mulberry32(botSeed);
   const rngFn = () => rng();
+  const full = bot.fullInformation === true ? fullInformationSeam(game, options.searchLimits, now, record) : null;
   const ask = (round, obs) => {
     let raw;
     try {
-      raw = bot.decide(obs, Object.freeze({ rng: rngFn, round, maxRounds: MAX_ROUNDS }));
+      const ctx = full ? { rng: rngFn, round, maxRounds: MAX_ROUNDS, search: full.contextFor(round) } : { rng: rngFn, round, maxRounds: MAX_ROUNDS };
+      raw = bot.decide(obs, Object.freeze(ctx));
     } catch (e) {
       return { botError: errText(e) };
     }
@@ -535,10 +554,39 @@ function runBattle(options) {
     if (options.deadlineMs !== undefined && now() >= options.deadlineMs) return finish(record, meta, "timeout", "max-runtime");
 
     const step = playSlot(game, record.perTurn.length + 1, observation, ask);
+    if (full) step.entry.search = full.takeSlotStats();
     record.perTurn.push(step.entry);
     if (step.stop) return slotEnd(record, meta, step);
     observation = step.observation;
   }
+}
+
+/**
+ * The Lab-side seam for a full-information bot: ctx.search for each round, slot search counts, wall-clock timing.
+ * search.cjs is required only here, so the observation-only bots never load it.
+ */
+function fullInformationSeam(game, limits, now, record) {
+  const search = require("./search.cjs");
+  const handle = search.createGameSearchHandle(game);
+  let slot = null;
+  return {
+    contextFor: (round) => Object.freeze({
+      decide(observation) {
+        const r = search.searchDecide(observation, { handle, limits, now, round, maxRounds: MAX_ROUNDS });
+        slot = search.addStats(slot, r.stats);
+        const t = record.timing.searchMs;
+        t.decisions += 1;
+        t.totalMs += r.ms;
+        t.maxMs = Math.max(t.maxMs, r.ms);
+        return r.orders;
+      },
+    }),
+    takeSlotStats() {
+      const out = slot ?? search.addStats(null, { ...search.emptyStats(), decisions: 0 });
+      slot = null;
+      return out;
+    },
+  };
 }
 
 /**
@@ -558,6 +606,7 @@ function replayBattle(record, load, { buildId } = {}) {
   };
   const out = emptyRecord(meta);
   out.replay.query = record.replay.query;
+  if (record.fullInformation === true) { out.fullInformation = true; out.timing = copy(record.timing); }
   const setup = setUp(load, out);
   if (setup.failure) return finish(out, meta, "error", "setup-error", setup.failure);
   const { game } = setup;
@@ -570,6 +619,7 @@ function replayBattle(record, load, { buildId } = {}) {
       return { botError: original.status === "bot-error" ? original.error : "replay: no recorded step for this round" };
     };
     const step = playSlot(game, original.turn, observation, recorded);
+    if (original.search !== undefined) step.entry.search = copy(original.search); // a decision record, not re-run
     out.perTurn.push(step.entry);
     if (step.stop) return slotEnd(out, meta, step);
     observation = step.observation;

@@ -234,6 +234,19 @@ const BOTS = {
     description: "Targets the nearest visible enemy per wolf (commander); queues Move to close in and Attack only where it can plausibly land (reachability from visible positions); in its own round 0 reshuffles a poor hand when charges remain.",
     decide: decideAggressivePursuit,
   },
+  // Full-information benchmark (BOTS.md): the decision is made by the search context the driver passes as ctx.search
+  // (search.cjs, bound to the battle's game). This entry only registers the strategy and its flag; without ctx.search
+  // it refuses (a bot error), it never falls back to the observation alone.
+  "search-benchmark": {
+    fullInformation: true,
+    description: "FULL-INFORMATION BENCHMARK (win rate does not estimate human difficulty): reads the hidden enemy plan and simulates every ranked candidate plan for one turn with the game's own rules on an isolated copy, under explicit per-decision limits; picks the best by a fixed lexicographic score.",
+    decide(observation, ctx) {
+      if (!ctx || !ctx.search || typeof ctx.search.decide !== "function") {
+        throw new Error("search-benchmark needs ctx.search (full-information context provided by the driver)");
+      }
+      return ctx.search.decide(observation);
+    },
+  },
 };
 
 module.exports = { BOTS, legalOrderCheck, movesNeeded, NEEDED_CAP };
