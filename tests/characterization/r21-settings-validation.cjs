@@ -97,7 +97,8 @@ async function run() {
   // ---- R21d: link grammar
   const parse = (query) => J(g, `parseRulesParams(new URLSearchParams(${JSON.stringify(query)}))`);
   const link = (patchExpr) => g.ev(`buildRulesLink({ ...getDefaultSettings(), ...${patchExpr} }, "intro", 7)`);
-  check(link("{}") === "?scenario=intro&seed=7" && g.ev("formatRulesParam(getDefaultSettings())") === "", "default settings: no preset/rules parameter at all");
+  // Section 14 (default battle setup): a link without preset / rules now boots the default setup, so the current preset names itself.
+  check(link("{}") === "?scenario=intro&seed=7&preset=current" && g.ev("formatRulesParam(getDefaultSettings())") === "", "default settings: preset=current, no rules parameter");
   const SAMPLES = [
     { handSize: 7, playerActionBudget: 3 }, { enemyActionBudget: 0 }, { weightMove: 6, weightAttack: 0, weightDefend: 2, maxSameAction: 4 },
     { poolMove: 0, poolDefend: 3, poolAttack: 1, enemyActionBudget: 4 }, { reshuffleCharges: 0, handSize: 8, playerActionBudget: 8, maxSameAction: 8 },

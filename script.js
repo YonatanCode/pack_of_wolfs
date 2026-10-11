@@ -499,7 +499,7 @@ function formatEnemyDrawWeightsParam(weights) {
   return Object.keys(keys).filter((action) => weights[action] !== defaults[action]).map((action) => `${keys[action].link}:${weights[action]}`).join(",");
 }
 
-// "?scenario=<id>&seed=<n>" plus, only for non-default settings, "&preset=current&rules=...". Any other preset
+// "?scenario=<id>&seed=<n>&preset=current" plus, only for non-default settings, "&rules=..." (section 14). Any other preset
 // (commander, commanderdraw) always emits "&preset=<name>" (with "&rules=..." only for non-default settings; under
 // commanderdraw also for non-default enemy draw weights, section 13.1).
 function buildRulesLink(settings, scenarioId, seed, preset = "current", enemyDrawWeights = null) {
@@ -511,7 +511,8 @@ function buildRulesLink(settings, scenarioId, seed, preset = "current", enemyDra
     return `${base}&preset=${preset}${rules ? `&rules=${rules}` : ""}`;
   }
 
-  return rules ? `${base}&preset=current&rules=${rules}` : base;
+  // Section 14: a link without preset / rules boots the default battle setup, so the current preset always names itself.
+  return rules ? `${base}&preset=current&rules=${rules}` : `${base}&preset=current`;
 }
 
 // STRICT parse of the preset/rules URL parameters. Any problem rejects the WHOLE rules parameter (no partial

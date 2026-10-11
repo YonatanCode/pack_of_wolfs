@@ -70,7 +70,7 @@ async function run() {
   check(parse(x, "preset=commander&preset=current").message === "rules link rejected (duplicate preset parameter); default settings are used", "duplicate preset still rejected");
   check(x.ev(`buildRulesLink(getDefaultSettings(), "intro", 1, "commander")`) === "?scenario=intro&seed=1&preset=commander", "link: commander, default numbers");
   check(x.ev(`buildRulesLink({ ...getDefaultSettings(), playerActionBudget: 3 }, "intro", 1, "commander")`) === "?scenario=intro&seed=1&preset=commander&rules=pab:3", "link: commander with rules");
-  check(x.ev(`buildRulesLink(getDefaultSettings(), "intro", 1)`) === "?scenario=intro&seed=1", "link: current default unchanged");
+  check(x.ev(`buildRulesLink(getDefaultSettings(), "intro", 1)`) === "?scenario=intro&seed=1&preset=current", "link: current default names its preset (section 14: no preset = default setup)");
   const curRec = J(x, "window.devTest.getEffectiveRulesRecord()");
   check(curRec.preset === "current" && curRec.hash === DEFAULT_HASH && curRec.version === "0.1.0-current", "current default record and hash unchanged");
   check(x.ev("computeRulesHash(window.devTest.getEffectiveRulesRecord().values)") === DEFAULT_HASH, "current: hash = hash of the record values");

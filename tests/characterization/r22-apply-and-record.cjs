@@ -131,7 +131,8 @@ async function run() {
 
   // ---- R22h: Copy link
   const gl = mk("?scenario=intro&seed=3");
-  same(await gl.runLimited(() => gl.ev("copyRulesLink()")), { copied: true, link: "?scenario=intro&seed=3" }, "default settings: link has no rules parameter");
+  // Section 14 (default battle setup): a link without preset / rules now boots the default setup, so the current preset names itself.
+  same(await gl.runLimited(() => gl.ev("copyRulesLink()")), { copied: true, link: "?scenario=intro&seed=3&preset=current" }, "default settings: link has preset=current and no rules parameter");
   P.apply(gl, CUSTOM);
   const copied = await gl.runLimited(() => gl.ev("copyRulesLink()"));
   check(copied.copied === true && copied.link === "?scenario=intro&seed=3&preset=current&rules=pab:3,hs:7,rc:4,cap:4,wm:6,eab:2,epm:0,epd:0", `Copy link: ${copied.link}`);
