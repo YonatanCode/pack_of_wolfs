@@ -1,0 +1,61 @@
+{
+  "header": "REQUIREMENT — default battle setup",
+  "handsGenerated": 19,
+  "result": {
+    "defaultSetup": {
+      "preset": "commanderdraw",
+      "version": "0.1.0-commanderdraw-enemy-random-draw",
+      "hash": "0e098f37a86413",
+      "budgets": {
+        "player": 5,
+        "enemy": 5
+      },
+      "handSize": 5,
+      "reshuffleCharges": 2,
+      "maxSameAction": 3,
+      "playerWeights": {
+        "Move": 1,
+        "Attack": 2,
+        "Defend": 1
+      },
+      "enemyWeights": {
+        "Move": 1,
+        "Attack": 2,
+        "Defend": 1
+      }
+    },
+    "copyLink": "?scenario=intro&seed=1&preset=commanderdraw&rules=wa:2,dwa:2",
+    "label": "intro · seed 1 · custom rules 0e098f · commander draw (experimental)",
+    "bootHand": [
+      "Attack",
+      "Move",
+      "Attack",
+      "Defend",
+      "Defend"
+    ],
+    "pinnedLists": {
+      "seed": 1,
+      "turn1": "Defend,Move,Move,Defend,Attack",
+      "turn2": "Attack,Move,Move,Move,Attack",
+      "seed1SameAsOldWeights": true
+    },
+    "bootPlan": [
+      "Move",
+      "Move",
+      "Defend",
+      "Defend",
+      "Attack"
+    ],
+    "explicitHashes": {
+      "current": "0d3ce2ec6fa6de",
+      "commander": "1ee7c8d5a26ec1",
+      "commanderdraw": "197edd95522f77"
+    }
+  },
+  "usage": {
+    "contexts": 11,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
