@@ -160,6 +160,19 @@ window.COMMANDER_DRAW_RULES = deepFreeze({
   seedMix: { xor: 0x9e3779b9, multiply: 0x85ebca6b },
 });
 
+// Commanderdraw enemy draw WEIGHTS per battle (ENGINE-NOTES section 13.1): rules link keys dwm / dwa / dwd, accepted ONLY with
+// preset=commanderdraw, integers 0..20, defaults = COMMANDER_DRAW_RULES.weights (1 / 1 / 1). Not settings keys (the settings
+// record and every other preset keep their shape and hashes): they live in getEnemyDrawWeightsState() and replace
+// enemyDraw.weights in the hashed commanderdraw record, so default weights keep every commanderdraw hash.
+window.ENEMY_DRAW_WEIGHTS = deepFreeze({
+  bounds: { min: 0, max: 20 },
+  keys: {
+    Move: { field: "enemyWeightMove", link: "dwm" },
+    Attack: { field: "enemyWeightAttack", link: "dwa" },
+    Defend: { field: "enemyWeightDefend", link: "dwd" },
+  },
+});
+
 function getSettingsKeys() {
   return Object.keys(window.SETTINGS_BOUNDS);
 }
@@ -298,6 +311,102 @@ function validateSettings(settings) {
   return { valid: errors.length === 0, errors, warnings };
 }
 
+// Same-action cap of one drawn enemy list (commanderdraw): COMMANDER_DRAW_RULES.maxSameAction, raised to ceil(budget / 3)
+// when the budget exceeds 3 x cap (budget 10: 4).
+function getEnemyDrawCap(budget) {
+  return Math.max(window.COMMANDER_DRAW_RULES.maxSameAction, Math.ceil(budget / Object.keys(window.ENEMY_DRAW_WEIGHTS.keys).length));
+}
+
+function getDefaultEnemyDrawWeights() {
+  return { ...window.COMMANDER_DRAW_RULES.weights };
+}
+
+// Active commanderdraw enemy draw weights (off the top level, like the settings store): { active: frozen { Move, Attack,
+// Defend } }. Non-default only while the active preset is commanderdraw: written by the boot link / replay setup, kept by
+// Apply under commanderdraw, reset to the defaults by Apply under another preset, the tutorial and world mode.
+function getEnemyDrawWeightsState() {
+  if (!getEnemyDrawWeightsState.store) {
+    getEnemyDrawWeightsState.store = { active: deepFreeze(getDefaultEnemyDrawWeights()) };
+  }
+
+  return getEnemyDrawWeightsState.store;
+}
+
+function getActiveEnemyDrawWeights() {
+  return { ...getEnemyDrawWeightsState().active };
+}
+
+function areEnemyDrawWeightsDefault(weights = getEnemyDrawWeightsState().active) {
+  const defaults = getDefaultEnemyDrawWeights();
+
+  return Object.keys(defaults).every((action) => weights[action] === defaults[action]);
+}
+
+// STRICT validation of commanderdraw enemy draw weights against the settings (no coercion, like validateSettings; all
+// problems at once): { valid, errors: [{ field, message }] }. Cross-field: at least one weight > 0, and the draw must be
+// formable: (actions with weight > 0) x getEnemyDrawCap(enemyActionBudget) >= enemyActionBudget (otherwise
+// drawEnemyActionList would run out of eligible actions). The cap rule is not changed: such combinations are refused.
+function validateEnemyDrawWeights(weights, settings) {
+  const { bounds, keys } = window.ENEMY_DRAW_WEIGHTS;
+  const errors = [];
+
+  if (weights === null || typeof weights !== "object" || Array.isArray(weights)) {
+    return { valid: false, errors: [{ field: "enemyDrawWeights", message: "enemy draw weights must be an object" }] };
+  }
+
+  Object.keys(weights).forEach((action) => {
+    if (!Object.prototype.hasOwnProperty.call(keys, action)) {
+      errors.push({ field: action, message: `${action} is not an enemy draw action` });
+    }
+  });
+
+  const actions = Object.keys(keys);
+  const okCount = actions.filter((action) => {
+    const value = weights[action];
+    const ok = typeof value === "number" && Number.isInteger(value) && value >= bounds.min && value <= bounds.max;
+
+    if (!ok) {
+      errors.push({ field: keys[action].field, message: `${keys[action].field} must be a whole number from ${bounds.min} to ${bounds.max}` });
+    }
+
+    return ok;
+  }).length;
+
+  if (okCount === actions.length) {
+    const drawable = actions.filter((action) => weights[action] > 0).length;
+    const budget = settings?.enemyActionBudget;
+    const budgetBounds = window.SETTINGS_BOUNDS.enemyActionBudget;
+
+    if (drawable === 0) {
+      errors.push({ field: "enemyDrawWeights", message: "at least one enemy draw weight must be greater than 0" });
+    }
+
+    if (Number.isInteger(budget) && budget >= budgetBounds.min && budget <= budgetBounds.max && drawable * getEnemyDrawCap(budget) < budget) {
+      const cap = getEnemyDrawCap(budget);
+
+      errors.push({
+        field: "enemyActionBudget",
+        message: `the enemy draw cannot be formed: ${drawable} drawable action(s) x cap ${cap} = ${drawable * cap}, but enemyActionBudget is ${budget}`,
+      });
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+// Settings validation for a preset: validateSettings, plus (commanderdraw only) the enemy draw weights against those settings.
+function validateSettingsForPreset(settings, preset, enemyDrawWeights = getEnemyDrawWeightsState().active) {
+  const validation = validateSettings(settings);
+
+  if (preset !== "commanderdraw") {
+    return validation;
+  }
+
+  const errors = [...validation.errors, ...validateEnemyDrawWeights(enemyDrawWeights, settings).errors];
+
+  return { ...validation, valid: errors.length === 0, errors };
+}
+
 // Mutable settings state (kept off the top level, see the note above). `active` is always a validated,
 // frozen record; `pending` is what the panel edits (raw values, possibly invalid).
 function getRulesState() {
@@ -382,10 +491,20 @@ function formatRulesParam(settings) {
     .join(",");
 }
 
+// Commanderdraw only: the non-default enemy draw weights as link pairs (dwm, dwa, dwd order), appended after the settings.
+function formatEnemyDrawWeightsParam(weights) {
+  const defaults = getDefaultEnemyDrawWeights();
+  const keys = window.ENEMY_DRAW_WEIGHTS.keys;
+
+  return Object.keys(keys).filter((action) => weights[action] !== defaults[action]).map((action) => `${keys[action].link}:${weights[action]}`).join(",");
+}
+
 // "?scenario=<id>&seed=<n>" plus, only for non-default settings, "&preset=current&rules=...". Any other preset
-// (commander, commanderdraw) always emits "&preset=<name>" (with "&rules=..." only for non-default settings).
-function buildRulesLink(settings, scenarioId, seed, preset = "current") {
-  const rules = formatRulesParam(settings);
+// (commander, commanderdraw) always emits "&preset=<name>" (with "&rules=..." only for non-default settings; under
+// commanderdraw also for non-default enemy draw weights, section 13.1).
+function buildRulesLink(settings, scenarioId, seed, preset = "current", enemyDrawWeights = null) {
+  const drawPairs = preset === "commanderdraw" && enemyDrawWeights ? formatEnemyDrawWeightsParam(enemyDrawWeights) : "";
+  const rules = [formatRulesParam(settings), drawPairs].filter(Boolean).join(",");
   const base = `?scenario=${encodeURIComponent(scenarioId)}&seed=${seed}`;
 
   if (preset !== "current") {
@@ -411,8 +530,12 @@ function parseRulesParams(params) {
     return reject(`unknown preset "${presets[0]}"`);
   }
 
-  // The current preset keeps its result shape; any other (available) preset adds `preset`.
-  const presetField = presets.length === 1 && presets[0] !== "current" ? { preset: presets[0] } : {};
+  // The current preset keeps its result shape; any other (available) preset adds `preset`; commanderdraw also adds
+  // `enemyDrawWeights` (section 13.1; the defaults unless the link sets dwm / dwa / dwd).
+  const preset = presets.length === 1 ? presets[0] : "current";
+  const drawPreset = preset === "commanderdraw";
+  const enemyDrawWeights = getDefaultEnemyDrawWeights();
+  const presetField = preset !== "current" ? { preset, ...(drawPreset ? { enemyDrawWeights } : {}) } : {};
 
   if (rulesParams.length === 0) {
     return { ok: true, settings: defaults, hasRules: false, ...presetField };
@@ -428,6 +551,12 @@ function parseRulesParams(params) {
     linkToKey[window.SETTINGS_LINK_KEYS[key]] = key;
   });
 
+  const linkToAction = {};
+
+  Object.entries(window.ENEMY_DRAW_WEIGHTS.keys).forEach(([action, { link }]) => {
+    linkToAction[link] = action;
+  });
+
   const settings = { ...defaults };
   const seen = new Set();
 
@@ -439,9 +568,14 @@ function parseRulesParams(params) {
     }
 
     const [, linkKey, text] = match;
+    const isDrawWeight = Object.prototype.hasOwnProperty.call(linkToAction, linkKey);
 
-    if (!Object.prototype.hasOwnProperty.call(linkToKey, linkKey)) {
+    if (!Object.prototype.hasOwnProperty.call(linkToKey, linkKey) && !isDrawWeight) {
       return reject(`unknown key "${linkKey}"`);
+    }
+
+    if (isDrawWeight && !drawPreset) {
+      return reject(`${linkKey} is an enemy draw weight: it needs preset=commanderdraw`);
     }
 
     if (seen.has(linkKey)) {
@@ -454,10 +588,14 @@ function parseRulesParams(params) {
       return reject(`${linkKey} must be a whole number, got "${text}"`);
     }
 
-    settings[linkToKey[linkKey]] = Number(text);
+    if (isDrawWeight) {
+      enemyDrawWeights[linkToAction[linkKey]] = Number(text);
+    } else {
+      settings[linkToKey[linkKey]] = Number(text);
+    }
   }
 
-  const validation = validateSettings(settings);
+  const validation = validateSettingsForPreset(settings, preset, enemyDrawWeights);
 
   if (!validation.valid) {
     return reject(validation.errors.map((entry) => entry.message).join("; "));
@@ -474,11 +612,11 @@ function getEffectiveRulesRecord() {
 
   return {
     preset,
-    customized: !isDefaultSettings(active),
+    customized: !isDefaultSettings(active) || !areEnemyDrawWeightsDefault(), // weights: non-default only under commanderdraw
     version: activeRules.version,
     hash: activeRules.hash,
     settings: { ...active },
-    values: computeEffectiveRulesForPreset(active, preset),
+    values: computeEffectiveRulesForPreset(active, preset, getActiveEnemyDrawWeights()),
   };
 }
 
@@ -492,15 +630,16 @@ function getRulesLinkStatus() {
 // version (so a commander rules change that bumps the version also changes the hash) and its enemy-action rule switches
 // to what is hashed (so its hash differs for identical numbers).
 // The commanderdraw preset hashes the commander record under its own name plus its draw constants (version, weights, cap,
-// seed mix; not the scope label).
-function computeEffectiveRulesForPreset(settings, preset) {
+// seed mix; not the scope label); `weights` are the battle's enemy draw weights (section 13.1; default 1 / 1 / 1 = the
+// constants, so default weights hash exactly as before).
+function computeEffectiveRulesForPreset(settings, preset, enemyDrawWeights = getDefaultEnemyDrawWeights()) {
   const effective = computeEffectiveRules(settings);
 
   if (preset === "commanderdraw") {
     const { scopeLabel, ...draw } = window.COMMANDER_DRAW_RULES;
 
     return { ...effective, preset: "commanderdraw", commanderVersion: window.COMMANDER_RULES.version, enemyRules: cloneRulesData(window.COMMANDER_RULES.enemyRules),
-      enemyDraw: cloneRulesData(draw) };
+      enemyDraw: { ...cloneRulesData(draw), weights: { ...enemyDrawWeights } } };
   }
 
   return preset === "commander"
@@ -510,7 +649,7 @@ function computeEffectiveRulesForPreset(settings, preset) {
 
 function createActiveRulesSnapshot() {
   const preset = getActivePreset();
-  const effective = computeEffectiveRulesForPreset(getRulesState().active, preset);
+  const effective = computeEffectiveRulesForPreset(getRulesState().active, preset, getActiveEnemyDrawWeights());
 
   if (preset === "commanderdraw") {
     return deepFreeze({ version: window.COMMANDER_DRAW_RULES.version, hash: computeRulesHash(effective), ...effective.perBattle, preset: "commanderdraw" });
@@ -4985,12 +5124,12 @@ function seedEnemyDrawRandom(battleSeed) {
 }
 
 // Pure: draw exactly `budget` actions from `random` (one value per action). Each slot picks among the actions still under
-// the cap (fixed order Move, Attack, Defend), proportionally to the constant weights: floor(r * total) walked through the
-// cumulative weights (randomAction's walk). cap = max(maxSameAction, ceil(budget / 3)), so with all weights > 0 an
-// eligible action always exists and the loop ends after exactly `budget` values (budget 0..10).
-function drawEnemyActionList(random, budget) {
-  const { weights, maxSameAction } = window.COMMANDER_DRAW_RULES;
-  const cap = Math.max(maxSameAction, Math.ceil(budget / ACTIONS.length));
+// the cap (fixed order Move, Attack, Defend) and with weight > 0, proportionally to the weights (default: the constants;
+// the battle's enemy draw weights, section 13.1): floor(r * total) walked through the cumulative weights (randomAction's
+// walk). cap = getEnemyDrawCap(budget) = max(maxSameAction, ceil(budget / 3)); with all weights > 0, or any weights that
+// pass validateEnemyDrawWeights, an eligible action always exists and the loop ends after exactly `budget` values.
+function drawEnemyActionList(random, budget, weights = window.COMMANDER_DRAW_RULES.weights) {
+  const cap = getEnemyDrawCap(budget);
   const counts = {};
   const drawn = [];
 
@@ -5031,7 +5170,7 @@ function drawEnemyPlanPool() {
   }
 
   const stream = createSeededRandom(store.state);
-  const pool = toCanonicalEnemyPool(drawEnemyActionList(stream, activeRules.enemyActionBudget));
+  const pool = toCanonicalEnemyPool(drawEnemyActionList(stream, activeRules.enemyActionBudget, getEnemyDrawWeightsState().active));
 
   store.state = stream.getState();
   store.pool = pool;
@@ -11749,7 +11888,7 @@ function updateScenarioLabel(text = null) {
 
 function getScenarioLabelText() {
   return activeScenario
-    ? `${activeScenario.id} · seed ${activeScenarioSeed}${isDefaultSettings(getRulesState().active) ? "" : ` · custom rules ${activeRules.hash.slice(0, 6)}`}${getActivePreset() === "commander" ? " · commander (experimental)" : getActivePreset() === "commanderdraw" ? " · commander draw (experimental)" : ""}`
+    ? `${activeScenario.id} · seed ${activeScenarioSeed}${isDefaultSettings(getRulesState().active) && areEnemyDrawWeightsDefault() ? "" : ` · custom rules ${activeRules.hash.slice(0, 6)}`}${getActivePreset() === "commander" ? " · commander (experimental)" : getActivePreset() === "commanderdraw" ? " · commander draw (experimental)" : ""}`
     : "";
 }
 
@@ -11948,8 +12087,8 @@ function applyPendingSettings() {
     throw new DryRunRejected(reason, "applyPendingSettings");
   }
 
-  const validation = validateSettings(store.pending);
   const presetStore = getRulesPresetState();
+  const validation = validateSettingsForPreset(store.pending, presetStore.pending); // commanderdraw: also the active enemy draw weights
 
   if (!validation.valid) {
     setRulesNotice("error", "Not applied: fix the errors first. Nothing changed.");
@@ -11965,10 +12104,16 @@ function applyPendingSettings() {
 
   const previous = store.active;
   const previousPreset = presetStore.active;
+  const weightsStore = getEnemyDrawWeightsState();
+  const previousWeights = weightsStore.active;
   let restarted = false;
 
   setActiveSettingsUnchecked(store.pending);
   presetStore.active = presetStore.pending; // the preset is applied together with the settings
+
+  if (presetStore.active !== "commanderdraw") {
+    weightsStore.active = deepFreeze(getDefaultEnemyDrawWeights()); // the link's enemy draw weights only live under commanderdraw
+  }
 
   try {
     restarted = restartBattle();
@@ -11976,6 +12121,7 @@ function applyPendingSettings() {
     if (!restarted) {
       store.active = previous; // never leave settings active that no battle is running under
       presetStore.active = previousPreset;
+      weightsStore.active = previousWeights;
       takeActiveRulesSnapshot(); // and keep activeRules (and the CSS variables) in step with them
     }
   }
@@ -12004,6 +12150,7 @@ function useDefaultSettingsForWorldMode() {
   }
 
   getRulesPresetState().active = "current"; // world mode always plays the current preset
+  getEnemyDrawWeightsState().active = deepFreeze(getDefaultEnemyDrawWeights());
 }
 
 // Guided tutorial: switch the ACTIVE settings to the defaults and restart the battle under them, so custom
@@ -12029,13 +12176,17 @@ function enterTutorialDefaultSettings() {
 
   const previous = store.active;
   const previousPreset = presetStore.active;
+  const weightsStore = getEnemyDrawWeightsState();
+  const previousWeights = weightsStore.active;
 
   setActiveSettingsUnchecked(getDefaultSettings());
   presetStore.active = "current"; // the tutorial also resets the preset
+  weightsStore.active = deepFreeze(getDefaultEnemyDrawWeights()); // and the commanderdraw enemy draw weights
 
   if (activeScenario ? !restartBattle() : !takeActiveRulesSnapshot()) {
     store.active = previous;
     presetStore.active = previousPreset;
+    weightsStore.active = previousWeights;
     setRulesNotice("error", "The tutorial was not started: the battle could not be restarted.");
     refreshRulesPanel();
     return false;
@@ -12076,6 +12227,8 @@ function resolveBootRules(route, search = window.location?.search) {
 
   setActiveSettingsUnchecked(parsed.settings);
   store.pending = normalizeSettings(parsed.settings);
+  // commanderdraw: the link's enemy draw weights (defaults unless dwm / dwa / dwd are given); every other preset: the defaults
+  getEnemyDrawWeightsState().active = deepFreeze({ ...(parsed.enemyDrawWeights ?? getDefaultEnemyDrawWeights()) });
 
   if (parsed.preset === "commander" || parsed.preset === "commanderdraw") {
     const scopeLabel = parsed.preset === "commander" ? window.COMMANDER_RULES.scopeLabel : window.COMMANDER_DRAW_RULES.scopeLabel;
@@ -12118,11 +12271,11 @@ function describeRulesSettings(settings) {
 
 function refreshRulesPanel() {
   const store = getRulesState();
-  const validation = validateSettings(store.pending);
+  const presetStore = getRulesPresetState();
+  const validation = validateSettingsForPreset(store.pending, presetStore.pending); // commanderdraw: also the enemy draw weights
   const lockReason = getRulesLockReason();
   const isLocked = lockReason !== null;
-  const presetStore = getRulesPresetState();
-  const isCustom = !isDefaultSettings(store.active);
+  const isCustom = !isDefaultSettings(store.active) || !areEnemyDrawWeightsDefault();
   const differs = !areSettingsEqual(store.pending, store.active) || presetStore.pending !== presetStore.active;
   const panel = getRulesPanelElement("rules-panel");
 
@@ -12171,7 +12324,10 @@ function refreshRulesPanel() {
     const presetText = presetStore.active === "commander" ? `commander (${window.COMMANDER_RULES.scopeLabel}) · `
       : presetStore.active === "commanderdraw" ? `commanderdraw (${window.COMMANDER_DRAW_RULES.scopeLabel}) · ` : "";
 
-    summary.textContent = `active: ${presetText}${describeRulesSettings(store.active)} · hash ${activeRules.hash.slice(0, 6)}${isCustom ? " (custom)" : ""}`;
+    const weights = getEnemyDrawWeightsState().active;
+    const weightsText = areEnemyDrawWeightsDefault() ? "" : ` · enemy draw weights M${weights.Move} A${weights.Attack} D${weights.Defend}`;
+
+    summary.textContent = `active: ${presetText}${describeRulesSettings(store.active)}${weightsText} · hash ${activeRules.hash.slice(0, 6)}${isCustom ? " (custom)" : ""}`;
   }
 
   const pendingState = getRulesPanelElement("rules-pending-state");
@@ -12249,7 +12405,7 @@ async function copyRulesLink() {
   const prefix = location?.origin === "null"
     ? (location.href ? location.href.split(/[?#]/)[0] : "") // file:// has the string origin "null"
     : (location?.origin ? `${location.origin}${location.pathname ?? "/"}` : "");
-  const link = `${prefix}${buildRulesLink(getRulesState().active, activeScenario.id, activeScenarioSeed, getActivePreset())}`;
+  const link = `${prefix}${buildRulesLink(getRulesState().active, activeScenario.id, activeScenarioSeed, getActivePreset(), getActiveEnemyDrawWeights())}`;
   let copied = false;
 
   try {
