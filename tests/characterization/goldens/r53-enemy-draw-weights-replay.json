@@ -1,0 +1,133 @@
+{
+  "header": "REQUIREMENT — commanderdraw enemy draw weights",
+  "battle": {
+    "query": "?scenario=intro&seed=1&preset=commanderdraw&rules=pab:4,hs:4,eab:4,dwm:0,dwa:2,dwd:1",
+    "turns": [
+      [
+        [
+          {
+            "unit": "P1",
+            "target": "E1"
+          },
+          {
+            "unit": "P1",
+            "action": "Move"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "unit": "P2",
+            "action": "Defend"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "reshuffle": true
+          }
+        ],
+        [
+          {
+            "unit": "P2",
+            "target": "E2"
+          },
+          {
+            "unit": "P2",
+            "action": "Attack"
+          },
+          {
+            "unit": "P3",
+            "action": "Defend"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          }
+        ]
+      ],
+      [
+        [
+          {
+            "unit": "P3",
+            "action": "Move"
+          },
+          {
+            "unit": "P3",
+            "action": "Attack"
+          },
+          {
+            "unit": "P1",
+            "action": "Attack"
+          },
+          {
+            "unit": "P2",
+            "action": "Defend"
+          }
+        ]
+      ]
+    ],
+    "rules": {
+      "preset": "commanderdraw",
+      "version": "0.1.0-commanderdraw-enemy-random-draw",
+      "hash": "063f01809d084e",
+      "playerActionBudget": 4,
+      "enemyActionBudget": 4,
+      "handSize": 4,
+      "maxSameAction": 3
+    },
+    "recordedEventHashes": [
+      "0b55201128bd0e",
+      "1c6fdabb91a4f2",
+      "1cdf781e3cc36d"
+    ],
+    "drawnPools": [
+      [
+        "Defend",
+        "Defend",
+        "Attack",
+        "Attack"
+      ],
+      [
+        "Defend",
+        "Attack",
+        "Attack",
+        "Attack"
+      ],
+      [
+        "Defend",
+        "Attack",
+        "Attack",
+        "Attack"
+      ],
+      [
+        "Defend",
+        "Defend",
+        "Attack",
+        "Attack"
+      ]
+    ],
+    "finalStateHash": "697b00855fa319d639849791ccc206c243395e7e60b0b90348c063bea8f6d2f0"
+  },
+  "replay": {
+    "status": "done",
+    "matches": [
+      true,
+      true,
+      true
+    ]
+  },
+  "refusals": {
+    "withoutWeights": "Replay refused: the recorded rules differ from the rules this page loaded: rulesHash: recorded 063f01809d084e vs loaded 149db90d99fe1b",
+    "underCommander": "Replay refused: the recorded preset / rulesQuery do not load: rules link rejected (dwm is an enemy draw weight: it needs preset=commanderdraw)"
+  },
+  "hands": 15,
+  "usage": {
+    "contexts": 4,
+    "maxSteps": 299,
+    "totalSteps": 299,
+    "cap": 4000
+  }
+}

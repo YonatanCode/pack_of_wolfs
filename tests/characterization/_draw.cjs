@@ -34,6 +34,17 @@ function reportDrawHands(id, contexts) {
   return ledger[id];
 }
 
+// The enemy draw WEIGHTS step (r52, r53; ENGINE-NOTES section 13.1) keeps its OWN ledger (reportWeightHands, asserted <= 40),
+// separate from the r49..r51 ledger above.
+const WEIGHT_HAND_LIMIT = 40;
+const weightLedger = {};
+function reportWeightHands(id, contexts) {
+  weightLedger[id] = contexts.reduce((n, g) => n + S.handsOf(g), 0);
+  const total = Object.values(weightLedger).reduce((a, b) => a + b, 0);
+  S.check(total <= WEIGHT_HAND_LIMIT, `enemy draw weights hand budget: ${total} hands so far (limit ${WEIGHT_HAND_LIMIT})`);
+  return weightLedger[id];
+}
+
 const J = (g, expr) => S.J(g, expr);
 /** The enemy draw store (stream position + drawn pool). */
 const drawStore = (g) => J(g, "getEnemyDrawState()");
@@ -46,14 +57,15 @@ function installDrawSpy(g) {
 const drawCalls = (g) => J(g, "__draws");
 const takeDrawCalls = (g) => { const list = drawCalls(g); g.ev("__draws.length = 0"); return list; };
 
-/** Pure draws in the game: `count` lists of `budget` actions from the stream derived from `seed` (draw order). */
-const pureLists = (g, seed, count, budget) => J(g, `(function () { const s = createSeededRandom(deriveEnemyDrawSeed(${seed}));
-  return Array.from({ length: ${count} }, () => drawEnemyActionList(s, ${budget})); })()`);
+/** Pure draws in the game: `count` lists of `budget` actions from the stream derived from `seed` (draw order); `weights`
+ *  (optional, { Move, Attack, Defend }) is passed to drawEnemyActionList, omitted = its default (the constants). */
+const pureLists = (g, seed, count, budget, weights) => J(g, `(function () { const s = createSeededRandom(deriveEnemyDrawSeed(${seed}));
+  return Array.from({ length: ${count} }, () => drawEnemyActionList(s, ${budget}${weights ? `, ${JSON.stringify(weights)}` : ""})); })()`);
 
 /** Position of a stream seeded with `seed` after `values` draws (mulberry32 state = seed + values x STEP mod 2^32). */
 const advanced = (seed, values) => Number((BigInt(seed) + BigInt(values) * BigInt(STEP)) % 4294967296n);
 const counts = (list) => list.reduce((m, a) => ({ ...m, [a]: (m[a] ?? 0) + 1 }), {});
 const canonical = (list) => ["Move", "Defend", "Attack"].flatMap((a) => list.filter((x) => x === a));
 
-module.exports = { S, PV, C, REQ_HEADER_DRAW, DRAW, CMD, CUR, STEP, boot, reportDrawHands, J, drawStore, installDrawSpy, drawCalls, takeDrawCalls,
+module.exports = { S, PV, C, REQ_HEADER_DRAW, DRAW, CMD, CUR, STEP, boot, reportDrawHands, reportWeightHands, J, drawStore, installDrawSpy, drawCalls, takeDrawCalls,
   pureLists, advanced, counts, canonical };

@@ -1,0 +1,239 @@
+{
+  "header": "REQUIREMENT — commanderdraw enemy draw weights",
+  "result": {
+    "defaults": {
+      "hashes": {
+        "current": "0d3ce2ec6fa6de",
+        "commander": "1ee7c8d5a26ec1",
+        "commanderdraw": "197edd95522f77"
+      }
+    },
+    "triples": {
+      "attackHeavy": {
+        "weights": {
+          "Move": 1,
+          "Attack": 3,
+          "Defend": 1
+        },
+        "link": "dwm:1,dwa:3,dwd:1",
+        "hash": "1e0362cedf2bb5",
+        "copyLink": "?scenario=intro&seed=1&preset=commanderdraw&rules=dwa:3",
+        "formableBudgets": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "pinnedLists": {
+          "1": [
+            "Defend,Move,Attack,Attack,Attack",
+            "Attack,Move,Attack,Move,Attack",
+            "Attack,Attack,Attack,Defend,Move"
+          ],
+          "2": [
+            "Attack,Attack,Attack,Defend,Move",
+            "Attack,Attack,Attack,Move,Defend",
+            "Attack,Defend,Attack,Move,Defend"
+          ],
+          "3": [
+            "Attack,Attack,Attack,Move,Move",
+            "Attack,Defend,Attack,Attack,Defend",
+            "Attack,Attack,Attack,Move,Move"
+          ]
+        },
+        "bootPlan": [
+          "Move",
+          "Defend",
+          "Attack",
+          "Attack",
+          "Attack"
+        ]
+      },
+      "noMove": {
+        "weights": {
+          "Move": 0,
+          "Attack": 1,
+          "Defend": 1
+        },
+        "link": "dwm:0,dwa:1,dwd:1",
+        "hash": "0fad01c42d7687",
+        "copyLink": "?scenario=intro&seed=1&preset=commanderdraw&rules=dwm:0",
+        "formableBudgets": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "pinnedLists": {
+          "1": [
+            "Defend,Attack,Attack,Defend,Attack",
+            "Attack,Attack,Attack,Defend,Defend",
+            "Defend,Defend,Defend,Attack,Attack"
+          ],
+          "2": [
+            "Defend,Defend,Attack,Defend,Attack",
+            "Defend,Attack,Attack,Attack,Defend",
+            "Defend,Defend,Attack,Attack,Defend"
+          ],
+          "3": [
+            "Defend,Attack,Attack,Attack,Defend",
+            "Defend,Defend,Defend,Attack,Attack",
+            "Attack,Attack,Defend,Attack,Defend"
+          ]
+        },
+        "bootPlan": [
+          "Defend",
+          "Defend",
+          "Attack",
+          "Attack",
+          "Attack"
+        ]
+      },
+      "moveHeavyNoDefend": {
+        "weights": {
+          "Move": 5,
+          "Attack": 1,
+          "Defend": 0
+        },
+        "link": "dwm:5,dwa:1,dwd:0",
+        "hash": "1e66b404241b5d",
+        "copyLink": "?scenario=intro&seed=1&preset=commanderdraw&rules=dwm:5,dwd:0",
+        "formableBudgets": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "pinnedLists": {
+          "1": [
+            "Attack,Move,Move,Move,Attack",
+            "Move,Move,Move,Attack,Attack",
+            "Move,Move,Move,Attack,Attack"
+          ],
+          "2": [
+            "Move,Move,Move,Attack,Attack",
+            "Move,Move,Move,Attack,Attack",
+            "Move,Attack,Move,Move,Attack"
+          ],
+          "3": [
+            "Move,Move,Move,Attack,Attack",
+            "Move,Move,Move,Attack,Attack",
+            "Move,Move,Move,Attack,Attack"
+          ]
+        },
+        "bootPlan": [
+          "Move",
+          "Move",
+          "Move",
+          "Attack",
+          "Attack"
+        ]
+      }
+    },
+    "turn": {
+      "orders": [
+        {
+          "unit": "P1",
+          "action": "Move"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P3",
+          "action": "Defend"
+        }
+      ],
+      "eventHash": "b53522b8062edec0b0e44119d3ef9ce8834ac9d939fb6661e191bcf5bc80e216",
+      "finalStateHash": "367266399443742ae54977d9c4b8fafd734874d63b36b84ade984fa7dc71d70a",
+      "nextPool": [
+        "Move",
+        "Move",
+        "Attack",
+        "Attack",
+        "Attack"
+      ],
+      "hand": {
+        "hand": [
+          "Attack",
+          "Attack",
+          "Move",
+          "Attack",
+          "Defend"
+        ],
+        "handState": 2335519090,
+        "handSeed": 1
+      }
+    },
+    "rejections": {
+      "noPreset": "dwm is an enemy draw weight: it needs preset=commanderdraw",
+      "current": "dwa is an enemy draw weight: it needs preset=commanderdraw",
+      "commander": "dwd is an enemy draw weight: it needs preset=commanderdraw",
+      "duplicate": "duplicate key \"dwm\"",
+      "fraction": "dwa must be a whole number, got \"1.5\"",
+      "negative": "dwa must be a whole number, got \"-1\"",
+      "leadingZero": "dwd must be a whole number, got \"05\"",
+      "empty": "dwd must be a whole number, got \"\"",
+      "junk": "dwm must be a whole number, got \"2x\"",
+      "upperCase": "malformed pair \"DWM:2\"",
+      "overMax": "enemyWeightMove must be a whole number from 0 to 20",
+      "hugeNumber": "dwa must be a whole number, got \"1234567\"",
+      "allZero": "at least one enemy draw weight must be greater than 0; the enemy draw cannot be formed: 0 drawable action(s) x cap 3 = 0, but enemyActionBudget is 5",
+      "allZeroBudgetZero": "at least one enemy draw weight must be greater than 0",
+      "twoActionsBudget7": "the enemy draw cannot be formed: 2 drawable action(s) x cap 3 = 6, but enemyActionBudget is 7",
+      "oneActionBudget4": "the enemy draw cannot be formed: 1 drawable action(s) x cap 3 = 3, but enemyActionBudget is 4",
+      "twoActionsBudget10": "the enemy draw cannot be formed: 2 drawable action(s) x cap 4 = 8, but enemyActionBudget is 10",
+      "withSettingsErrors": "handSize must be a whole number from 1 to 8; at least one enemy draw weight must be greater than 0; the enemy draw cannot be formed: 0 drawable action(s) x cap 3 = 0, but enemyActionBudget is 5"
+    },
+    "direct": {
+      "notObject": [
+        "enemy draw weights must be an object"
+      ],
+      "array": [
+        "enemy draw weights must be an object"
+      ],
+      "unknownAction": [
+        "Bite is not an enemy draw action"
+      ],
+      "stringValue": [
+        "enemyWeightMove must be a whole number from 0 to 20"
+      ],
+      "fraction": [
+        "enemyWeightAttack must be a whole number from 0 to 20"
+      ],
+      "missing": [
+        "enemyWeightDefend must be a whole number from 0 to 20"
+      ]
+    },
+    "apply": {
+      "refusedErrors": [
+        {
+          "field": "enemyActionBudget",
+          "message": "the enemy draw cannot be formed: 2 drawable action(s) x cap 3 = 6, but enemyActionBudget is 7"
+        }
+      ],
+      "appliedHash": "04ef9ae7d96ae6"
+    },
+    "hands": 15
+  },
+  "usage": {
+    "contexts": 7,
+    "maxSteps": 79,
+    "totalSteps": 131,
+    "cap": 4000
+  }
+}
