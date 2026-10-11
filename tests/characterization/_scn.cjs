@@ -13,9 +13,17 @@ const SPAWNS = {
 function check(cond, msg) { if (!cond) throw new Error("ASSERT FAILED: " + msg); }
 function same(a, b, msg) { check(JSON.stringify(a) === JSON.stringify(b), `${msg}\n        a=${JSON.stringify(a).slice(0, 300)}\n        b=${JSON.stringify(b).slice(0, 300)}`); }
 
-/** Real boot route: window.location.search + scenarios/*.js loaded before script.js. */
+/**
+ * DEFAULT BATTLE SETUP (ENGINE-NOTES section 14): a scenario boot WITHOUT preset / rules now plays the default setup
+ * (commanderdraw, draw weights 1/2/1). These fixtures pin the OLD default (current preset, plain defaults), so their
+ * boots name it explicitly: pinCurrent appends "&preset=current" to a scenario query that has neither preset nor rules
+ * (any other query is returned unchanged). Harness query change only; goldens are unchanged by it.
+ */
+const pinCurrent = (query) => (typeof query === "string" && /[?&]scenario=/.test(query) && !/[?&](preset|rules)=/.test(query) ? `${query}&preset=current` : query);
+
+/** Real boot route: window.location.search + scenarios/*.js loaded before script.js (explicit preset=current, see pinCurrent). */
 function bootScenario(seed = 1, extra = {}) {
-  return loadGame({ query: `?scenario=intro&seed=${seed}`, scenarios: true, ...extra });
+  return loadGame({ query: pinCurrent(`?scenario=intro&seed=${seed}`), scenarios: true, ...extra });
 }
 
 const hand = (g) => evJson(g, "Array.from(actionsList.children).map((i) => i.dataset.action)");
@@ -74,4 +82,4 @@ function queueByIndex(g, unitVar, indices) {
 const setEnemyOrders = (g, list) => g.ev(`queueDevTestPackActions(${JSON.stringify(list)})`);
 const turnEnd = (g) => g.ev("refillAvailableActions(); applyTurnEndRecovery();");
 
-module.exports = { REQ_HEADER, SPAWNS, check, same, bootScenario, hand, seeds, counts, snapshot, streamTail, placeFight, queueByIndex, setEnemyOrders, turnEnd, loadGame, evJson, units, runTurn };
+module.exports = { REQ_HEADER, SPAWNS, check, same, pinCurrent, bootScenario, hand, seeds, counts, snapshot, streamTail, placeFight, queueByIndex, setEnemyOrders, turnEnd, loadGame, evJson, units, runTurn };

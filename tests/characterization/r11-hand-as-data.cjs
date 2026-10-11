@@ -72,7 +72,7 @@ async function run() {
 
   // ---- c8 values: scenario boot, play two cards + refill, reshuffle --------------------------------------
   for (const rec of c8.bySeed.slice(0, 4)) {
-    const s = L.loadGame({ query: `?scenario=intro&seed=${rec.seed}`, scenarios: true });
+    const s = L.loadGame({ query: `?scenario=intro&seed=${rec.seed}&preset=current`, scenarios: true }); // explicit old default (_scn.pinCurrent)
     L.same(viewIsData(s, `c8 seed ${rec.seed} start`), rec.start, `c8 seed ${rec.seed}: start hand`);
     s.ev(`consumeAvailableAction(${JSON.stringify(rec.start[0])}); consumeAvailableAction(${JSON.stringify(rec.start[4])}); refillAvailableActions()`);
     L.same(viewIsData(s, `c8 seed ${rec.seed} refill`), rec.afterPlayTwoAndRefill, `c8 seed ${rec.seed}: after play two + refill`);

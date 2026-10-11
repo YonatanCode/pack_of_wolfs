@@ -124,7 +124,8 @@ const CASES = [
 /** Run one case. wrap=false: state instrumentation only. wrap=true: also the presentation wrappers (installed after setup). */
 async function runCase(def, { wrap = false, harnessSeed } = {}) {
   // harnessSeed (optional, scratch determinism checks only) re-seeds the harness Math.random; default is the harness default.
-  const g = loadGame({ query: "?scenario=intro&seed=1", scenarios: true, ...(harnessSeed === undefined ? {} : { seed: harnessSeed }) });
+  // explicit old default: preset=current (_scn.pinCurrent, default battle setup)
+  const g = loadGame({ query: "?scenario=intro&seed=1&preset=current", scenarios: true, ...(harnessSeed === undefined ? {} : { seed: harnessSeed }) });
   T.installHandRngCounter(g);
   g.ev('loadScenario("intro", 1)');
   T.installResultMessageProbe(g);

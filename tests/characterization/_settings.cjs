@@ -24,9 +24,10 @@ const INLINE_OLD_FORMULA_HAND = /Math\.floor\(handRandom\(\) \* pool\.length\)/;
 const CUSTOM = { playerActionBudget: 3, handSize: 7, reshuffleCharges: 4, maxSameAction: 4, weightMove: 6, weightAttack: 1, weightDefend: 1,
   enemyActionBudget: 2, poolMove: 0, poolDefend: 0, poolAttack: 2 };
 
-/** Real boot route in a fresh context, with the hand counter installed. query defaults to the intro scenario, seed 1. */
+/** Real boot route in a fresh context, with the hand counter installed. query defaults to the intro scenario, seed 1.
+ *  A scenario query without preset / rules boots with an explicit preset=current (_scn.pinCurrent, default battle setup). */
 function boot(query = "?scenario=intro&seed=1", extra = {}) {
-  const g = loadGame({ query, scenarios: true, ...extra });
+  const g = loadGame({ query: S.pinCurrent(query), scenarios: true, ...extra });
   g.ev(`window.__drawn = 0; (function () { const orig = drawPlayerHandToSize;
     drawPlayerHandToSize = function () { const r = orig.apply(this, arguments); if (r.length) window.__drawn += 1; return r; }; })()`);
   countInlineHands(g);

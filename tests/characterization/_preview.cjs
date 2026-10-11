@@ -27,7 +27,7 @@ const L = require("./_lifecycle.cjs");
 const REQ_HEADER = "REQUIREMENT — P1e acceptance";
 
 function boot() {
-  const g = loadGame({ query: "?scenario=intro&seed=1", scenarios: true });
+  const g = loadGame({ query: "?scenario=intro&seed=1&preset=current", scenarios: true }); // explicit old default (_scn.pinCurrent)
   L.T.installResultMessageProbe(g);
   installProbes(g);
   return g;

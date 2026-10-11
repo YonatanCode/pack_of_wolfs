@@ -18,7 +18,8 @@ const UNIT_VARS = { P1: "player", P2: "playerSupport", P3: "playerFlank", E1: "e
  * the result-message probe, so T.stateSnapshot() works. harnessSeed re-seeds the harness Math.random only.
  */
 function bootIntro({ harnessSeed } = {}) {
-  const g = loadGame({ query: "?scenario=intro&seed=1", scenarios: true, ...(harnessSeed === undefined ? {} : { seed: harnessSeed }) });
+  // explicit old default: preset=current (_scn.pinCurrent, default battle setup)
+  const g = loadGame({ query: "?scenario=intro&seed=1&preset=current", scenarios: true, ...(harnessSeed === undefined ? {} : { seed: harnessSeed }) });
   T.installHandRngCounter(g);
   g.ev('loadScenario("intro", 1)');
   T.installResultMessageProbe(g);
