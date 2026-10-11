@@ -11198,12 +11198,14 @@ async function runDevTestScenario(scenarioId) {
   const savedSettings = getRulesState().active;
   const savedPreset = getActivePreset();
   const savedRules = activeRules;
+  const savedWeights = getEnemyDrawWeightsState().active;
   const swapSettings = !isDefaultSettings(savedSettings) || savedPreset !== "current";
 
   try {
     if (swapSettings) {
       setActiveSettingsUnchecked(getDefaultSettings());
       getRulesPresetState().active = "current"; // dev scenarios run under the current preset
+      getEnemyDrawWeightsState().active = deepFreeze(getDefaultEnemyDrawWeights()); // and plain defaults (section 14)
       takeActiveRulesSnapshot();
     }
 
@@ -11229,6 +11231,7 @@ async function runDevTestScenario(scenarioId) {
     if (swapSettings) {
       getRulesState().active = savedSettings;
       getRulesPresetState().active = savedPreset;
+      getEnemyDrawWeightsState().active = savedWeights;
       activeRules = savedRules;
       applyRulesCssVariables();
       refreshRulesPanel();
