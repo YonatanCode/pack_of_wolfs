@@ -144,7 +144,9 @@ async function run() {
   // ---- reset pending
   P.setPending(g, { handSize: 2 });
   P.click(g, "rules-reset");
-  same(P.pendingSettings(g), DEFAULTS, "Reset pending := defaults");
+  // Section 14: "Reset pending" now sets the default battle setup (commanderdraw, draw weights 1/2/1), not the plain current defaults.
+  same(P.pendingSettings(g), { ...DEFAULTS, weightAttack: 2 }, "Reset pending := the default battle setup's settings");
+  check(g.ev("window.devTest.getPendingPreset()") === "commanderdraw", "Reset pending := the default battle setup's preset");
   same(P.activeSettings(g), CUSTOM, "Reset pending does not touch the active settings");
   check(P.text(g, "rules-pending-state").startsWith("pending differs from active"), "reset pending is NOT applied");
 

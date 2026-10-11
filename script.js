@@ -335,9 +335,11 @@ function getDefaultEnemyDrawWeights() {
 // Active commanderdraw enemy draw weights (off the top level, like the settings store): { active: frozen { Move, Attack,
 // Defend } }. Non-default only while the active preset is commanderdraw: written by the boot link / replay setup, kept by
 // Apply under commanderdraw, reset to the defaults by Apply under another preset, the tutorial and world mode.
+// `pending` (section 14): null = Apply keeps the active weights; "Reset pending" sets it to the default setup's weights,
+// which the next Apply under commanderdraw makes active (any Apply clears it).
 function getEnemyDrawWeightsState() {
   if (!getEnemyDrawWeightsState.store) {
-    getEnemyDrawWeightsState.store = { active: deepFreeze(getDefaultEnemyDrawWeights()) };
+    getEnemyDrawWeightsState.store = { active: deepFreeze(getDefaultEnemyDrawWeights()), pending: null };
   }
 
   return getEnemyDrawWeightsState.store;
@@ -370,6 +372,7 @@ function useDefaultBattleSetup({ pending = false } = {}) {
   setActiveSettingsUnchecked(getDefaultSetupSettings());
   getRulesPresetState().active = setup.preset;
   getEnemyDrawWeightsState().active = deepFreeze({ ...setup.enemyDrawWeights });
+  getEnemyDrawWeightsState().pending = null;
 
   if (pending) {
     getRulesState().pending = getDefaultSetupSettings();
@@ -12128,10 +12131,11 @@ function setPendingSettings(partial) {
   return getPendingSettings();
 }
 
-// Pending := defaults. NOT applied.
+// Pending := the default battle setup (section 14: settings, preset and, for the next Apply, its enemy draw weights). NOT applied.
 function resetPendingSettings() {
-  getRulesState().pending = normalizeSettings(getDefaultSettings());
-  getRulesPresetState().pending = "current";
+  getRulesState().pending = getDefaultSetupSettings();
+  getRulesPresetState().pending = window.DEFAULT_BATTLE_SETUP.preset;
+  getEnemyDrawWeightsState().pending = deepFreeze({ ...window.DEFAULT_BATTLE_SETUP.enemyDrawWeights });
   getRulesState().linkStatusStale = true;
   setRulesNotice("info", "Pending settings reset to the defaults (not applied).");
   refreshRulesPanel();
@@ -12150,7 +12154,9 @@ function applyPendingSettings() {
   }
 
   const presetStore = getRulesPresetState();
-  const validation = validateSettingsForPreset(store.pending, presetStore.pending); // commanderdraw: also the active enemy draw weights
+  const weightsStore = getEnemyDrawWeightsState();
+  const nextWeights = weightsStore.pending ?? weightsStore.active; // pending only after "Reset pending" (section 14)
+  const validation = validateSettingsForPreset(store.pending, presetStore.pending, nextWeights); // commanderdraw: also the enemy draw weights
 
   if (!validation.valid) {
     setRulesNotice("error", "Not applied: fix the errors first. Nothing changed.");
@@ -12166,18 +12172,15 @@ function applyPendingSettings() {
 
   const previous = store.active;
   const previousPreset = presetStore.active;
-  const weightsStore = getEnemyDrawWeightsState();
   const previousWeights = weightsStore.active;
   const previousRestore = getDefaultSetupState().restoreAfterTutorial;
   let restarted = false;
 
   setActiveSettingsUnchecked(store.pending);
   presetStore.active = presetStore.pending; // the preset is applied together with the settings
-
-  if (presetStore.active !== "commanderdraw") {
-    weightsStore.active = deepFreeze(getDefaultEnemyDrawWeights()); // the link's enemy draw weights only live under commanderdraw
-  }
-
+  weightsStore.active = presetStore.active === "commanderdraw"
+    ? (weightsStore.pending ? deepFreeze({ ...weightsStore.pending }) : weightsStore.active)
+    : deepFreeze(getDefaultEnemyDrawWeights()); // the link's enemy draw weights only live under commanderdraw
   getDefaultSetupState().restoreAfterTutorial = false; // an explicit Apply replaces whatever the tutorial left
 
   try {
@@ -12198,6 +12201,7 @@ function applyPendingSettings() {
 
   store.pending = normalizeSettings(store.active);
   presetStore.pending = presetStore.active;
+  weightsStore.pending = null;
   store.tutorialReset = false;
   store.linkStatusStale = true;
   setRulesNotice("info", presetStore.active === "commander"
@@ -12347,11 +12351,14 @@ function describeRulesSettings(settings) {
 function refreshRulesPanel() {
   const store = getRulesState();
   const presetStore = getRulesPresetState();
-  const validation = validateSettingsForPreset(store.pending, presetStore.pending); // commanderdraw: also the enemy draw weights
+  const weightsStore = getEnemyDrawWeightsState();
+  const pendingWeights = weightsStore.pending ?? weightsStore.active; // section 14: "Reset pending" also sets the next weights
+  const validation = validateSettingsForPreset(store.pending, presetStore.pending, pendingWeights); // commanderdraw: also the enemy draw weights
   const lockReason = getRulesLockReason();
   const isLocked = lockReason !== null;
   const isCustom = !isDefaultSettings(store.active) || !areEnemyDrawWeightsDefault();
-  const differs = !areSettingsEqual(store.pending, store.active) || presetStore.pending !== presetStore.active;
+  const differs = !areSettingsEqual(store.pending, store.active) || presetStore.pending !== presetStore.active
+    || (presetStore.pending === "commanderdraw" && !areEnemyDrawWeightsEqual(pendingWeights, weightsStore.active));
   const panel = getRulesPanelElement("rules-panel");
 
   panel?.classList.toggle("is-locked", isLocked);
