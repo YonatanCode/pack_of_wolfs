@@ -1,0 +1,59 @@
+{
+  "id": "g8-rules-variants-draw-weights",
+  "cases": {
+    "gridCommanderdraw": {
+      "valid": true,
+      "battles": 4,
+      "errors": [],
+      "hasHash": true
+    },
+    "gridCommander": {
+      "valid": false,
+      "battles": 4,
+      "errors": [
+        "rulesVariants[1] \"rules=pab:5,hs:5,eab:5,dwm:1,dwa:3,dwd:1\" rejected by the game: rules link rejected (dwm is an enemy draw weight: it needs preset=commanderdraw)",
+        "rulesVariants[2] \"rules=pab:5,hs:5,eab:5,wm:1,wa:3,wd:1,dwm:1,dwa:3,dwd:1\" rejected by the game: rules link rejected (dwm is an enemy draw weight: it needs preset=commanderdraw)",
+        "rulesVariants[3] \"rules=pab:5,hs:5,eab:5,dwm:0,dwa:1,dwd:1\" rejected by the game: rules link rejected (dwm is an enemy draw weight: it needs preset=commanderdraw)"
+      ],
+      "hasHash": false
+    },
+    "allZero": {
+      "valid": false,
+      "battles": 1,
+      "errors": [
+        "rulesVariants[0] \"rules=dwm:0,dwa:0,dwd:0\" rejected by the game: rules link rejected (at least one enemy draw weight must be greater than 0; the enemy draw cannot be formed: 0 drawable action(s) x cap 3 = 0, but enemyActionBudget is 5)"
+      ],
+      "hasHash": false
+    },
+    "notFormable": {
+      "valid": false,
+      "battles": 1,
+      "errors": [
+        "rulesVariants[0] \"rules=eab:7,dwm:0\" rejected by the game: rules link rejected (the enemy draw cannot be formed: 2 drawable action(s) x cap 3 = 6, but enemyActionBudget is 7)"
+      ],
+      "hasHash": false
+    },
+    "outOfBounds": {
+      "valid": false,
+      "battles": 1,
+      "errors": [
+        "rulesVariants[0] \"rules=dwa:21\" rejected by the game: rules link rejected (enemyWeightAttack must be a whole number from 0 to 20)"
+      ],
+      "hasHash": false
+    },
+    "longestRulesQuery": {
+      "length": 94,
+      "limit": 512
+    },
+    "payloadProblem": {
+      "withWeights": null,
+      "longest": null
+    }
+  },
+  "usage": {
+    "contexts": 5,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

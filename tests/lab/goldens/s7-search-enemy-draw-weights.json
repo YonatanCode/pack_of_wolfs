@@ -1,0 +1,109 @@
+{
+  "header": "REQUIREMENT — search-benchmark isolation under commanderdraw with non-default enemy weights",
+  "fixtureOnly": true,
+  "result": {
+    "decision": {
+      "pool": [
+        "Defend",
+        "Defend",
+        "Attack",
+        "Attack",
+        "Attack"
+      ],
+      "orders": [
+        {
+          "unit": "P2",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        }
+      ],
+      "stats": {
+        "decisions": 1,
+        "candidatesGenerated": 10107,
+        "candidatesKept": 300,
+        "evaluated": 300,
+        "rejectedByValidator": 0,
+        "engineErrors": 0,
+        "limitHits": {
+          "generation": 0,
+          "candidates": 1,
+          "evaluations": 0,
+          "time": 0
+        },
+        "fallbacks": 0,
+        "reshuffles": 0
+      },
+      "predicted": "P1:6,6:1 P2:6,5:10 P3:9,9:10 E1:5,5:0x E2:5,7:10 E3:2,9:10",
+      "real": "P1:6,6:1 P2:6,5:10 P3:9,9:10 E1:5,5:0x E2:5,7:10 E3:2,9:10"
+    },
+    "streamIndependent": {
+      "orders": [
+        {
+          "unit": "P1",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        }
+      ],
+      "units": "P1:6,6:0x P2:6,5:7 P3:9,9:10 E1:5,5:1 E2:5,7:10 E3:2,9:10",
+      "decision": [
+        {
+          "unit": "P2",
+          "target": "E1"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P1",
+          "action": "Defend"
+        },
+        {
+          "unit": "P2",
+          "action": "Move"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        },
+        {
+          "unit": "P2",
+          "action": "Attack"
+        }
+      ]
+    },
+    "hands": 3
+  },
+  "usage": {
+    "contexts": 2,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
