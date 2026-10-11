@@ -173,6 +173,17 @@ window.ENEMY_DRAW_WEIGHTS = deepFreeze({
   },
 });
 
+// THE normal DEFAULT battle setup (ENGINE-NOTES section 14): ONE named definition, applied only where the game starts or
+// resets WITHOUT an explicit preset / rules link (scenario boot with neither `preset` nor `rules`, "Reset pending", and the
+// Restart that follows a tutorial which replaced it). The per-setting defaults (getDefaultSettings, the current preset,
+// COMMANDER_DRAW_RULES.weights) are NOT changed, so `current` / `commander` / explicit `preset=commanderdraw` links keep
+// their meaning and hashes. settings: overrides of getDefaultSettings(); enemyDrawWeights: the commanderdraw weights.
+window.DEFAULT_BATTLE_SETUP = deepFreeze({
+  preset: "commanderdraw",
+  settings: { weightMove: 1, weightAttack: 2, weightDefend: 1 },
+  enemyDrawWeights: { Move: 1, Attack: 2, Defend: 1 },
+});
+
 function getSettingsKeys() {
   return Object.keys(window.SETTINGS_BOUNDS);
 }
@@ -336,10 +347,49 @@ function getActiveEnemyDrawWeights() {
   return { ...getEnemyDrawWeightsState().active };
 }
 
-function areEnemyDrawWeightsDefault(weights = getEnemyDrawWeightsState().active) {
-  const defaults = getDefaultEnemyDrawWeights();
+// The default battle setup's settings: getDefaultSettings() with DEFAULT_BATTLE_SETUP.settings applied.
+function getDefaultSetupSettings() {
+  return normalizeSettings({ ...getDefaultSettings(), ...window.DEFAULT_BATTLE_SETUP.settings });
+}
 
-  return Object.keys(defaults).every((action) => weights[action] === defaults[action]);
+// Default-setup bookkeeping (off the top level, like the other stores): `restoreAfterTutorial` is true while the guided
+// tutorial's forced current + plain defaults replaced the default setup; the next Restart / R / Play Again returns to it.
+function getDefaultSetupState() {
+  if (!getDefaultSetupState.store) {
+    getDefaultSetupState.store = { restoreAfterTutorial: false };
+  }
+
+  return getDefaultSetupState.store;
+}
+
+// Make the default battle setup ACTIVE (settings, preset, enemy draw weights); with `pending`, the panel's pending values too.
+// Callers restart / snapshot afterwards (boot: loadScenario; restartBattle).
+function useDefaultBattleSetup({ pending = false } = {}) {
+  const setup = window.DEFAULT_BATTLE_SETUP;
+
+  setActiveSettingsUnchecked(getDefaultSetupSettings());
+  getRulesPresetState().active = setup.preset;
+  getEnemyDrawWeightsState().active = deepFreeze({ ...setup.enemyDrawWeights });
+
+  if (pending) {
+    getRulesState().pending = getDefaultSetupSettings();
+    getRulesPresetState().pending = setup.preset;
+  }
+}
+
+function isDefaultBattleSetupActive() {
+  const setup = window.DEFAULT_BATTLE_SETUP;
+
+  return getActivePreset() === setup.preset && areSettingsEqual(getRulesState().active, getDefaultSetupSettings())
+    && areEnemyDrawWeightsEqual(getEnemyDrawWeightsState().active, setup.enemyDrawWeights);
+}
+
+function areEnemyDrawWeightsDefault(weights = getEnemyDrawWeightsState().active) {
+  return areEnemyDrawWeightsEqual(weights, getDefaultEnemyDrawWeights());
+}
+
+function areEnemyDrawWeightsEqual(a, b) {
+  return Object.keys(window.ENEMY_DRAW_WEIGHTS.keys).every((action) => a[action] === b[action]);
 }
 
 // STRICT validation of commanderdraw enemy draw weights against the settings (no coercion, like validateSettings; all
@@ -12026,6 +12076,14 @@ function restartBattle() {
     return false;
   }
 
+  // Section 14: the guided tutorial forced current + plain defaults over the default setup; leaving the tutorial battle
+  // (Restart / R / Play Again) returns to the default setup. Never while the tutorial runs.
+  if (getDefaultSetupState().restoreAfterTutorial && !isGuidedTutorialActive) {
+    getDefaultSetupState().restoreAfterTutorial = false;
+    useDefaultBattleSetup();
+    getRulesState().tutorialReset = false;
+  }
+
   return loadScenario(activeScenario.id, activeScenarioSeed);
 }
 
@@ -12110,6 +12168,7 @@ function applyPendingSettings() {
   const previousPreset = presetStore.active;
   const weightsStore = getEnemyDrawWeightsState();
   const previousWeights = weightsStore.active;
+  const previousRestore = getDefaultSetupState().restoreAfterTutorial;
   let restarted = false;
 
   setActiveSettingsUnchecked(store.pending);
@@ -12119,6 +12178,8 @@ function applyPendingSettings() {
     weightsStore.active = deepFreeze(getDefaultEnemyDrawWeights()); // the link's enemy draw weights only live under commanderdraw
   }
 
+  getDefaultSetupState().restoreAfterTutorial = false; // an explicit Apply replaces whatever the tutorial left
+
   try {
     restarted = restartBattle();
   } finally {
@@ -12126,6 +12187,7 @@ function applyPendingSettings() {
       store.active = previous; // never leave settings active that no battle is running under
       presetStore.active = previousPreset;
       weightsStore.active = previousWeights;
+      getDefaultSetupState().restoreAfterTutorial = previousRestore;
       takeActiveRulesSnapshot(); // and keep activeRules (and the CSS variables) in step with them
     }
   }
@@ -12155,6 +12217,7 @@ function useDefaultSettingsForWorldMode() {
 
   getRulesPresetState().active = "current"; // world mode always plays the current preset
   getEnemyDrawWeightsState().active = deepFreeze(getDefaultEnemyDrawWeights());
+  getDefaultSetupState().restoreAfterTutorial = false; // world mode never returns to a scenario battle
 }
 
 // Guided tutorial: switch the ACTIVE settings to the defaults and restart the battle under them, so custom
@@ -12182,6 +12245,7 @@ function enterTutorialDefaultSettings() {
   const previousPreset = presetStore.active;
   const weightsStore = getEnemyDrawWeightsState();
   const previousWeights = weightsStore.active;
+  const fromDefaultSetup = isDefaultBattleSetupActive(); // section 14: Restart returns to it after the tutorial
 
   setActiveSettingsUnchecked(getDefaultSettings());
   presetStore.active = "current"; // the tutorial also resets the preset
@@ -12198,6 +12262,7 @@ function enterTutorialDefaultSettings() {
 
   store.tutorialReset = true;
   store.linkStatusStale = true;
+  getDefaultSetupState().restoreAfterTutorial = fromDefaultSetup;
   setRulesNotice("info", "The tutorial reset the active settings to the defaults and restarted the battle.");
   refreshRulesPanel();
   return true;
@@ -12214,6 +12279,10 @@ function resolveBootRules(route, search = window.location?.search) {
   const store = getRulesState();
 
   if (!params.has("preset") && !params.has("rules")) {
+    if (route.scenario) {
+      useDefaultBattleSetup({ pending: true }); // section 14: a scenario boot WITHOUT preset / rules plays the default setup
+    }
+
     return;
   }
 
@@ -12246,6 +12315,8 @@ function resolveBootRules(route, search = window.location?.search) {
     return;
   }
 
+  getRulesPresetState().active = "current"; // explicit current (or rules= alone): never the default setup's preset
+  getRulesPresetState().pending = "current";
   store.linkStatus = { status: "applied", message: parsed.hasRules ? "rules link applied" : "preset current (default settings)" };
 }
 
