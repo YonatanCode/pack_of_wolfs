@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "label": "weights-grid-2: aggressive-pursuit (observation-only, no hidden intent), commanderdraw 5v5, intro seed 1; 2 player x 4 enemy draw weight sets (enemy Attack share 0 to 1/2), one battle each; screening only",
+  "buildId": "04320907e4764696872ab35203b59721cae3c3b4f2ab3d4cbef6f4105be5fe25",
+  "preset": "commanderdraw",
+  "scenarios": [{ "id": "intro", "seeds": [1] }],
+  "strategies": ["aggressive-pursuit"],
+  "rulesVariants": [
+    "rules=pab:5,hs:5,rc:2,cap:3,eab:5,wm:1,wa:1,wd:1,dwm:2,dwa:0,dwd:1",
+    "rules=pab:5,hs:5,rc:2,cap:3,eab:5,wm:1,wa:1,wd:1,dwm:2,dwa:1,dwd:2",
+    "rules=pab:5,hs:5,rc:2,cap:3,eab:5,wm:1,wa:1,wd:1,dwm:1,dwa:1,dwd:1",
+    "rules=pab:5,hs:5,rc:2,cap:3,eab:5,wm:1,wa:1,wd:1,dwm:1,dwa:2,dwd:1",
+    "rules=pab:5,hs:5,rc:2,cap:3,eab:5,wm:1,wa:2,wd:1,dwm:2,dwa:0,dwd:1",
+    "rules=pab:5,hs:5,rc:2,cap:3,eab:5,wm:1,wa:2,wd:1,dwm:2,dwa:1,dwd:2",
+    "rules=pab:5,hs:5,rc:2,cap:3,eab:5,wm:1,wa:2,wd:1,dwm:1,dwa:1,dwd:1",
+    "rules=pab:5,hs:5,rc:2,cap:3,eab:5,wm:1,wa:2,wd:1,dwm:1,dwa:2,dwd:1"
+  ],
+  "limits": { "maxBattles": 8, "maxTurnsPerBattle": 30, "maxTotalTurns": 240, "maxRuntimeSeconds": 120 },
+  "botSeed": 1
+}
