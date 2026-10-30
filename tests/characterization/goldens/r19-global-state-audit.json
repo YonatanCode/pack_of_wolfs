@@ -1,14 +1,14 @@
 {
   "header": "REQUIREMENT — P1e acceptance",
   "parser": {
-    "topLevelDeclarations": 216,
+    "topLevelDeclarations": 214,
     "immutable": 111,
     "constantTables": 41,
-    "mutable": 64
+    "mutable": 62
   },
   "classificationTable": {
     "a": "GRID_SIZE activeRules enemy enemyFlank enemyMode enemyPackActionQueue enemyPackFocusTarget enemySupport handRandom handSeed hillTileKeys hillTileLevels player playerFlank playerHand playerSupport pondTileKeys reshuffleChargesRemaining treeTileKeys unitActionQueues units",
-    "b": "animationButtons boardHeight boardWidth directionButtons dirtTileGridCache enemyModeButtons hillEditTerrainSnapshot hoveredHillBlock hoveredTile isDevToolsEnabled isGuidedTutorialActive isHillEditMode isWorldTraveling pendingMoveReplays playerActionMenu playerHandViewItems playerMovePreview playerMovePreviewTile scenarioLabelElement selectedPlayerUnit tileElements unitAnimationPreloads unitHealthReplayValues worldMapLayout xOffset",
+    "b": "boardHeight boardWidth dirtTileGridCache enemyModeButtons hillEditTerrainSnapshot hoveredHillBlock hoveredTile isDevToolsEnabled isGuidedTutorialActive isHillEditMode isWorldTraveling pendingMoveReplays playerActionMenu playerHandViewItems playerMovePreview playerMovePreviewTile scenarioLabelElement selectedPlayerUnit tileElements unitAnimationPreloads unitHealthReplayValues worldMapLayout xOffset",
     "c": "activeBattleDebugLog battleStateSwap isExecutingActionQueue lastBattleDebugReport lastTurnEventLog turnCoreDepth turnDriverDepth",
     "d": "activeScenario activeScenarioSeed bootRoute currentEntryCorner devTestObstaclesDisabled flowerTileKeys terrainRandom terrainTiles unitDefinitions worldState worldTerrainCache"
   },

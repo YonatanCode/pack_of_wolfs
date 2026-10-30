@@ -898,8 +898,6 @@ const wait = (duration) => new Promise((resolve) => {
 });
 
 const arena = document.querySelector("#arena");
-const animationButtons = document.querySelectorAll("[data-animation]");
-const directionButtons = document.querySelectorAll("[data-direction]");
 const enemyModeButtons = document.querySelectorAll("[data-enemy-mode]");
 const actionsList = document.querySelector("#actions-list");
 const actionQueueList = document.querySelector("#action-queue-list");
@@ -2837,9 +2835,7 @@ function setPlayerSelected(unitOrNull) {
   }
 
   renderActionQueue(selectedPlayerUnit);
-  updateActiveDirection(getDevPreviewUnit().direction);
   updatePlayerActionControls();
-  updateAnimationControls();
   renderTargetMarkers(); // commander: the selected wolf's target gets the strong ring (no-op under current)
 }
 
@@ -2855,7 +2851,6 @@ function rotatePlayerClockwise() {
   const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % CLOCKWISE_DIRECTIONS.length;
 
   selectedUnit.direction = CLOCKWISE_DIRECTIONS[nextIndex];
-  updateActiveDirection(selectedUnit.direction);
   playUnitAnimation(selectedUnit, selectedUnit.animationName, true);
   updatePlayerMovePreview();
   updateEnemyIntentPreview();
@@ -4711,27 +4706,6 @@ function getDevPreviewUnit() {
   return enemyMode === "stag" ? enemy : getSelectedPlayerUnit() ?? player;
 }
 
-function updateAnimationControls(unit = getDevPreviewUnit()) {
-  assertNotInCore("updateAnimationControls");
-
-  animationButtons.forEach((button) => {
-    const animationName = button.dataset.animation;
-    const isSupported = isUnitAnimationSupported(unit, animationName);
-
-    button.disabled = !isSupported || isExecutingActionQueue;
-    button.classList.toggle("is-active", isSupported && unit.animationName === animationName);
-    button.setAttribute("aria-disabled", String(button.disabled));
-  });
-}
-
-function updateActiveDirection(direction) {
-  assertNotInCore("updateActiveDirection");
-
-  directionButtons.forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.direction === direction);
-  });
-}
-
 function getArenaPoint(event) {
   const rect = arena.getBoundingClientRect();
   const scaleX = rect.width / boardWidth;
@@ -5829,7 +5803,6 @@ function playUnitAnimation(unit, animationName, shouldUpdateButtons = false) {
   const animation = getUnitAnimation(unit, animationName);
 
   if (!animation) {
-    updateAnimationControls();
     return;
   }
 
@@ -5844,10 +5817,6 @@ function playUnitAnimation(unit, animationName, shouldUpdateButtons = false) {
   const startFrame = getUnitAnimationStartFrame(unit, animationName, animation);
   setUnitAnimationSprite(unit, animationName);
   setUnitFrame(unit, getUnitAnimationFrameIndex(animation, startFrame));
-
-  if (shouldUpdateButtons) {
-    updateAnimationControls(unit);
-  }
 
   const animate = (timestamp) => {
     const elapsed = timestamp - unit.animationStartedAt;
@@ -5891,10 +5860,6 @@ async function runUnitAnimationCycles(
   unit.animationStartedAt = performance.now();
   setUnitAnimationSprite(unit, animationName, direction);
   setUnitFrame(unit, 0, direction);
-
-  if (shouldUpdateButtons) {
-    updateAnimationControls(unit);
-  }
 
   return new Promise((resolve) => {
     const finish = () => {
@@ -7199,10 +7164,6 @@ function replayTickSwings(step, combatants) {
     const unit = getUnitByBattleId(event.unit);
     const shouldUpdateButtons = getCombatantShouldUpdateButtons(combatants, unit);
 
-    if (event.faced && unit === getSelectedPlayerUnit()) {
-      updateActiveDirection(event.direction);
-    }
-
     if (event.action === "Defend") {
       shakeArenaSoon();
     }
@@ -7536,7 +7497,7 @@ function hashTurnEvents(events) {
 //   (b) hoveredTile, hoveredHillBlock, selectedPlayerUnit, playerActionMenu, playerMovePreview, playerMovePreviewTile: input
 //   (b) isDevToolsEnabled, isGuidedTutorialActive, isHillEditMode, hillEditTerrainSnapshot, scenarioLabelElement: UI modes
 //   (b) boardWidth, boardHeight, xOffset, worldMapLayout, isWorldTraveling, dirtTileGridCache: layout and caches
-//   (b) animationButtons, directionButtons, enemyModeButtons: DOM lists
+//   (b) enemyModeButtons: DOM list
 //   (c) = diagnostic / machinery: written by the core or the guards; saved and restored by withBattleState
 //   (c) activeBattleDebugLog, lastBattleDebugReport, lastTurnEventLog: battle note and last turn's events
 //   (c) isExecutingActionQueue, turnCoreDepth, turnDriverDepth, battleStateSwap: playback flag and guards
@@ -9766,7 +9727,6 @@ function moveUnitToTile(
 
   if (unit === getSelectedPlayerUnit()) {
     updatePlayerMovePreview();
-    updateActiveDirection(unit.direction);
   }
 
   playUnitAnimation(unit, isUnitAnimationSupported(unit, "run") ? "run" : "walk", shouldUpdateButtons);
@@ -10147,13 +10107,11 @@ function resetDevTest(
   });
   reconcileSpawnPositions(); // keep nobody standing on / boxed in by an obstacle
   updatePlayerTileLabels();
-  updateActiveDirection(getDevPreviewUnit().direction);
   renderActionQueue(getSelectedPlayerUnit());
   renderUnitIntentTags(enemy);
   renderUnitIntentTags(enemySupport);
   renderUnitIntentTags(enemyFlank);
   updatePlayerActionControls();
-  updateAnimationControls();
   refreshConcealmentVisuals();
 
   return getDevTestState();
@@ -11526,8 +11484,6 @@ function setEnemyMode(nextMode) {
   buildArena();
   updateEnemyIntentPreview();
   updatePlayerActionControls();
-  updateActiveDirection(getDevPreviewUnit().direction);
-  updateAnimationControls();
   syncEnemyModeControls();
   return true;
 }
@@ -13303,13 +13259,11 @@ updateReshuffleControl();
 renderActionQueue(getSelectedPlayerUnit());
 resizeArena();
 updatePlayerTileLabels();
-updateActiveDirection(player.direction);
 setupDevTestControls();
 setupRulesPanel();
 setupArenaSizeControls();
 setupEnemyModeControls();
 updateEnemyIntentPreview();
-updateAnimationControls();
 units.forEach((unit) => {
   if (isUnitActive(unit)) {
     playUnitAnimation(unit, "idle", unit === getDevPreviewUnit());
