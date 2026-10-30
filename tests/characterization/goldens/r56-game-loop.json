@@ -1,0 +1,99 @@
+{
+  "header": "REQUIREMENT — game loop",
+  "handsGenerated": 17,
+  "result": {
+    "routes": {
+      "?scenario=wilds": {
+        "scenario": "wilds"
+      },
+      "?scenario=intro": {
+        "scenario": "intro"
+      },
+      "?seed=1": {
+        "scenario": "wilds",
+        "seed": "1"
+      },
+      "?preset=commanderdraw": {
+        "scenario": "wilds"
+      },
+      "?mode=world": {
+        "scenario": null
+      }
+    },
+    "plainWin": {
+      "overlay": false,
+      "message": "",
+      "map": true,
+      "scenario": null,
+      "world": {
+        "x": 0,
+        "y": 0,
+        "cleared": [
+          "0,0"
+        ]
+      }
+    },
+    "explicitWin": {
+      "?scenario=wilds": {
+        "overlay": true,
+        "message": "You Win!",
+        "map": false,
+        "scenario": "wilds",
+        "world": {
+          "x": 0,
+          "y": 0,
+          "cleared": []
+        }
+      },
+      "?scenario=intro": {
+        "overlay": true,
+        "message": "You Win!",
+        "map": false,
+        "scenario": "intro",
+        "world": {
+          "x": 0,
+          "y": 0,
+          "cleared": []
+        }
+      }
+    },
+    "loss": {
+      "plain": {
+        "overlay": true,
+        "message": "You Lose",
+        "map": false,
+        "scenario": "wilds",
+        "world": {
+          "x": 0,
+          "y": 0,
+          "cleared": []
+        }
+      },
+      "explicit": {
+        "overlay": true,
+        "message": "You Lose",
+        "map": false,
+        "scenario": "wilds",
+        "world": {
+          "x": 0,
+          "y": 0,
+          "cleared": []
+        }
+      }
+    },
+    "worldFight": {
+      "at": [
+        1,
+        0
+      ],
+      "version": "0.1.0-commanderdraw-enemy-random-draw",
+      "drawnPoolSize": 5
+    }
+  },
+  "usage": {
+    "contexts": 11,
+    "maxSteps": 34,
+    "totalSteps": 34,
+    "cap": 4000
+  }
+}
