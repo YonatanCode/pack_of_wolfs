@@ -3161,9 +3161,13 @@ function startArena(node, entryCorner = currentEntryCorner) {
   }
 
   // World battles are procedural: leave any fixed scenario, and give the hand a
-  // fresh stream (non-repeating, unlike scenario battles).
+  // fresh stream (non-repeating, unlike scenario battles). The commanderdraw enemy
+  // stream is seeded from the SAME fresh seed, exactly as a scenario load seeds it
+  // from the battle seed (unused under current; ENGINE-NOTES section 16).
   clearActiveScenario();
-  seedHandRandom(createFreshSeed());
+  const battleSeed = createFreshSeed();
+  seedHandRandom(battleSeed);
+  seedEnemyDrawRandom(battleSeed);
 
   // Set before buildArena so water-clearing and spawn placement both use it.
   currentEntryCorner = entryCorner;
@@ -13280,6 +13284,7 @@ if (bootRoute.scenario) {
   loadScenario(bootRoute.scenario, bootRoute.seed);
 } else {
   seedHandRandom(createFreshSeed());
+  seedEnemyDrawRandom(handSeed); // same fresh seed, as startArena (unused under current; a world-mode Play Again may switch to commanderdraw)
   buildArena();
   resetDevTest(); // place units at their spawns and clear obstacle/boxed-in cells (as startArena does)
   refillAvailableActions();
