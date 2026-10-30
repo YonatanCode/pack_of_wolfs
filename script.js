@@ -11811,6 +11811,10 @@ function handleTileIntent(tile) {
 const restartBattleButton = document.getElementById("restart-battle");
 let scenarioLabelElement = null;
 
+// The normal default battle's scenario: a boot link without ?scenario= and an unknown ?scenario= id load it.
+// "intro" stays available as ?scenario=intro. (A window property, not a binding: r19 pins the top-level inventory.)
+window.DEFAULT_SCENARIO_ID = "wilds";
+
 function createFreshSeed() {
   return Math.floor(Math.random() * 4294967296) >>> 0;
 }
@@ -11936,8 +11940,8 @@ function resolveScenario(id) {
     return scenario;
   }
 
-  console.warn(`[scenario] unknown scenario "${id}", falling back to "intro"`);
-  return registry.intro ?? null;
+  console.warn(`[scenario] unknown scenario "${id}", falling back to "${window.DEFAULT_SCENARIO_ID}"`);
+  return registry[window.DEFAULT_SCENARIO_ID] ?? null;
 }
 
 function parseSeed(value, fallback) {
@@ -11959,7 +11963,7 @@ function parseSeed(value, fallback) {
 // reset here, so calling it again with the same id + seed reproduces the same
 // battle: terrain, all six units, queues, hand, reshuffle charges, result
 // overlay, and the hand RNG stream.
-function loadScenario(id = "intro", seed) {
+function loadScenario(id = window.DEFAULT_SCENARIO_ID, seed) {
   if (isExecutingActionQueue) {
     return false;
   }
@@ -13240,8 +13244,8 @@ function startReplayMode() {
 }
 
 // ?mode=world keeps the original world-map / procedural-arena boot. Otherwise
-// boot into a scenario (?scenario=<id>&seed=<int>, default "intro"). With no
-// URL (headless harness) or no registry, fall back to the original boot.
+// boot into a scenario (?scenario=<id>&seed=<int>, default window.DEFAULT_SCENARIO_ID = "wilds"). With no
+// URL (headless harness) or no default scenario registered, fall back to the original boot.
 function resolveBootRoute() {
   const search = window.location?.search;
 
@@ -13260,12 +13264,12 @@ function resolveBootRoute() {
     return { scenario: null };
   }
 
-  if (!window.BATTLE_SCENARIOS?.intro) {
-    console.warn("[scenario] BATTLE_SCENARIOS.intro missing; booting world mode");
+  if (!window.BATTLE_SCENARIOS?.[window.DEFAULT_SCENARIO_ID]) {
+    console.warn(`[scenario] BATTLE_SCENARIOS.${window.DEFAULT_SCENARIO_ID} missing; booting world mode`);
     return { scenario: null };
   }
 
-  return { scenario: params.get("scenario") ?? "intro", seed: params.get("seed") ?? undefined };
+  return { scenario: params.get("scenario") ?? window.DEFAULT_SCENARIO_ID, seed: params.get("seed") ?? undefined };
 }
 
 const bootRoute = resolveBootRoute();
