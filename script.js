@@ -3070,10 +3070,15 @@ function createWorldNode(x, y, overrides = {}) {
 
 // Fresh run: the home cell (0, 0) is the first fight, using the default enemy
 // so it matches the arena the game boots into. Winning it opens the map.
-function createWorld() {
+// homeSeed (optional): the home cell's terrain seed. The plain boot's game loop
+// (ENGINE-NOTES section 16) passes the wilds scenario's fixed terrain seed, so the
+// cleared home cell on the map is the arena just won (wilds is generated at world
+// origin 0, 0 with spawn clearing, exactly as the map paints a cell).
+function createWorld(homeSeed) {
   const world = { x: 0, y: 0, facing: "bottomLeft", nodes: {} };
   world.nodes[worldCoordKey(0, 0)] = createWorldNode(0, 0, {
     enemyMode: DEFAULT_ENEMY_MODE,
+    ...(Number.isInteger(homeSeed) ? { seed: homeSeed >>> 0 } : {}),
   });
   return world;
 }
@@ -5974,7 +5979,14 @@ function showGameResult(didWin) {
 function concludeBattle(didWin) {
   assertNotInCore("concludeBattle");
 
-  if (activeScenario) {
+  if (activeScenario && didWin && isGameLoopScenarioBattle()) {
+    // The plain boot is the game (ENGINE-NOTES section 16): its scenario battle is the run's home cell (0, 0). A win
+    // leaves the scenario for a fresh world run whose home cell carries the scenario's generated terrain seed.
+    worldState = createWorld(activeScenario.terrain?.generated?.seed);
+    clearActiveScenario();
+    clearCurrentWorldCell(worldState);
+    openWorldMap();
+  } else if (activeScenario) {
     // No world map to expand in a fixed scenario: show the result; "Play Again"
     // restarts the same scenario + seed.
     showGameResult(didWin);
@@ -5984,6 +5996,13 @@ function concludeBattle(didWin) {
   } else {
     showGameResult(false);
   }
+}
+
+// The plain boot's game loop (section 16): true while the active scenario battle is the one a PLAIN boot (no scenario,
+// seed, preset, rules, replay or mode parameter) loaded. Explicit ?scenario= links, the replay page, ?mode=world, the Lab
+// driver (always ?scenario=...) and a harness boot without any location (world mode) never set bootRoute.gameLoop.
+function isGameLoopScenarioBattle() {
+  return Boolean(activeScenario) && bootRoute.gameLoop === true && activeScenario.id === bootRoute.scenario;
 }
 
 // Dev lever: force the current battle to resolve now, without playing it out.
@@ -13284,7 +13303,14 @@ function resolveBootRoute() {
     return { scenario: null };
   }
 
-  return { scenario: params.get("scenario") ?? window.DEFAULT_SCENARIO_ID, seed: params.get("seed") ?? undefined };
+  // Section 16: a PLAIN boot (none of these parameters) is the game: its scenario battle opens the world map on a win.
+  const isPlainBoot = !["scenario", "seed", "preset", "rules", "replay", "mode"].some((key) => params.has(key));
+
+  return {
+    scenario: params.get("scenario") ?? window.DEFAULT_SCENARIO_ID,
+    seed: params.get("seed") ?? undefined,
+    ...(isPlainBoot ? { gameLoop: true } : {}),
+  };
 }
 
 const bootRoute = resolveBootRoute();
