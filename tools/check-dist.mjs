@@ -72,7 +72,7 @@ const lines = [`check-dist: ${DIST}`];
   }
   lines.push(`(a) integrity: ${n} files sha256-identical to source [script.js: 1, ${counts.join(", ")}]`);
   const html = readFileSync(join(DIST, "index.html"), "utf8");
-  for (const needle of ['<script src="scenarios/intro.js"></script>', '<script src="script.js"></script>', 'id="restart-battle"']) {
+  for (const needle of ['<script src="scenarios/intro.js"></script>', '<script src="scenarios/wilds.js"></script>', '<script src="script.js"></script>', 'id="restart-battle"']) {
     if (!html.includes(needle)) fail(`[integrity] dist/index.html lacks ${needle}`);
   }
   const css = [...html.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="(?!https?:)([^"]+)"/g)].map((m) => m[1]);
@@ -165,7 +165,7 @@ const lines = [`check-dist: ${DIST}`];
   const html = readFileSync(join(DIST, "index.html"), "utf8");
   const cssHref = /<link[^>]*rel="stylesheet"[^>]*href="(?!https?:)([^"]+)"/.exec(html)?.[1];
   const reqs = [
-    ["/", "text/html"], ["/script.js", "javascript"], ["/scenarios/intro.js", "javascript"],
+    ["/", "text/html"], ["/script.js", "javascript"], ["/scenarios/intro.js", "javascript"], ["/scenarios/wilds.js", "javascript"],
     ["/wolf/no effects/wolf-idle.png", "image/png"], ["/isometric tileset/separated images/tile_000.png", "image/png"],
     ["/assets/icons/move.svg", "image/svg+xml"], ["/build-id.json", "application/json"], ...(cssHref ? [["/" + cssHref.replace(/^\//, ""), "text/css"]] : []),
   ];

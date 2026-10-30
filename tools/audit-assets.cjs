@@ -10,6 +10,7 @@ const { loadGame } = require("../tests/harness/load-game.cjs");
 const NAMES = ["src", "_src", "backgroundImage"];
 const ROUTES = [
   { name: "intro", opts: { query: "?scenario=intro&seed=1", scenarios: true } },
+  { name: "wilds", opts: { query: "?scenario=wilds&seed=1", scenarios: true } },
   { name: "world", opts: { query: "?mode=world", scenarios: true } },
   { name: "stag", opts: {}, after: (g) => g.ev("window.devTest.setEnemyMode('stag')") },
 ];

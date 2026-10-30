@@ -2,7 +2,8 @@
   "id": "g5-game-values-labversion",
   "gameValues": {
     "scenarioIds": [
-      "intro"
+      "intro",
+      "wilds"
     ],
     "presetIds": [
       "commander",
@@ -13,14 +14,14 @@
   "typoScenario": {
     "code": 2,
     "errs": [
-      "REFUSED (manifest): manifest invalid: unknown scenario: intr0 (supported: intro)"
+      "REFUSED (manifest): manifest invalid: unknown scenario: intr0 (supported: intro, wilds)"
     ],
     "moduleLoads": 0,
     "authorizationUntouched": true,
     "checkOnlyCode": 2,
     "checkOnlyValidation": [
       "validation: INVALID",
-      "  error: unknown scenario: intr0 (supported: intro)"
+      "  error: unknown scenario: intr0 (supported: intro, wilds)"
     ]
   },
   "typoPreset": {
@@ -39,7 +40,7 @@
   "both": {
     "code": 2,
     "errs": [
-      "REFUSED (manifest): manifest invalid: unknown preset: comander (supported: commander, commanderdraw, current); unknown scenario: intr0 (supported: intro)"
+      "REFUSED (manifest): manifest invalid: unknown preset: comander (supported: commander, commanderdraw, current); unknown scenario: intr0 (supported: intro, wilds)"
     ],
     "moduleLoads": 0,
     "authorizationUntouched": true,
@@ -47,7 +48,7 @@
     "checkOnlyValidation": [
       "validation: INVALID",
       "  error: unknown preset: comander (supported: commander, commanderdraw, current)",
-      "  error: unknown scenario: intr0 (supported: intro)"
+      "  error: unknown scenario: intr0 (supported: intro, wilds)"
     ]
   },
   "realValuesAccepted": true,
