@@ -72,62 +72,52 @@
           <button type="button" id="replay-restart" class="ui-button" disabled>Restart replay</button>
         </div>
       </section>
-      <!-- Debug/testing controls: keep available for animation, direction, and tile-number checks. -->
+      <!-- Dev tools, in four collapsible groups: Battle, Rules, Checks, Terrain. -->
       <div class="debug-controls" aria-label="Developer tools" hidden>
-        <section class="dev-control-section" aria-label="End fight">
-          <h2>End Fight</h2>
-          <div class="control-group">
-            <button type="button" id="dev-win-fight" class="ui-button">Win fight</button>
-            <button type="button" id="dev-lose-fight" class="ui-button">Lose fight</button>
-          </div>
-          <output id="end-fight-status" class="dev-inline-status">Resolve the current battle instantly.</output>
-        </section>
-        <section class="dev-control-section" aria-label="Interaction checks">
-          <h2>Interaction Checks</h2>
-          <div id="dev-test-scenarios" class="dev-test-scenarios"></div>
-          <output id="dev-test-status" class="dev-test-status">Ready</output>
-        </section>
-        <section class="dev-control-section" aria-label="Battle debug note">
-          <h2>Battle Note</h2>
-          <div class="control-group">
-            <button type="button" id="copy-battle-debug" class="ui-button" disabled>Copy last turn</button>
-          </div>
-          <output id="battle-debug-status" class="battle-debug-status">Play a turn to capture a note.</output>
-        </section>
-        <section class="dev-control-section" aria-label="Enemy mode">
-          <h2>Enemy</h2>
-          <div class="control-group">
-            <button type="button" class="ui-button" data-enemy-mode="wolves" aria-pressed="false">Wolves</button>
-            <button type="button" class="ui-button is-active" data-enemy-mode="stag" aria-pressed="true">Stag</button>
-          </div>
-        </section>
-        <section class="dev-control-section" aria-label="Display">
-          <h2>Display</h2>
-          <div class="control-group">
-            <button type="button" id="toggle-tile-numbers" class="ui-button" aria-pressed="false">Tile #s</button>
-          </div>
-        </section>
-        <section class="dev-control-section" aria-label="Hill editor">
-          <h2>Hill editor</h2>
-          <div class="control-group">
-            <button type="button" id="hill-editor-toggle" class="ui-button" aria-pressed="false">Draw hills</button>
-            <button type="button" id="copy-hills" class="ui-button">Copy hills</button>
-          </div>
-          <output id="hill-editor-status" class="dev-inline-status">Off. Click a tile to cycle none → 1 → 2 → none.</output>
-        </section>
-        <section class="dev-control-section" aria-label="Arena size">
-          <h2>Arena</h2>
-          <label class="dev-field" for="arena-size-input">
-            <span>Tiles per side</span>
-            <input type="number" id="arena-size-input" min="4" max="18" step="1" value="12" inputmode="numeric" />
-          </label>
-          <div class="control-group">
-            <button type="button" id="apply-arena-size" class="ui-button">Apply</button>
-            <output id="arena-size-status" class="dev-inline-status">12 x 12 tiles</output>
-          </div>
-        </section>
+        <details class="dev-rules-panel dev-group" open>
+          <summary>Battle</summary>
+          <section class="dev-control-section" aria-label="End fight">
+            <h2>End Fight</h2>
+            <div class="control-group">
+              <button type="button" id="dev-win-fight" class="ui-button">Win fight</button>
+              <button type="button" id="dev-lose-fight" class="ui-button">Lose fight</button>
+            </div>
+            <output id="end-fight-status" class="dev-inline-status">Resolve the current battle instantly.</output>
+          </section>
+          <section class="dev-control-section" aria-label="Enemy mode">
+            <h2>Enemy</h2>
+            <div class="control-group">
+              <button type="button" class="ui-button" data-enemy-mode="wolves" aria-pressed="false">Wolves</button>
+              <button type="button" class="ui-button is-active" data-enemy-mode="stag" aria-pressed="true">Stag</button>
+            </div>
+          </section>
+          <section class="dev-control-section" aria-label="Arena size">
+            <h2>Arena</h2>
+            <label class="dev-field" for="arena-size-input">
+              <span>Tiles per side</span>
+              <input type="number" id="arena-size-input" min="4" max="18" step="1" value="12" inputmode="numeric" />
+            </label>
+            <div class="control-group">
+              <button type="button" id="apply-arena-size" class="ui-button">Apply</button>
+              <output id="arena-size-status" class="dev-inline-status">12 x 12 tiles</output>
+            </div>
+          </section>
+          <section class="dev-control-section" aria-label="Display">
+            <h2>Display</h2>
+            <div class="control-group">
+              <button type="button" id="toggle-tile-numbers" class="ui-button" aria-pressed="false">Tile #s</button>
+            </div>
+          </section>
+          <section class="dev-control-section" aria-label="Battle debug note">
+            <h2>Battle Note</h2>
+            <div class="control-group">
+              <button type="button" id="copy-battle-debug" class="ui-button" disabled>Copy last turn</button>
+            </div>
+            <output id="battle-debug-status" class="battle-debug-status">Play a turn to capture a note.</output>
+          </section>
+        </details>
         <details id="rules-panel" class="dev-rules-panel">
-          <summary>Rules (dev)</summary>
+          <summary>Rules</summary>
           <p id="rules-notice" class="dev-rules-notice">Custom settings change gameplay. Defaults = current ruleset.</p>
           <label class="dev-field" for="rules-preset">
             <span>Preset</span>
@@ -220,6 +210,25 @@
             <button type="button" id="rules-reset" class="ui-button">Reset pending</button>
             <button type="button" id="rules-copy-link" class="ui-button">Copy link</button>
           </div>
+        </details>
+        <details class="dev-rules-panel dev-group">
+          <summary>Checks</summary>
+          <section class="dev-control-section" aria-label="Interaction checks">
+            <h2>Interaction Checks</h2>
+            <div id="dev-test-scenarios" class="dev-test-scenarios"></div>
+            <output id="dev-test-status" class="dev-test-status">Ready</output>
+          </section>
+        </details>
+        <details class="dev-rules-panel dev-group">
+          <summary>Terrain</summary>
+          <section class="dev-control-section" aria-label="Hill editor">
+            <h2>Hill editor</h2>
+            <div class="control-group">
+              <button type="button" id="hill-editor-toggle" class="ui-button" aria-pressed="false">Draw hills</button>
+              <button type="button" id="copy-hills" class="ui-button">Copy hills</button>
+            </div>
+            <output id="hill-editor-status" class="dev-inline-status">Off. Click a tile to cycle none → 1 → 2 → none.</output>
+          </section>
         </details>
       </div>
     </main>
