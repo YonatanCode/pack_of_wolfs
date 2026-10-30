@@ -2861,27 +2861,6 @@ function rotatePlayerClockwise() {
   updateEnemyIntentPreview();
 }
 
-function rotateDevPreviewUnitClockwise() {
-  const unit = getDevPreviewUnit();
-
-  if (!unit || isExecutingActionQueue || unit.movementFrameRequest !== null) {
-    updatePlayerActionControls();
-    return;
-  }
-
-  const currentIndex = CLOCKWISE_DIRECTIONS.indexOf(unit.direction);
-  const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % CLOCKWISE_DIRECTIONS.length;
-
-  unit.direction = CLOCKWISE_DIRECTIONS[nextIndex];
-  updateActiveDirection(unit.direction);
-  playUnitAnimation(unit, unit.animationName, true);
-
-  if (unit.team === "player") {
-    updatePlayerMovePreview();
-    updateEnemyIntentPreview();
-  }
-}
-
 function setPlayerMovementMode(mode) {
   const selectedUnit = getSelectedPlayerUnit();
 
@@ -11868,30 +11847,6 @@ function handleTileIntent(tile) {
   movePlayerFromTileElement(tile);
 }
 
-animationButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    const unit = getDevPreviewUnit();
-    playUnitAnimation(unit, button.dataset.animation, true);
-  });
-});
-
-directionButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    const unit = getDevPreviewUnit();
-    unit.direction = button.dataset.direction;
-    updateActiveDirection(unit.direction);
-    playUnitAnimation(unit, unit.animationName, true);
-    if (unit.team === "player") {
-      updatePlayerMovePreview();
-    }
-  });
-});
-
-const devRotateButton = document.getElementById("dev-rotate");
-if (devRotateButton) {
-  devRotateButton.addEventListener("click", () => rotateDevPreviewUnitClockwise());
-}
-
 // ---------------------------------------------------------------------------
 // Battle scenarios: fixed, repeatable battlefields (scenarios/*.js register on
 // window.BATTLE_SCENARIOS). No rule changes here — this only decides which
@@ -13791,17 +13746,6 @@ if (copyHillsButton) {
         setStatus("Copy failed — layout is at window.lastHillLayout.");
       }
     }
-  });
-}
-
-const fillMoveActionsButton = document.getElementById("fill-move-actions");
-if (fillMoveActionsButton) {
-  fillMoveActionsButton.addEventListener("click", () => {
-    if (isExecutingActionQueue) {
-      return;
-    }
-
-    fillAvailableActions("Move");
   });
 }
 
