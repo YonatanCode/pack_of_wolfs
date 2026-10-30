@@ -11880,12 +11880,37 @@ function updateRestartBattleControl() {
   refreshRulesPanel(); // the settings lock follows the same busy state
 }
 
-// Replace terrain with the scenario's authored layout: one uniform base tile,
-// rocks as hill-blocked cells (same representation as generated hills, so they
-// render via renderArenaHill and block movement/sight identically). No ponds,
-// flowers or trees, and nothing here touches Math.random.
+// Replace terrain with the scenario's layout. Two forms, neither touches Math.random:
+// - generated ({ generated: { seed } }, e.g. wilds): the procedural generator with a FIXED terrain seed at world
+//   origin (0, 0) with spawn clearing, so the map is the same on every load. generateTerrain draws only from its
+//   seeded stream and restores terrainRandom afterwards. The generator also reads currentEntryCorner (which cells
+//   it keeps clear) and devTestObstaclesDisabled (no obstacles); both are pinned to the live-arena defaults while it
+//   runs, so the map is a pure function of (gridSize, terrain seed).
+// - authored (intro): one uniform base tile, rocks as hill-blocked cells (same representation as generated hills,
+//   so they render via renderArenaHill and block movement/sight identically). No ponds, flowers or trees.
 function applyScenarioTerrain(scenario) {
   const size = GRID_SIZE;
+  const generated = scenario.terrain.generated;
+
+  if (generated) {
+    if (!Number.isInteger(generated.seed)) {
+      console.warn(`[scenario] non-integer terrain seed "${generated.seed}" used as ${generated.seed >>> 0}`);
+    }
+
+    const savedEntryCorner = currentEntryCorner;
+    const savedObstaclesDisabled = devTestObstaclesDisabled;
+    currentEntryCorner = null;
+    devTestObstaclesDisabled = false;
+
+    try {
+      generateTerrain(size, generated.seed >>> 0, 0, 0, true);
+    } finally {
+      currentEntryCorner = savedEntryCorner;
+      devTestObstaclesDisabled = savedObstaclesDisabled;
+    }
+
+    return;
+  }
 
   terrainTiles = Array.from({ length: size }, () => Array(size).fill(scenario.terrain.baseTile));
   pondTileKeys = new Set();
