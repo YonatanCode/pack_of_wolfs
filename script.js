@@ -3180,13 +3180,15 @@ function startArena(node, entryCorner = currentEntryCorner) {
     console.log(`[spawn] entryCorner=${entryCorner} | player primary=(${p.row},${p.col}) facing ${p.direction} | enemy primary=(${e.row},${e.col})`);
   }
 
-  useDefaultSettingsForWorldMode();
-  takeActiveRulesSnapshot();
-  reshuffleChargesRemaining = activeRules.reshuffleCharges;
-
+  // The node's enemy type first: the world-mode rules depend on it (wolves: the
+  // default battle setup; stag: current).
   if (node && node.enemyMode && ENEMY_MODES.includes(node.enemyMode)) {
     enemyMode = node.enemyMode;
   }
+
+  useDefaultSettingsForWorldMode();
+  takeActiveRulesSnapshot();
+  reshuffleChargesRemaining = activeRules.reshuffleCharges;
 
   // Mirror the proven build sequence (bootstrap / arena-size change).
   buildArena();
@@ -3196,6 +3198,7 @@ function startArena(node, entryCorner = currentEntryCorner) {
   updateReshuffleControl();
   resizeArena();
   syncEnemyModeControls();
+  refreshRulesPanel(); // the locked panel shows the world fight's rules
 }
 
 function hideWorldMap() {
@@ -6005,13 +6008,14 @@ function resetGame() {
   }
 
   if (gameResultOverlay) gameResultOverlay.hidden = true;
-  useDefaultSettingsForWorldMode();
+  useDefaultSettingsForWorldMode(); // the world fight's rules for its enemy type (section 16)
   takeActiveRulesSnapshot();
   reshuffleChargesRemaining = activeRules.reshuffleCharges;
   resetDevTest();
   refillAvailableActions();
   updateEnemyIntentPreview();
   updateReshuffleControl();
+  refreshRulesPanel();
 }
 
 // RULES half of applyTurnEndRecovery (core-safe). Returns the heals in unit order as plain data:
@@ -12157,14 +12161,21 @@ function applyPendingSettings() {
   return { ok: true, warnings: validation.warnings, record: getEffectiveRulesRecord() };
 }
 
-// World mode (startArena / legacy reset) always plays the default settings; pending is untouched.
-function useDefaultSettingsForWorldMode() {
-  if (!isDefaultSettings(getRulesState().active)) {
-    setActiveSettingsUnchecked(getDefaultSettings());
+// World mode (startArena / legacy reset, i.e. fights started from the world map and their Play Again): a wolf-pack fight
+// plays the default battle setup (section 14; ENGINE-NOTES section 16); a stag fight (no pack plan) keeps the current
+// preset + plain default settings, as world mode always did. Pending settings / preset are untouched (the panel is locked).
+function useDefaultSettingsForWorldMode(mode = enemyMode) {
+  if (mode === "wolves") {
+    useDefaultBattleSetup();
+  } else {
+    if (!isDefaultSettings(getRulesState().active)) {
+      setActiveSettingsUnchecked(getDefaultSettings());
+    }
+
+    getRulesPresetState().active = "current"; // stag fights keep the current preset
+    getEnemyDrawWeightsState().active = deepFreeze(getDefaultEnemyDrawWeights());
   }
 
-  getRulesPresetState().active = "current"; // world mode always plays the current preset
-  getEnemyDrawWeightsState().active = deepFreeze(getDefaultEnemyDrawWeights());
   getDefaultSetupState().restoreAfterTutorial = false; // world mode never returns to a scenario battle
 }
 

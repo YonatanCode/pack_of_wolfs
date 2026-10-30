@@ -137,7 +137,11 @@ async function run() {
   check(J(w, "window.devTest.getEffectiveRulesRecord()").hash === DEFAULT_HASH && w.ev("window.devTest.getActivePreset()") === "current", "world mode: current, default hash");
   const v = track(C.bootCommander());
   v.ev("clearActiveScenario(); resetGame()");
-  check(v.ev("window.devTest.getActivePreset()") === "current" && v.ev("activeRules.hash") === DEFAULT_HASH, "leaving the scenario battle for the world-mode reset switches to current");
+  // ENGINE-NOTES section 16 (DECLARED CHANGE): the world-mode reset of a wolf fight plays the default battle setup
+  // (commanderdraw 1/2/1, hash 0e098f37a86413) instead of current; a stag fight still switches to current.
+  check(v.ev("window.devTest.getActivePreset()") === "commanderdraw" && v.ev("activeRules.hash") === "0e098f37a86413", "leaving the scenario battle for the world-mode reset (wolves) switches to the default battle setup");
+  v.ev("useDefaultSettingsForWorldMode('stag'); takeActiveRulesSnapshot()"); // the world-mode rules for a stag fight (no hand dealt)
+  check(v.ev("window.devTest.getActivePreset()") === "current" && v.ev("activeRules.hash") === DEFAULT_HASH, "the world-mode rules for a stag fight are current");
 
   // dev scenario
   const s = track(C.bootCommander());

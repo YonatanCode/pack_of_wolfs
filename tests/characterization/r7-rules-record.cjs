@@ -114,13 +114,20 @@ async function run() {
   check(g.ev("reshuffleChargesRemaining") === 2, "loadScenario charges come from the re-taken snapshot");
   g.ev(stale); check(g.ev("window.devTest.restartBattle()") === true, "restart ok");
   same(subset(ar()), rec.values.perBattle, "restartBattle re-takes activeRules"); retake.restartBattle = true;
+  // ENGINE-NOTES section 16 (DECLARED CHANGE): world-mode wolf fights (startArena, the legacy resetGame) re-take the
+  // DEFAULT BATTLE SETUP (section 14, the plain boot's rules); a stag fight re-takes current + plain defaults as before.
+  const setupRules = { ...rec.values.perBattle, drawWeights: { Move: 1, Attack: 2, Defend: 1 }, preset: "commanderdraw" };
   const w = loadGame({ query: "?mode=world", scenarios: true });
   w.ev(stale); w.ev("resetGame()");
-  same(subset(evJson(w, "window.devTest.getActiveRules()")), rec.values.perBattle, "resetGame (legacy path) re-takes activeRules"); retake.resetGame = true;
+  same(subset(evJson(w, "window.devTest.getActiveRules()")), setupRules, "resetGame (legacy path, wolves) re-takes activeRules (default setup)"); retake.resetGame = true;
+  check(w.ev("activeRules.hash") === "0e098f37a86413", "resetGame (wolves): the default battle setup hash");
   check(w.ev("reshuffleChargesRemaining") === 2 && w.ev("actionsList.children.length") === 5, "resetGame draws a full default hand");
   w.ev(stale); w.ev("startArena({ enemyMode: 'wolves' }, 'bottom')");
-  same(subset(evJson(w, "window.devTest.getActiveRules()")), rec.values.perBattle, "startArena re-takes activeRules"); retake.startArena = true;
+  same(subset(evJson(w, "window.devTest.getActiveRules()")), setupRules, "startArena (wolves) re-takes activeRules (default setup)"); retake.startArena = true;
   check(w.ev("reshuffleChargesRemaining") === 2, "startArena charges from snapshot");
+  w.ev(stale); w.ev("startArena({ enemyMode: 'stag' }, 'bottom')");
+  same(subset(evJson(w, "window.devTest.getActiveRules()")), rec.values.perBattle, "startArena (stag) re-takes activeRules (current + plain defaults)");
+  check(w.ev("reshuffleChargesRemaining") === 2, "startArena (stag) charges from snapshot");
   check(evJson(g, "window.devTest.getBattleRecord()").rules.hash === rec.hash, "getBattleRecord carries rules identity");
   same(evJson(g, "getBattleSeeds()"), { scenarioId: "intro", scenarioVersion: evJson(g, "getBattleSeeds()").scenarioVersion, seed: 3, handSeed: 3 }, "getBattleSeeds unchanged (no rules field)");
 
