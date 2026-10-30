@@ -1,0 +1,122 @@
+{
+  "header": "REQUIREMENT — wilds scenario",
+  "handsGenerated": 18,
+  "result": {
+    "label": "wilds · seed 1 · custom rules 0e098f · commander draw (experimental)",
+    "fallback": {
+      "resolve": {
+        "value": "wilds",
+        "warnings": [
+          "[scenario] unknown scenario \"nowhere\", falling back to \"wilds\""
+        ]
+      },
+      "load": {
+        "value": [
+          true,
+          "wilds",
+          16
+        ],
+        "warnings": [
+          "[scenario] unknown scenario \"nowhere\", falling back to \"wilds\""
+        ]
+      }
+    },
+    "terrain": {
+      "seed": 33,
+      "fingerprint": "929db99e2d13f070",
+      "counts": {
+        "pond": 48,
+        "hill": 28,
+        "tree": 3,
+        "flower": 6
+      },
+      "hillLevel2": [
+        "9,14"
+      ],
+      "tree": [
+        "14,7",
+        "2,3",
+        "9,12"
+      ],
+      "map": [
+        "~ ~ ~ . . . . . . : : : : : . .",
+        "~ ~ . . . . . . . : . . . . . .",
+        ". . . T . . . . . . . ~ ~ ~ . .",
+        ". . . . . . . : . . ~ ~ ~ ~ ~ .",
+        ". . . . . . . : . ~ ~ ~ ~ ~ . .",
+        "^ ^ . ^ . . : . . ~ ~ ~ ~ ~ . ^",
+        "^ ^ ^ ^ : : . . ~ ~ ~ ~ ~ . . ^",
+        "~ ~ ^ ^ : . . ~ ~ ~ ~ ~ * . . ^",
+        "~ ~ ^ ^ ^ . ~ ~ ~ ~ ~ . . ^ ^ ^",
+        "~ ~ ^ . . . . ~ ~ ~ . . T ^ A ^",
+        "~ * ^ . . * . . . . . . . ^ ^ .",
+        ". . ^ ^ ^ . . . . . . . . . . .",
+        ". . . . * * . . . . . . . . . .",
+        ": * . . . . . . . . . . . . . .",
+        ": . . . . . . T . . . . . . . .",
+        ": . . . . . . . . . . . . . . ."
+      ],
+      "mathRandomDrawsDuringLoad": 0
+    },
+    "reach": {
+      "region": 177,
+      "walkable": 177
+    },
+    "bootHand": [
+      "Attack",
+      "Move",
+      "Attack",
+      "Defend",
+      "Defend"
+    ],
+    "bootObservation": {
+      "units": [
+        "P1 15,7 topRight hp 10",
+        "P2 15,5 topRight hp 10",
+        "P3 15,9 topRight hp 10",
+        "E1 0,7 bottomLeft hp 10",
+        "E2 0,5 bottomLeft hp 10",
+        "E3 0,9 bottomLeft hp 10"
+      ],
+      "hand": {
+        "cards": [
+          "Attack",
+          "Move",
+          "Attack",
+          "Defend",
+          "Defend"
+        ],
+        "reshuffleChargesRemaining": 2
+      }
+    },
+    "headlessTurn": {
+      "outcome": "none",
+      "eventHash": "1b4337e7506446",
+      "events": 24,
+      "units": [
+        "P1 13,5 topRight hp 10",
+        "P2 15,5 topRight hp 10",
+        "P3 15,9 topRight hp 10",
+        "E1 2,5 bottomLeft hp 10",
+        "E2 0,5 bottomLeft hp 10",
+        "E3 3,6 bottomLeft hp 10"
+      ],
+      "hand": {
+        "cards": [
+          "Attack",
+          "Attack",
+          "Attack",
+          "Defend",
+          "Defend"
+        ],
+        "reshuffleChargesRemaining": 2
+      }
+    }
+  },
+  "usage": {
+    "contexts": 8,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
