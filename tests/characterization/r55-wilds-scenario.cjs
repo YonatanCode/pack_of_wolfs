@@ -3,8 +3,10 @@
 // R55a DEFINITION: window.BATTLE_SCENARIOS.wilds is registered and frozen: id wilds, version 1, gridSize 16, hand seed 1,
 //      terrain { generated: { seed: 33 } }; its six spawns are exactly the cells the generator keeps clear on a 16 board
 //      (getEntryCornerSetup with no entry corner, i.e. the original arena's spawns).
-// R55b DEFAULT BOOT: a link without parameters ("") and "?seed=1" boot wilds, seed 1, 16x16, under the unchanged default
-//      battle setup (commanderdraw, hash 0e098f37a86413); pinned label and Copy link. ?scenario=intro still boots the
+// R55b DEFAULT BOOT: a link without parameters ("") boots wilds, 16x16, under the unchanged default battle setup
+//      (commanderdraw, hash 0e098f37a86413) and, since ENGINE-NOTES 16.1, a FRESH battle seed (seed = hand seed). The
+//      former seed-1 default battle is pinned through its explicit equivalent "?scenario=wilds&seed=1" (same setup, no
+//      game loop): pinned label and Copy link; "?seed=1" boots wilds. ?scenario=intro still boots the
 //      authored 12x12 intro; an unknown scenario id falls back to wilds (the warning is captured, not printed).
 // R55c TERRAIN: generated from the fixed terrain seed only: identical over the default boot, an explicit wilds boot, a
 //      wilds load from an intro battle under another battle seed, and a load with a non-default entry corner and the
@@ -84,7 +86,9 @@ async function run() {
   const out = {};
 
   // ---- R55a ---------------------------------------------------------------------------------------------------------
-  const g = track(rawBoot(""));
+  // 16.1: the plain boot ("") draws a fresh seed, so the seed-1 pins below use the explicit equivalent of the old plain boot.
+  const g = track(rawBoot("?scenario=wilds&seed=1"));
+  const t = track(rawBoot("")); // the plain boot (also R55f's tutorial context)
   const def = J(g, "window.BATTLE_SCENARIOS.wilds");
   check(g.ev("Object.isFrozen(window.BATTLE_SCENARIOS.wilds) && Object.isFrozen(window.BATTLE_SCENARIOS.wilds.terrain.generated)"), "R55a: wilds is deep-frozen");
   same([def.id, def.scenarioVersion, def.gridSize, def.seed, def.terrain], ["wilds", 1, 16, 1, { generated: { seed: TERRAIN_SEED } }], "R55a: wilds definition");
@@ -95,7 +99,11 @@ async function run() {
   check(g.ev("window.DEFAULT_SCENARIO_ID") === "wilds", "R55a: the default scenario id is wilds");
 
   // ---- R55b ---------------------------------------------------------------------------------------------------------
-  same(seeds(g), { scenarioId: "wilds", scenarioVersion: 1, seed: 1, handSeed: 1 }, "R55b: no parameters -> wilds, seed 1");
+  const plainSeeds = seeds(t);
+  check(plainSeeds.scenarioId === "wilds" && Number.isInteger(plainSeeds.seed) && plainSeeds.handSeed === plainSeeds.seed, "R55b: no parameters -> wilds under a fresh seed");
+  same(setupOf(t), { preset: "commanderdraw", version: DRAW_VERSION, hash: DEFAULT_SETUP_HASH }, "R55b: no parameters -> the default battle setup");
+  same(fingerprint(terrainOf(t)), PINNED_TERRAIN_FINGERPRINT, "R55b: no parameters -> the fixed wilds terrain");
+  same(seeds(g), { scenarioId: "wilds", scenarioVersion: 1, seed: 1, handSeed: 1 }, "R55b: ?scenario=wilds&seed=1 -> wilds, seed 1");
   check(g.ev("GRID_SIZE") === 16 && g.ev("enemyMode") === "wolves", "R55b: 16x16, wolves");
   same(setupOf(g), { preset: "commanderdraw", version: DRAW_VERSION, hash: DEFAULT_SETUP_HASH }, "R55b: the default battle setup is unchanged");
   check(g.ev("isDefaultBattleSetupActive()") === true, "R55b: isDefaultBattleSetupActive");
@@ -167,7 +175,6 @@ async function run() {
   out.bootHand = bootHand;
 
   // ---- R55f ---------------------------------------------------------------------------------------------------------
-  const t = track(rawBoot(""));
   t.ev("startGuidedTutorial()");
   check(t.ev("isGuidedTutorialActive") === true, "R55f: tutorial active");
   same(setupOf(t), { preset: "current", version: "0.1.0-current", hash: "0d3ce2ec6fa6de" }, "R55f: the tutorial forces current + plain defaults");
@@ -188,7 +195,7 @@ async function run() {
   out.bootObservation = { units: obs.units.map((u) => `${u.id} ${u.row},${u.col} ${u.direction} hp ${u.health}${u.concealed ? " concealed" : ""}`), hand: obs.hand };
 
   const roundTrip = (state, label) => {
-    const r = track(rawBoot(""));
+    const r = track(rawBoot("?scenario=wilds&seed=1")); // 16.1: the seed-1 battle's explicit link (the plain boot draws a fresh seed)
     r.ev("clearArenaObstacles()");
     check(r.ev("pondTileKeys.size + hillTileKeys.size + treeTileKeys.size + hillTileLevels.size") === 0, `${label}: target obstacles cleared first`);
     r.ev(`loadBattleState(${JSON.stringify(state)})`);

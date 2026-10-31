@@ -1,6 +1,6 @@
 {
   "header": "REQUIREMENT — game loop",
-  "handsGenerated": 17,
+  "handsGenerated": 21,
   "result": {
     "routes": {
       "?scenario=wilds": {
@@ -19,6 +19,16 @@
       "?mode=world": {
         "scenario": null
       }
+    },
+    "freshSeed": {
+      "differ": {
+        "seed": true,
+        "handState": true,
+        "hand": true,
+        "enemyState": true
+      },
+      "reproducibleViaCopyLink": true,
+      "restartKeepsSeed": true
     },
     "plainWin": {
       "overlay": false,
@@ -91,7 +101,7 @@
     }
   },
   "usage": {
-    "contexts": 11,
+    "contexts": 13,
     "maxSteps": 34,
     "totalSteps": 34,
     "cap": 4000

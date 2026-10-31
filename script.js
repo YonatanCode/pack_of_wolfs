@@ -6021,6 +6021,12 @@ function resetGame() {
 
   // A scenario battle replays identically (same terrain, spawns, seeded hand).
   if (activeScenario) {
+    // Section 16.1: Play Again in the plain boot's game-loop battle deals a NEW game (fresh seed) on the same map;
+    // explicit links keep their seed. (Restart / R keep the seed: they call restartBattle directly.)
+    if (isGameLoopScenarioBattle() && !isExecutingActionQueue) {
+      activeScenarioSeed = createFreshSeed();
+    }
+
     // Refused mid-turn: never fall through to the legacy reset with a stale scenario.
     restartBattle();
     return;
@@ -13318,7 +13324,9 @@ const bootRoute = resolveBootRoute();
 resolveBootRules(bootRoute);
 
 if (bootRoute.scenario) {
-  loadScenario(bootRoute.scenario, bootRoute.seed);
+  // Section 16.1: a plain boot (the game) plays wilds under a FRESH battle seed (hand and enemy draw streams vary per game;
+  // the terrain keeps its fixed seed); the seed stays visible in the label / Copy link.
+  loadScenario(bootRoute.scenario, bootRoute.gameLoop ? createFreshSeed() : bootRoute.seed);
 } else {
   seedHandRandom(createFreshSeed());
   seedEnemyDrawRandom(handSeed); // same fresh seed, as startArena (unused under current; a world-mode Play Again may switch to commanderdraw)

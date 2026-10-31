@@ -8,7 +8,8 @@
 //      terrain just won (pinned r55 fingerprint).
 // R56c EXPLICIT WIN: ?scenario=wilds and ?scenario=intro show the You Win overlay, do NOT open the map or touch
 //      worldState, and Play Again restarts the same scenario + seed (unchanged scenario end behaviour).
-// R56d LOSS: plain and explicit boots show the You Lose overlay (no map); Play Again re-fights the same scenario + seed;
+// R56d LOSS: plain and explicit boots show the You Lose overlay (no map); Play Again re-fights the same map: in the plain
+//      boot's game-loop battle under a NEW fresh seed (ENGINE-NOTES 16.1), in an explicit-link battle under the same seed;
 //      the plain boot's game loop survives that retry (a following win opens the map).
 // R56e WORLD WOLF FIGHT: devTest.chooseCorner from the map starts the next node's fight (no turn played): default battle
 //      setup (commanderdraw, hash 0e098f37a86413), 2 reshuffle charges, a 5-card hand; the hand stream AND the enemy draw
@@ -18,13 +19,18 @@
 // R56f STAG NODE: startArena with a forced stag node keeps current + plain defaults (hash 0d3ce2ec6fa6de), also after
 //      Play Again, as world mode always did.
 // R56g TUTORIAL: the tutorial still forces current + plain defaults on the plain boot and inside a world wolf fight.
-// No battle is simulated (no turn is played). Own hand ledger (limit 20).
+// R56h FRESH SEED (16.1): two plain boots under different harness Math.random states get different battle seeds, hand
+//      streams (and here different hands) and enemy draw streams (each = one list drawn from deriveEnemyDrawSeed(seed),
+//      replicated with the pure draw functions); the terrain stays the fixed wilds map; the label and Copy link name the
+//      seed and the copied link reproduces the battle (explicit, no game loop); Restart keeps the seed and the hand.
+//      Only relations are recorded (the seed values depend on the harness's Math.random).
+// No battle is simulated (no turn is played). Own hand ledger (limit 25; 20 before 16.1).
 const crypto = require("node:crypto");
 const S = require("./_settings.cjs");
 const { check, same, J } = S;
 
 const ID = "r56-game-loop";
-const HAND_LIMIT = 20;
+const HAND_LIMIT = 25;
 const DEFAULT_SETUP_HASH = "0e098f37a86413";
 const CURRENT_HASH = "0d3ce2ec6fa6de";
 const WILDS_TERRAIN_SEED = 33;
@@ -32,8 +38,8 @@ const WILDS_FINGERPRINT = "929db99e2d13f070"; // r55's pinned terrain fingerprin
 
 /** RAW boot (the query exactly as given) with the r54 / r55 hand counter, and showGameResult's argument recorded (the stub
  * DOM's querySelector returns a detached element, so the overlay text itself is not observable; r6). */
-function rawBoot(query) {
-  const g = S.loadGame({ query, scenarios: true });
+function rawBoot(query, harnessSeed) {
+  const g = S.loadGame({ query, scenarios: true, ...(harnessSeed === undefined ? {} : { seed: harnessSeed }) });
   g.ev(`window.__drawn = 0; (function () { const orig = drawPlayerHandToSize;
     drawPlayerHandToSize = function () { const r = orig.apply(this, arguments); if (r.length) window.__drawn += 1; return r; }; })()`);
   g.ev(`window.__result = null; (function () { const orig = showGameResult;
@@ -70,6 +76,34 @@ async function run() {
     out.routes[query] = route;
   });
 
+  // ---- R56h ---------------------------------------------------------------------------------------------------------
+  const streamOf = (c) => J(c, `({ seeds: getBattleSeeds(), hand: playerHand, handState: getHandRandomState(), enemy: getEnemyDrawState(),
+    expectedEnemy: (function () { const s = createSeededRandom(deriveEnemyDrawSeed(activeScenarioSeed));
+      const pool = toCanonicalEnemyPool(drawEnemyActionList(s, activeRules.enemyActionBudget, getEnemyDrawWeightsState().active));
+      return { state: s.getState(), pool }; })() })`);
+  const g2 = track(rawBoot("", 2));
+  const s1 = streamOf(g);
+  const s2 = streamOf(g2);
+  [s1, s2].forEach((x, i) => {
+    check(x.seeds.scenarioId === "wilds" && Number.isInteger(x.seeds.seed) && x.seeds.handSeed === x.seeds.seed, `R56h: plain boot ${i + 1}: wilds, seed = hand seed`);
+    same(x.enemy, x.expectedEnemy, `R56h: plain boot ${i + 1}: the enemy stream is seeded from the battle seed (one list drawn)`);
+  });
+  same(fingerprint(g2), WILDS_FINGERPRINT, "R56h: the second plain boot has the same fixed terrain");
+  const differ = { seed: s1.seeds.seed !== s2.seeds.seed, handState: s1.handState !== s2.handState, hand: s1.hand.join() !== s2.hand.join(),
+    enemyState: s1.enemy.state !== s2.enemy.state };
+  same(differ, { seed: true, handState: true, hand: true, enemyState: true }, "R56h: different Math.random states -> different seeds, hand and enemy streams");
+  same(g.ev("getScenarioLabelText()"), `wilds · seed ${s1.seeds.seed} · custom rules 0e098f · commander draw (experimental)`, "R56h: the label names the fresh seed");
+  const copy = await g.runLimited(() => g.ev("copyRulesLink()"));
+  same(copy, { copied: true, link: `?scenario=wilds&seed=${s1.seeds.seed}&preset=commanderdraw&rules=wa:2,dwa:2` }, "R56h: Copy link names the fresh seed");
+  const rep = track(rawBoot(copy.link));
+  const sr = streamOf(rep);
+  same([sr.seeds, sr.hand, sr.handState, sr.enemy, setupOf(rep), J(rep, "bootRoute.gameLoop === undefined")], [s1.seeds, s1.hand, s1.handState, s1.enemy, setupOf(g), true],
+    "R56h: the copied link reproduces the battle (explicit: no game loop)");
+  g.ev(`restartBattleButton.listeners.filter((l) => l.type === "click").forEach((l) => l.fn())`);
+  const sRestart = streamOf(g);
+  same([sRestart.seeds, sRestart.hand, sRestart.handState, sRestart.enemy], [s1.seeds, s1.hand, s1.handState, s1.enemy], "R56h: Restart keeps the seed, hand and streams");
+  out.freshSeed = { differ, reproducibleViaCopyLink: true, restartKeepsSeed: true };
+
   // ---- R56b ---------------------------------------------------------------------------------------------------------
   const before = fingerprint(g);
   same(before, WILDS_FINGERPRINT, "R56b: the plain boot arena is the wilds terrain");
@@ -102,13 +136,21 @@ async function run() {
   l.ev("devEndFight(false)");
   const lostPlain = endView(l);
   same(lostPlain, { overlay: true, message: "You Lose", map: false, scenario: "wilds", world: { x: 0, y: 0, cleared: [] } }, "R56d: a plain-boot loss shows You Lose, no map");
+  const lSeeds = seeds(l);
   playAgain(l);
-  same([l.ev("gameResultOverlay.hidden"), seeds(l).scenarioId, seeds(l).seed, setupOf(l)], [true, "wilds", 1, { preset: "commanderdraw", hash: DEFAULT_SETUP_HASH }],
-    "R56d: Play Again re-fights wilds, seed 1, default setup");
+  const lAfter = seeds(l);
+  same([l.ev("gameResultOverlay.hidden"), lAfter.scenarioId, setupOf(l), fingerprint(l)], [true, "wilds", { preset: "commanderdraw", hash: DEFAULT_SETUP_HASH }, WILDS_FINGERPRINT],
+    "R56d: Play Again re-fights the wilds map under the default setup");
+  check(Number.isInteger(lAfter.seed) && lAfter.seed !== lSeeds.seed && lAfter.handSeed === lAfter.seed, "R56d: game-loop Play Again deals a NEW fresh seed");
+  const sl = streamOf(l);
+  same(sl.enemy, sl.expectedEnemy, "R56d: the enemy stream is reseeded from the new seed (one list drawn)");
   const le = track(rawBoot("?scenario=wilds"));
   le.ev("devEndFight(false)");
   const lostExplicit = endView(le);
   same(lostExplicit, { overlay: true, message: "You Lose", map: false, scenario: "wilds", world: { x: 0, y: 0, cleared: [] } }, "R56d: an explicit-link loss shows You Lose, no map");
+  const leSeeds = seeds(le);
+  playAgain(le);
+  same([le.ev("gameResultOverlay.hidden"), seeds(le)], [true, leSeeds], "R56d: explicit-link Play Again after a loss keeps the seed");
   out.loss = { plain: lostPlain, explicit: lostExplicit };
 
   // ---- R56g (plain boot) ----------------------------------------------------------------------------------------------
