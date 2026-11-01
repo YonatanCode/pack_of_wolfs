@@ -111,8 +111,8 @@
       "handDraw drawn=[Move] hand=[Move,Move,Attack,Defend,Defend]",
       "outcome winner=none doubleKO=false"
     ],
-    "eventHash": "1759ff2ea3b379fec9f09e764dda5ff52da1b22c1d80858bce31769b6917d080",
-    "stateHash": "1f3cb6fc9d26f9692a6e193d23d0291df910ffae531b1cf245ee2381903ebed7",
+    "eventHash": "53a917b2bd4c771a7476e09e3768a9bdf32997f4c0756a878de86bbcadbfa067",
+    "stateHash": "7b91a1986290f449217099afd3f9372770a775b7c86289cb95ab8da7d561e43b",
     "hand": [
       "Move",
       "Move",

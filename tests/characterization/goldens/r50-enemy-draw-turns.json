@@ -43,8 +43,8 @@
         "Attack",
         "Attack"
       ],
-      "finalStateHash": "e799271aceecae760e8c8bc93ccf9e478a6665efd26c3f18a53f07d6fab2c231",
-      "eventHash": "90ebf86281ad799b8ea9a120b08c19d6607ab7ad15088ea8c409432417dffe19"
+      "finalStateHash": "2fa7614d70105cee8341439a949684c4e4575d27a633ad5e5e870af9a6a4cbae",
+      "eventHash": "81226624aaa5057735afda76690776d4ad38e2f218d3792ce1b4848340fa124b"
     },
     "unassigned": {
       "turn1": {
@@ -152,16 +152,16 @@
           "action": "Attack"
         },
         {
-          "unit": "E1",
-          "action": "Attack"
-        },
-        {
           "unit": "E2",
           "action": "Move"
         },
         {
           "unit": "E3",
           "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Attack"
         },
         {
           "unit": "E2",
@@ -180,7 +180,7 @@
       "note": [
         "Enemy actions (commanderdraw, experimental: commander + random enemy action draw):",
         "Budget 5 | drawn 5: Move, Move, Move, Attack, Attack",
-        "Assigned 5: E1 Attack, E1 Attack, E2 Move, E3 Move, E2 Move",
+        "Assigned 5: E1 Attack, E2 Move, E3 Move, E1 Attack, E2 Move",
         "Spent 4: E1 Attack (tick 1), E2 Move (tick 1), E3 Move (tick 1), E2 Move (tick 2)",
         "Forfeited 1: E1 Attack (died tick 1)",
         "Unplayed 0: -",

@@ -5,7 +5,7 @@
 // in between: wolves selected through the tile handler, enemy clicks through the tile handler and through the real
 // arena click listener (pointer resolution), and cards queued through applyPlayerAction (the first-queue path).
 // R38a The played turn's event hash equals the value r15's golden recorded for the same turn (18b02e59b60d0f plain,
-//      1495a8b0b3519f lethal), i.e. the event log is byte-identical to the existing recording.
+//      08381b9acf2d81 lethal), i.e. the event log is byte-identical to the existing recording.
 // R38b Against a never-clicked control context with the same orders: identical events, battle note, final snapshot,
 //      intent tags and hand view.
 // R38c No commander artefact under current: no targetsCommitted / targetSkipped event, miss events carry exactly
@@ -18,7 +18,7 @@ const { check, same, J } = S;
 const G = C.G;
 
 const ID = "r38-target-current-identity";
-const RECORDED = { plain: "18b02e59b60d0f", lethal: "1495a8b0b3519f" }; // r15 golden, turn 1 of each case
+const RECORDED = { plain: "18b02e59b60d0f", lethal: "08381b9acf2d81" }; // r15 golden, turn 1 of each case
 
 function boot() {
   const g = PV.boot();

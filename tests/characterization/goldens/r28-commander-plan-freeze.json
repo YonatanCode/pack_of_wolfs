@@ -154,16 +154,16 @@
           "action": "Attack"
         },
         {
-          "unit": "E1",
-          "action": "Attack"
-        },
-        {
           "unit": "E3",
           "action": "Move"
         },
         {
           "unit": "E2",
           "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Attack"
         },
         {
           "unit": "E2",

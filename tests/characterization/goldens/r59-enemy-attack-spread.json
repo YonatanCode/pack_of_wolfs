@@ -1,0 +1,61 @@
+{
+  "header": "REQUIREMENT — enemy-action experiment",
+  "handsGenerated": 4,
+  "cases": {
+    "spread": {
+      "plan": [
+        {
+          "unit": "E1",
+          "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E2",
+          "action": "Move"
+        },
+        {
+          "unit": "E2",
+          "action": "Attack"
+        },
+        {
+          "unit": "E1",
+          "action": "Attack"
+        }
+      ],
+      "attacksBy": {
+        "E1": 2,
+        "E2": 1
+      }
+    },
+    "scan": {
+      "plan": [
+        {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E1",
+          "action": "Attack"
+        }
+      ],
+      "hitTargets": [
+        "P2",
+        "P1",
+        "P1"
+      ]
+    }
+  },
+  "usage": {
+    "contexts": 2,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

@@ -1,8 +1,8 @@
 {
   "header": "REQUIREMENT — P1e acceptance",
   "parser": {
-    "topLevelDeclarations": 214,
-    "immutable": 111,
+    "topLevelDeclarations": 215,
+    "immutable": 112,
     "constantTables": 41,
     "mutable": 62
   },

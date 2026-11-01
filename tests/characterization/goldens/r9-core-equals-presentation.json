@@ -45,8 +45,8 @@
         "doubleKO": false
       },
       "ticks": 4,
-      "eventCount": 46,
-      "eventHash": "1673f9f2a6d797c3f8133822d1ab7aee83cde046e0b9a2d5e996fb365d7cfafd",
+      "eventCount": 45,
+      "eventHash": "e495b5ad38b99c2858ee299b3e26ab5596e754fcda31db06c371b904194978a5",
       "finalState": {
         "units": {
           "P1": "r5 c5 bottomRight hp0 DEFEATED mv=Hunt tsh=0 dmg=1 flee=0 obj=- q=[]",
@@ -128,8 +128,8 @@
   },
   "usage": {
     "contexts": 8,
-    "maxSteps": 192,
-    "totalSteps": 388,
+    "maxSteps": 184,
+    "totalSteps": 380,
     "cap": 4000
   }
 }

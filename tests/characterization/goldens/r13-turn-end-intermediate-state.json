@@ -17,9 +17,9 @@
         "03 damage/end: hand=2/2 ovl=hidden play=off exec=1 tags=E1:Attack,E2:Defend bars=P1:0X,P2:100,P3:80,E1:0X,E2:100,E3:100",
         "04 replan/begin: hand=2/2 ovl=hidden play=off exec=1 tags=E1:Attack,E2:Defend bars=P1:0X,P2:100,P3:80,E1:0X,E2:100,E3:100",
         "05 replan/call renderEnemyPackIntentTags {...}: hand=2/2 ovl=hidden play=off exec=1 tags=E1:Attack,E2:Defend bars=P1:0X,P2:100,P3:80,E1:0X,E2:100,E3:100",
-        "06 replan/end: hand=2/2 ovl=hidden play=off exec=1 tags=E2:Move+Defend,E3:Move+Attack+Attack bars=P1:0X,P2:100,P3:80,E1:0X,E2:100,E3:100",
-        "07 tickEnd/begin: hand=2/2 ovl=hidden play=off exec=1 tags=E3:Attack bars=P1:0X,P2:40,P3:80,E1:0X,E2:100,E3:100",
-        "08 tickEnd/call renderEnemyPackIntentTags: hand=2/2 ovl=hidden play=off exec=1 tags=E3:Attack bars=P1:0X,P2:40,P3:80,E1:0X,E2:100,E3:100",
+        "06 replan/end: hand=2/2 ovl=hidden play=off exec=1 tags=E2:Move+Attack+Defend,E3:Move+Attack bars=P1:0X,P2:100,P3:80,E1:0X,E2:100,E3:100",
+        "07 tickEnd/begin: hand=2/2 ovl=hidden play=off exec=1 tags=E2:Defend bars=P1:0X,P2:40,P3:80,E1:0X,E2:100,E3:100",
+        "08 tickEnd/call renderEnemyPackIntentTags: hand=2/2 ovl=hidden play=off exec=1 tags=E2:Defend bars=P1:0X,P2:40,P3:80,E1:0X,E2:100,E3:100",
         "09 tickEnd/end: hand=2/2 ovl=hidden play=off exec=1 tags=- bars=P1:0X,P2:40,P3:80,E1:0X,E2:100,E3:100",
         "10 recovery/begin: hand=2/2 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:40,P3:80,E1:0X,E2:100,E3:100",
         "11 recovery/call updateUnitHealthBar P3: hand=2/2 ovl=hidden play=off exec=0 tags=- bars=P1:0X,P2:40,P3:80,E1:0X,E2:100,E3:100",
@@ -147,8 +147,8 @@
   },
   "usage": {
     "contexts": 8,
-    "maxSteps": 166,
-    "totalSteps": 900,
+    "maxSteps": 158,
+    "totalSteps": 884,
     "cap": 4000
   }
 }

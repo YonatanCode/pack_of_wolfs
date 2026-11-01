@@ -81,9 +81,9 @@
     "recordedEventHashes": [
       "046340945e893b",
       "10fff72f44c5ae",
-      "09fe15033b5372"
+      "1f8e5d8a3a41d1"
     ],
-    "finalStateHash": "bfc6e2ba326740896a034168ca9744e1d3562451fdbc5cfcbfcefa4226af876b"
+    "finalStateHash": "03f77019ed75284a11569fdbf9c2651e29a6ab6fba4cf10e1241147271b449b6"
   },
   "payloadKeys": [
     "v",
@@ -153,8 +153,8 @@
       },
       {
         "turn": 3,
-        "recorded": "09fe15033b5372",
-        "replayed": "09fe15033b5372",
+        "recorded": "1f8e5d8a3a41d1",
+        "replayed": "1f8e5d8a3a41d1",
         "match": true
       }
     ],
