@@ -5267,6 +5267,7 @@ function planEnemyPackTurnRules(enemyUnits, playerUnits) {
   assignEnemyPackObjectives(aliveEnemies, enemyPackFocusTarget, targetedPlayers, plannedStates);
 
   const reservedMoveTargets = new Set();
+  const plannedAttackDamage = new Map(); // player wolf -> damage the plan has already aimed at it this turn
   const doctrinePool = getEnemyPlanPool(); // commanderdraw: the drawn list; else the fixed pool (a copy either way)
 
   while (enemyPackActionQueue.length < activeRules.enemyActionBudget) {
@@ -5278,10 +5279,15 @@ function planEnemyPackTurnRules(enemyUnits, playerUnits) {
       enemyPackActionQueue,
       doctrinePool,
       targetedPlayers,
+      plannedAttackDamage,
     );
 
     if (!assignment) {
       break;
+    }
+
+    if (assignment.action === "Attack" && assignment.target) {
+      plannedAttackDamage.set(assignment.target, (plannedAttackDamage.get(assignment.target) ?? 0) + UNIT_ATTACK_DAMAGE);
     }
 
     consumeDoctrineAction(doctrinePool, assignment.action);
@@ -5463,6 +5469,7 @@ function getBestEnemyPackAction(
   plannedActions,
   doctrinePool,
   players,
+  plannedAttackDamage = new Map(),
 ) {
   const attackAssignments = doctrinePool.includes("Attack")
     ? enemyUnits
@@ -5474,29 +5481,26 @@ function getBestEnemyPackAction(
           return null;
         }
 
-        const adjacentTargets = players.filter((playerUnit) => {
-          return isAdjacentTile(plannedState.row, plannedState.col, playerUnit.row, playerUnit.col);
-        });
+        // Scan of the player wolves in reach: each target is scored on what is left of its health after the Attacks
+        // already planned this turn (see getEnemyAttackTargetScore); a target the plan has already killed is not a candidate.
+        const target = players
+          .filter((playerUnit) => isAdjacentTile(plannedState.row, plannedState.col, playerUnit.row, playerUnit.col))
+          .map((playerUnit) => ({
+            playerUnit,
+            score: getEnemyAttackTargetScore(playerUnit, focusTarget, plannedAttackDamage) +
+              getGridDistance(unit.row, unit.col, playerUnit.row, playerUnit.col),
+          }))
+          .filter((candidate) => candidate.score < ENEMY_ATTACK_WASTED_SCORE)
+          .sort((candidate, otherCandidate) => candidate.score - otherCandidate.score)[0] ?? null;
 
-        if (adjacentTargets.length === 0) {
+        if (!target) {
           return null;
         }
 
-        const target = adjacentTargets.includes(focusTarget)
-          ? focusTarget
-          : adjacentTargets.sort((playerUnit, otherPlayerUnit) => {
-            return (
-              playerUnit.health - otherPlayerUnit.health ||
-              getGridDistance(unit.row, unit.col, playerUnit.row, playerUnit.col) -
-                getGridDistance(unit.row, unit.col, otherPlayerUnit.row, otherPlayerUnit.col)
-            );
-          })[0];
-
         return {
           action: "Attack",
-          score: (target === focusTarget ? 0 : 4) +
-            getGridDistance(unit.row, unit.col, target.row, target.col) +
-            getPlannedActionCountForUnit(unit, plannedActions) * 5,
+          score: target.score + getPlannedActionCountForUnit(unit, plannedActions) * 5,
+          target: target.playerUnit,
           unit,
         };
       })
@@ -5504,22 +5508,35 @@ function getBestEnemyPackAction(
       .sort((assignment, otherAssignment) => assignment.score - otherAssignment.score)
     : [];
 
-  if (attackAssignments.length > 0) {
-    return attackAssignments[0];
+  const bestAttack = attackAssignments[0] ?? null;
+  const getBestMove = (candidateUnits) => candidateUnits
+    .map((unit) => getEnemyPackMoveAssignment(
+      unit,
+      focusTarget,
+      plannedStates,
+      reservedMoveTargets,
+      plannedActions,
+      players,
+    ))
+    .filter(Boolean)
+    .sort((assignment, otherAssignment) => otherAssignment.score - assignment.score)[0] ?? null;
+
+  if (bestAttack) {
+    // Spread: a wolf that already holds an Attack does not take the next one while an idle wolf can still close in
+    // with a Move (it then gets its own Attacks, with the same scan of the targets).
+    if (getPlannedAttackCountForUnit(bestAttack.unit, plannedActions) >= 1 && doctrinePool.includes("Move")) {
+      const idleMove = getBestMove(enemyUnits.filter((unit) => getPlannedActionCountForUnit(unit, plannedActions) === 0));
+
+      if (idleMove) {
+        return idleMove;
+      }
+    }
+
+    return bestAttack;
   }
 
   if (doctrinePool.includes("Move")) {
-    const moveAssignment = enemyUnits
-      .map((unit) => getEnemyPackMoveAssignment(
-        unit,
-        focusTarget,
-        plannedStates,
-        reservedMoveTargets,
-        plannedActions,
-        players,
-      ))
-      .filter(Boolean)
-      .sort((assignment, otherAssignment) => otherAssignment.score - assignment.score)[0] ?? null;
+    const moveAssignment = getBestMove(enemyUnits);
 
     if (moveAssignment) {
       return moveAssignment;
@@ -5558,6 +5575,27 @@ function getBestEnemyPackAction(
 
 function getPlannedActionCountForUnit(unit, plannedActions) {
   return plannedActions.filter((entry) => entry.unit === unit).length;
+}
+
+function getPlannedAttackCountForUnit(unit, plannedActions) {
+  return plannedActions.filter((entry) => entry.unit === unit && entry.action === "Attack").length;
+}
+
+// Lower is better. Scan of one player wolf for the enemy's Attack: what is left of its health after the damage already
+// planned against it this turn. A finishing blow is preferred, weaker wolves before healthy ones, the pack's focus target
+// breaks ties; a target the plan already kills scores ENEMY_ATTACK_WASTED_SCORE (not a candidate).
+const ENEMY_ATTACK_WASTED_SCORE = 20;
+
+function getEnemyAttackTargetScore(target, focusTarget, plannedAttackDamage) {
+  const remaining = target.health - (plannedAttackDamage.get(target) ?? 0);
+
+  if (remaining <= 0) {
+    return ENEMY_ATTACK_WASTED_SCORE;
+  }
+
+  return remaining * 0.5 -
+    (remaining <= UNIT_ATTACK_DAMAGE ? 3 : 0) -
+    (target === focusTarget ? 2 : 0);
 }
 
 function getEnemyPackDefendAssignment(enemyUnits, plannedActions) {
