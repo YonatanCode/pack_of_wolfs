@@ -9,7 +9,7 @@ import { basename, dirname, resolve } from "node:path";
 import { computeGameplayBuildId } from "./tools/build-id.mjs";
 
 // ALLOWLIST: relative paths copied into the output dir. Nothing else is copied.
-const COPY_ALLOWLIST = ["script.js", "music.js", "scenarios", "wolf", "stag", "isometric tileset", "assets/icons", "assets/sound"];
+const COPY_ALLOWLIST = ["script.js", "music.js", "sfx.js", "scenarios", "wolf", "stag", "isometric tileset", "assets/icons", "assets/sound"];
 
 function copyRuntimeAssets() {
   let root = process.cwd();

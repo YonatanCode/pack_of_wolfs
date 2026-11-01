@@ -17,9 +17,9 @@ if (argIdx >= 0 && !process.argv[argIdx + 1]) { console.error("--dist needs a pa
 const DIST = resolve(argIdx >= 0 ? process.argv[argIdx + 1] : join(ROOT, "dist"));
 
 // ---- visible constants ------------------------------------------------------------------------
-const COPIED_FILES = ["script.js", "music.js"];
+const COPIED_FILES = ["script.js", "music.js", "sfx.js"];
 const COPIED_DIRS = ["scenarios", "wolf", "stag", "isometric tileset", "assets/icons", "assets/sound"];
-const EXPECTED_TOP_LEVEL = ["index.html", "assets", "script.js", "music.js", "scenarios", "wolf", "stag", "isometric tileset", "build-id.json"];
+const EXPECTED_TOP_LEVEL = ["index.html", "assets", "script.js", "music.js", "sfx.js", "scenarios", "wolf", "stag", "isometric tileset", "build-id.json"];
 // Denylist: any path segment (case-insensitive) equal to one of these names, or matching a pattern, fails.
 const DENY_NAMES = ["tests", "tools", "lab", "gui-pack", ".claude", "node_modules", "package.json"];
 const DENY_PATHS = [];
@@ -167,7 +167,7 @@ const lines = [`check-dist: ${DIST}`];
   const html = readFileSync(join(DIST, "index.html"), "utf8");
   const cssHref = /<link[^>]*rel="stylesheet"[^>]*href="(?!https?:)([^"]+)"/.exec(html)?.[1];
   const reqs = [
-    ["/", "text/html"], ["/script.js", "javascript"], ["/music.js", "javascript"], ["/assets/sound/Fight_music.m4a", "audio/mp4"], ["/scenarios/intro.js", "javascript"], ["/scenarios/wilds.js", "javascript"],
+    ["/", "text/html"], ["/script.js", "javascript"], ["/music.js", "javascript"], ["/sfx.js", "javascript"],["/assets/sound/Fight_music.m4a", "audio/mp4"], ["/scenarios/intro.js", "javascript"], ["/scenarios/wilds.js", "javascript"],
     ["/wolf/no effects/wolf-idle.png", "image/png"], ["/isometric tileset/separated images/tile_000.png", "image/png"],
     ["/assets/icons/move.svg", "image/svg+xml"], ["/build-id.json", "application/json"], ...(cssHref ? [["/" + cssHref.replace(/^\//, ""), "text/css"]] : []),
   ];
