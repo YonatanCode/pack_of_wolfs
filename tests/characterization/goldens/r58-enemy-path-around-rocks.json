@@ -1,0 +1,30 @@
+{
+  "header": "REQUIREMENT — enemy-action experiment",
+  "handsGenerated": 2,
+  "plan": [
+    {
+      "unit": "E3",
+      "action": "Move"
+    },
+    {
+      "unit": "E3",
+      "action": "Move"
+    },
+    {
+      "unit": "E3",
+      "action": "Move"
+    }
+  ],
+  "walkBefore": 12,
+  "walkAfter": 2,
+  "e3After": {
+    "row": 6,
+    "col": 9
+  },
+  "usage": {
+    "contexts": 1,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}
