@@ -13,19 +13,19 @@
         "winner": "none",
         "doubleKO": false
       },
-      "ticks": 1,
-      "eventCount": 20,
-      "eventHash": "3ebe0bf173b372055fb5c8fd32fa515c751c5cc21a78bd6e6e55c561c57391be",
+      "ticks": 2,
+      "eventCount": 27,
+      "eventHash": "c9173ee748769dbe0195a0a42f899d6ad32b5dc4eeaaf3aab0030b2a93493377",
       "finalState": {
         "units": {
           "P1": "r11 c5 topRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
           "P2": "r8 c3 topRight hp9 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
           "P3": "r11 c8 topRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
-          "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Move]",
-          "E2": "r3 c7 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Move]",
-          "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Defend]"
+          "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Move,Defend]",
+          "E2": "r3 c7 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Move,Attack]",
+          "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Attack]"
         },
-        "packQueue": "len=3 E2:Move E1:Move E3:Defend",
+        "packQueue": "len=5 E2:Move E1:Move E3:Attack E2:Attack E1:Defend",
         "focus": "P2",
         "hand": "Move,Attack,Defend,Defend,Defend",
         "handRng": "seed=1 draws=8 next3=0.425797,0.994823,0.455271"
@@ -129,7 +129,7 @@
   "usage": {
     "contexts": 8,
     "maxSteps": 192,
-    "totalSteps": 361,
+    "totalSteps": 388,
     "cap": 4000
   }
 }

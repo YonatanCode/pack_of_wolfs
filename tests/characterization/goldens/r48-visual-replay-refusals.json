@@ -1,25 +1,25 @@
 {
   "header": "REQUIREMENT — L3 visual replay",
   "divergence": {
-    "error": "Divergence at turn 2: recorded 00000000000000 vs replayed 04d64c4b3a0447",
+    "error": "Divergence at turn 2: recorded 00000000000000 vs replayed 10fff72f44c5ae",
     "results": [
       {
         "turn": 1,
-        "recorded": "19ec9259b33ae8",
-        "replayed": "19ec9259b33ae8",
+        "recorded": "046340945e893b",
+        "replayed": "046340945e893b",
         "match": true
       },
       {
         "turn": 2,
         "recorded": "00000000000000",
-        "replayed": "04d64c4b3a0447",
+        "replayed": "10fff72f44c5ae",
         "match": false
       }
     ],
     "panel": {
       "turn": "Turn 2 / 3 (stopped)",
       "status": "Playback stopped.",
-      "error": "Divergence at turn 2: recorded 00000000000000 vs replayed 04d64c4b3a0447",
+      "error": "Divergence at turn 2: recorded 00000000000000 vs replayed 10fff72f44c5ae",
       "buttons": [
         true,
         true,
@@ -314,8 +314,8 @@
       "warning": "build identity unavailable; relying on rules hash and per-turn event hashes (build-id.json: HTTP 404)",
       "turn1": {
         "turn": 1,
-        "recorded": "19ec9259b33ae8",
-        "replayed": "19ec9259b33ae8",
+        "recorded": "046340945e893b",
+        "replayed": "046340945e893b",
         "match": true
       }
     },
@@ -331,8 +331,8 @@
   "hands": 37,
   "usage": {
     "contexts": 17,
-    "maxSteps": 319,
-    "totalSteps": 433,
+    "maxSteps": 348,
+    "totalSteps": 463,
     "cap": 4000
   }
 }

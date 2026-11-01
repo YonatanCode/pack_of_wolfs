@@ -5,13 +5,11 @@
     "no-valid-assignment": {
       "rules": "(defaults)",
       "orders": [
-        "Attack",
-        "Move",
-        "Attack"
+        "P1:Defend"
       ],
       "plan": [
         {
-          "unit": "E3",
+          "unit": "E1",
           "action": "Move"
         },
         {
@@ -19,7 +17,7 @@
           "action": "Move"
         },
         {
-          "unit": "E1",
+          "unit": "E3",
           "action": "Defend"
         }
       ],
@@ -48,8 +46,8 @@
       "enemyActionsNote": [
         "Enemy actions (commander, experimental: enemy-action and target-selection rules):",
         "Budget 5 | pool 5: Move, Move, Defend, Attack, Attack",
-        "Assigned 3: E3 Move, E2 Move, E1 Defend",
-        "Spent 3: E1 Defend (tick 1), E2 Move (tick 1), E3 Move (tick 1)",
+        "Assigned 3: E1 Move, E2 Move, E3 Defend",
+        "Spent 3: E1 Move (tick 1), E2 Move (tick 1), E3 Defend (tick 1)",
         "Forfeited 0: -",
         "Unplayed 0: -",
         "Unassigned 2: no-valid-assignment x2 (the planner could place no valid use for 2 pool action(s): Attack, Attack)",
@@ -195,18 +193,18 @@
   "currentControls": {
     "far board": {
       "events": {
-        "count": 20,
+        "count": 27,
         "types": {
           "turnStart": 1,
           "enemyPlan": 2,
           "fighters": 1,
-          "tickStart": 1,
-          "consumed": 1,
+          "tickStart": 2,
+          "consumed": 2,
           "move": 3,
-          "attackSwing": 2,
+          "attackSwing": 4,
+          "miss": 4,
+          "tickEnd": 2,
           "defendSwing": 1,
-          "miss": 2,
-          "tickEnd": 1,
           "recovery": 1,
           "debugNote": 1,
           "handDraw": 1,

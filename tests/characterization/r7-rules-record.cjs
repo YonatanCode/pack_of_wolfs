@@ -167,7 +167,7 @@ async function run() {
   const base = planPack(pa);
   const pb = freshClearBoard(SETUP_A);
   evidence.packPlan = { defaultBudget: base, budget1: withActive(pb, { enemyActionBudget: 1 }, () => planPack(pb)) };
-  check(base === 3 && evidence.packPlan.budget1 === 1, "planEnemyPackTurn stops at enemyActionBudget (default queue 3, budget 1 gives 1)");
+  check(base === 5 && evidence.packPlan.budget1 === 1, "planEnemyPackTurn stops at enemyActionBudget (default queue 5: the far pack plans speculative Attacks, budget 1 gives 1)");
   const pc = freshClearBoard(SETUP_A);
   evidence.planEnemyTurn = { defaultBudget: pc.ev("planEnemyTurn(enemy, player).length"), budget2: withActive(pc, { enemyActionBudget: 2 }, () => pc.ev("planEnemyTurn(enemy, player).length")) };
   check(evidence.planEnemyTurn.defaultBudget === 3 && evidence.planEnemyTurn.budget2 === 2, "planEnemyTurn fills to enemyActionBudget");

@@ -1,0 +1,61 @@
+{
+  "header": "REQUIREMENT — enemy-action experiment",
+  "handsGenerated": 4,
+  "cases": {
+    "lone-far-wolf": {
+      "plan": [
+        {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Defend"
+        },
+        {
+          "unit": "E3",
+          "action": "Defend"
+        }
+      ],
+      "reasons": []
+    },
+    "fleeing-wolf": {
+      "plan": [
+        {
+          "unit": "E3",
+          "action": "Defend"
+        },
+        {
+          "unit": "E3",
+          "action": "Defend"
+        }
+      ],
+      "reasons": [
+        {
+          "code": "no-valid-assignment",
+          "count": 3,
+          "actions": [
+            "Attack",
+            "Attack",
+            "Attack"
+          ],
+          "message": "the planner could place no valid use for 3 pool action(s): Attack, Attack, Attack"
+        }
+      ]
+    }
+  },
+  "usage": {
+    "contexts": 2,
+    "maxSteps": 0,
+    "totalSteps": 0,
+    "cap": 4000
+  }
+}

@@ -79,9 +79,9 @@
       "maxSameAction": 3
     },
     "recordedEventHashes": [
-      "13538755893aef",
-      "14abde9e5c1292",
-      "1147e837b241a0"
+      "19e968e6fc0218",
+      "195038da2ec040",
+      "1332c4404d7ede"
     ],
     "drawnPools": [
       [
@@ -122,8 +122,8 @@
   "hands": 12,
   "usage": {
     "contexts": 2,
-    "maxSteps": 360,
-    "totalSteps": 360,
+    "maxSteps": 387,
+    "totalSteps": 387,
     "cap": 4000
   }
 }

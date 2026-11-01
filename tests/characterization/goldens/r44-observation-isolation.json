@@ -277,18 +277,18 @@
       }
     ],
     "validTurn": {
-      "count": 19,
+      "count": 26,
       "types": {
         "turnStart": 1,
         "enemyPlan": 2,
         "fighters": 1,
-        "tickStart": 1,
-        "consumed": 1,
+        "tickStart": 2,
+        "consumed": 2,
         "move": 3,
-        "attackSwing": 1,
+        "attackSwing": 3,
         "defendSwing": 2,
-        "miss": 1,
-        "tickEnd": 1,
+        "miss": 3,
+        "tickEnd": 2,
         "recovery": 1,
         "debugNote": 1,
         "handDraw": 1,
@@ -300,7 +300,7 @@
         "handDraw drawn=[Move,Attack,Defend] hand=[Move,Attack,Defend,Attack,Defend]",
         "outcome winner=none doubleKO=false"
       ],
-      "eventHash": "f769cd5f07236966a101d98e905f42fc693daa284dd3c919371fefc4703b3007",
+      "eventHash": "e4041a41f217a08ea75d1b0030df25a9e5435ac13c1f3b8ee4be889fcbefe86e",
       "stateHash": "d898b5dca5ba7c339bd0b8ff0b6ebfc3389565d64089984af51aa833577de398",
       "hand": [
         "Move",

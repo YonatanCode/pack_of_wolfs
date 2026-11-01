@@ -55,7 +55,7 @@
             }
           ]
         ],
-        "eventHash": "19ec9259b33ae8"
+        "eventHash": "046340945e893b"
       },
       {
         "turn": 2,
@@ -79,7 +79,7 @@
             }
           ]
         ],
-        "eventHash": "04d64c4b3a0447"
+        "eventHash": "10fff72f44c5ae"
       }
     ]
   },
@@ -171,12 +171,12 @@
         "budget": 5,
         "executed": 3,
         "attacksHit": 0,
-        "attacksMissed": 0
+        "attacksMissed": 2
       },
       "accountingNote": null,
       "refusal": null,
       "error": null,
-      "eventHash": "19ec9259b33ae8",
+      "eventHash": "046340945e893b",
       "observationHash": "6693201ee2a1452c"
     },
     {
@@ -261,26 +261,26 @@
         "budget": 5,
         "executed": 3,
         "attacksHit": 0,
-        "attacksMissed": 0
+        "attacksMissed": 2
       },
       "accountingNote": null,
       "refusal": null,
       "error": null,
-      "eventHash": "04d64c4b3a0447",
+      "eventHash": "10fff72f44c5ae",
       "observationHash": "c4da64c4963094b9"
     }
   ],
   "pageResults": [
     {
       "turn": 1,
-      "recorded": "19ec9259b33ae8",
-      "replayed": "19ec9259b33ae8",
+      "recorded": "046340945e893b",
+      "replayed": "046340945e893b",
       "match": true
     },
     {
       "turn": 2,
-      "recorded": "04d64c4b3a0447",
-      "replayed": "04d64c4b3a0447",
+      "recorded": "10fff72f44c5ae",
+      "replayed": "10fff72f44c5ae",
       "match": true
     }
   ],
@@ -305,8 +305,8 @@
   "noBuildId": "no buildId was passed to runBattle",
   "usage": {
     "contexts": 7,
-    "maxSteps": 205,
-    "totalSteps": 205,
+    "maxSteps": 233,
+    "totalSteps": 233,
     "cap": 4000
   }
 }

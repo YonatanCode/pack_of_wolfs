@@ -63,13 +63,13 @@
       "loadBattleState while executing": "DryRunRejected reason=turn-executing",
       "no queued player orders": "DryRunRejected reason=no-player-orders",
       "public dryRunTurn refuses options.queues": "BattleStateError: dryRunTurn previews only the currently queued player orders; options.queues is not supported",
-      "options.queues on the copy only": "consumed tick 1: P1:Move P3:Defend E1:Defend E2:Move E3:Move; live queues untouched"
+      "options.queues on the copy only": "consumed tick 1: P1:Move P3:Defend E1:Attack E2:Move E3:Move; live queues untouched"
     }
   },
   "usage": {
     "contexts": 8,
-    "maxSteps": 150,
-    "totalSteps": 432,
+    "maxSteps": 184,
+    "totalSteps": 554,
     "cap": 4000
   }
 }

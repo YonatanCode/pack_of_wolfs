@@ -63,8 +63,8 @@
   "refusedMidTurn": true,
   "usage": {
     "contexts": 2,
-    "maxSteps": 811,
-    "totalSteps": 811,
+    "maxSteps": 838,
+    "totalSteps": 838,
     "cap": 4000
   }
 }

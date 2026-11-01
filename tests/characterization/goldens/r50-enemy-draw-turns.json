@@ -18,10 +18,14 @@
         },
         {
           "unit": "E1",
-          "action": "Defend"
+          "action": "Attack"
         },
         {
           "unit": "E1",
+          "action": "Defend"
+        },
+        {
+          "unit": "E2",
           "action": "Defend"
         }
       ],
@@ -40,19 +44,17 @@
         "Attack"
       ],
       "finalStateHash": "e799271aceecae760e8c8bc93ccf9e478a6665efd26c3f18a53f07d6fab2c231",
-      "eventHash": "b6a29d6e7da223b49bec8556680cc7f9a2df5d6b359897e52b0a95d664581e37"
+      "eventHash": "90ebf86281ad799b8ea9a120b08c19d6607ab7ad15088ea8c409432417dffe19"
     },
     "unassigned": {
       "turn1": {
         "budget": 5,
-        "assigned": 4,
-        "spent": 4,
+        "assigned": 5,
+        "spent": 5,
         "forfeited": 0,
         "unplayed": 0,
-        "unassigned": 1,
-        "reasons": [
-          "no-valid-assignment x1"
-        ]
+        "unassigned": 0,
+        "reasons": []
       },
       "turn2": {
         "pool": [
@@ -111,6 +113,22 @@
         {
           "unit": "E3",
           "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E2",
+          "action": "Attack"
         },
         {
           "unit": "E1",

@@ -42,18 +42,18 @@
       "P3 Defend: queued"
     ],
     "turn1": {
-      "count": 19,
+      "count": 26,
       "types": {
         "turnStart": 1,
         "enemyPlan": 2,
         "fighters": 1,
-        "tickStart": 1,
-        "consumed": 1,
+        "tickStart": 2,
+        "consumed": 2,
         "move": 3,
-        "attackSwing": 1,
+        "attackSwing": 3,
         "defendSwing": 2,
-        "miss": 1,
-        "tickEnd": 1,
+        "miss": 3,
+        "tickEnd": 2,
         "recovery": 1,
         "debugNote": 1,
         "handDraw": 1,
@@ -65,7 +65,7 @@
         "handDraw drawn=[Move,Attack,Defend] hand=[Move,Attack,Defend,Attack,Defend]",
         "outcome winner=none doubleKO=false"
       ],
-      "eventHash": "f769cd5f07236966a101d98e905f42fc693daa284dd3c919371fefc4703b3007",
+      "eventHash": "e4041a41f217a08ea75d1b0030df25a9e5435ac13c1f3b8ee4be889fcbefe86e",
       "stateHash": "d898b5dca5ba7c339bd0b8ff0b6ebfc3389565d64089984af51aa833577de398",
       "hand": [
         "Move",
@@ -99,8 +99,8 @@
         "handDraw drawn=[Attack,Defend,Attack,Attack] hand=[Attack,Defend,Attack,Attack,Defend]",
         "outcome winner=none doubleKO=false"
       ],
-      "eventHash": "b03c59b90e961efc08572bbbd694788e38ceae325bee58c4e0c4bc6adebc05a9",
-      "stateHash": "568d1f48d14cce5b9b702d79d45342e49b44420befc6325abacd6c30e851a045",
+      "eventHash": "19ab5d60bb5df82541cc692a6a6b1ba49fd622cc53a171cfcb435507d99625f7",
+      "stateHash": "f1c8bb954e1523ed6efa1bd34ed3b2e9a11910b181d2db73b3559075117d58f9",
       "hand": [
         "Attack",
         "Defend",
@@ -142,18 +142,18 @@
       "Defend"
     ],
     "turn": {
-      "count": 19,
+      "count": 26,
       "types": {
         "turnStart": 1,
         "enemyPlan": 2,
         "fighters": 1,
-        "tickStart": 1,
-        "consumed": 1,
+        "tickStart": 2,
+        "consumed": 2,
         "move": 3,
-        "attackSwing": 1,
+        "attackSwing": 3,
         "defendSwing": 2,
-        "miss": 1,
-        "tickEnd": 1,
+        "miss": 3,
+        "tickEnd": 2,
         "recovery": 1,
         "debugNote": 1,
         "handDraw": 1,
@@ -165,7 +165,7 @@
         "handDraw drawn=[Move,Attack,Defend] hand=[Move,Attack,Defend,Attack,Defend]",
         "outcome winner=none doubleKO=false"
       ],
-      "eventHash": "f769cd5f07236966a101d98e905f42fc693daa284dd3c919371fefc4703b3007",
+      "eventHash": "e4041a41f217a08ea75d1b0030df25a9e5435ac13c1f3b8ee4be889fcbefe86e",
       "stateHash": "d898b5dca5ba7c339bd0b8ff0b6ebfc3389565d64089984af51aa833577de398",
       "hand": [
         "Move",
@@ -197,18 +197,18 @@
       ]
     },
     "turn": {
-      "count": 19,
+      "count": 26,
       "types": {
         "turnStart": 1,
         "enemyPlan": 2,
         "fighters": 1,
-        "tickStart": 1,
-        "consumed": 1,
+        "tickStart": 2,
+        "consumed": 2,
         "move": 3,
-        "attackSwing": 1,
+        "attackSwing": 3,
         "defendSwing": 2,
-        "miss": 1,
-        "tickEnd": 1,
+        "miss": 3,
+        "tickEnd": 2,
         "recovery": 1,
         "debugNote": 1,
         "handDraw": 1,
@@ -220,7 +220,7 @@
         "handDraw drawn=[Move,Attack,Defend] hand=[Move,Attack,Defend,Attack,Defend]",
         "outcome winner=none doubleKO=false"
       ],
-      "eventHash": "f769cd5f07236966a101d98e905f42fc693daa284dd3c919371fefc4703b3007",
+      "eventHash": "e4041a41f217a08ea75d1b0030df25a9e5435ac13c1f3b8ee4be889fcbefe86e",
       "stateHash": "d898b5dca5ba7c339bd0b8ff0b6ebfc3389565d64089984af51aa833577de398",
       "hand": [
         "Move",
@@ -271,21 +271,21 @@
       }
     ],
     "turn": {
-      "count": 38,
+      "count": 46,
       "types": {
         "turnStart": 1,
         "enemyPlan": 2,
         "fighters": 1,
-        "tickStart": 3,
-        "consumed": 3,
+        "tickStart": 4,
+        "consumed": 4,
         "move": 5,
-        "attackSwing": 3,
-        "hit": 3,
-        "damage": 2,
+        "attackSwing": 5,
+        "hit": 5,
+        "damage": 3,
         "death": 2,
         "queueCleared": 2,
         "replan": 1,
-        "tickEnd": 3,
+        "tickEnd": 4,
         "defendSwing": 2,
         "recovery": 1,
         "debugNote": 1,
@@ -296,13 +296,13 @@
       "key": [
         "death tick=1 unit=E1",
         "death tick=1 unit=P1",
-        "replan tick=1 queue=[{unit:E2,action:Move},{unit:E3,action:Move},{unit:E2,action:Defend}] focus=P3 renderUnits=[E1,E2,E3]",
+        "replan tick=1 queue=[{unit:E2,action:Move},{unit:E3,action:Move},{unit:E2,action:Attack},{unit:E3,action:Attack},{unit:E2,action:Defend}] focus=P3 renderUnits=[E1,E2,E3]",
         "recovery heals=[{unit:P3,amount:1,healthBefore:7,healthAfter:8}]",
         "handDraw drawn=[Move,Attack,Defend,Attack] hand=[Move,Attack,Defend,Attack,Defend]",
         "outcome winner=none doubleKO=false"
       ],
-      "eventHash": "9e1d5907c421061512093c830c2ed8ed28e21b423d9122522d9476ef04b78212",
-      "stateHash": "92546856c5c790d0511605859a053344a9774923fb6c0d725193953df074bbc3",
+      "eventHash": "4aa1b36e2ebbc01da1fcd026414cc7e3a3a9b8798280e1dd6556caf56b72e2bc",
+      "stateHash": "81bdba2dac3a7ceaca6fce8adbe56b2193b908fb79824a7ea2a2d318a6c740d9",
       "hand": [
         "Move",
         "Attack",
@@ -314,8 +314,8 @@
   },
   "usage": {
     "contexts": 7,
-    "maxSteps": 211,
-    "totalSteps": 413,
+    "maxSteps": 238,
+    "totalSteps": 501,
     "cap": 4000
   }
 }

@@ -44,13 +44,13 @@
       0.994823,
       0.455271
     ],
-    "dryRunEventHash": "1fbc178d56ac24",
+    "dryRunEventHash": "092568a00e4b88",
     "mismatchedGridSize": "BattleStateError: loadBattleState: grid size and enemy mode must match the live battle"
   },
   "usage": {
     "contexts": 4,
-    "maxSteps": 51,
-    "totalSteps": 102,
+    "maxSteps": 78,
+    "totalSteps": 156,
     "cap": 4000
   }
 }

@@ -10,27 +10,27 @@
       ],
       "previews": 3,
       "eventHashes": [
-        "08c7799eabd4c3",
-        "08c7799eabd4c3",
-        "08c7799eabd4c3"
+        "18b02e59b60d0f",
+        "18b02e59b60d0f",
+        "18b02e59b60d0f"
       ],
       "outcome": {
         "winner": "none",
         "doubleKO": false
       },
       "events": {
-        "count": 20,
+        "count": 27,
         "types": {
           "turnStart": 1,
           "enemyPlan": 2,
           "fighters": 1,
-          "tickStart": 1,
-          "consumed": 1,
+          "tickStart": 2,
+          "consumed": 2,
           "move": 3,
-          "attackSwing": 2,
+          "attackSwing": 4,
+          "miss": 4,
+          "tickEnd": 2,
           "defendSwing": 1,
-          "miss": 2,
-          "tickEnd": 1,
           "recovery": 1,
           "debugNote": 1,
           "handDraw": 1,
@@ -61,30 +61,30 @@
       ],
       "previews": 3,
       "eventHashes": [
-        "1733161013ed8e",
-        "1733161013ed8e",
-        "1733161013ed8e"
+        "1495a8b0b3519f",
+        "1495a8b0b3519f",
+        "1495a8b0b3519f"
       ],
       "outcome": {
         "winner": "none",
         "doubleKO": false
       },
       "events": {
-        "count": 38,
+        "count": 46,
         "types": {
           "turnStart": 1,
           "enemyPlan": 2,
           "fighters": 1,
-          "tickStart": 3,
-          "consumed": 3,
+          "tickStart": 4,
+          "consumed": 4,
           "move": 5,
-          "attackSwing": 3,
-          "hit": 3,
-          "damage": 2,
+          "attackSwing": 5,
+          "hit": 5,
+          "damage": 3,
           "death": 2,
           "queueCleared": 2,
           "replan": 1,
-          "tickEnd": 3,
+          "tickEnd": 4,
           "defendSwing": 2,
           "recovery": 1,
           "debugNote": 1,
@@ -95,7 +95,7 @@
         "key": [
           "death tick=1 unit=E1",
           "death tick=1 unit=P1",
-          "replan tick=1 queue=[{unit:E2,action:Move},{unit:E3,action:Move},{unit:E2,action:Defend}] focus=P3 renderUnits=[E1,E2,E3]",
+          "replan tick=1 queue=[{unit:E2,action:Move},{unit:E3,action:Move},{unit:E2,action:Attack},{unit:E3,action:Attack},{unit:E2,action:Defend}] focus=P3 renderUnits=[E1,E2,E3]",
           "recovery heals=[{unit:P3,amount:1,healthBefore:7,healthAfter:8}]",
           "handDraw drawn=[Move,Attack,Defend,Attack] hand=[Move,Attack,Defend,Attack,Defend]",
           "outcome winner=none doubleKO=false"

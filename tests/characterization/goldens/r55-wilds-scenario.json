@@ -91,8 +91,8 @@
     },
     "headlessTurn": {
       "outcome": "none",
-      "eventHash": "1b4337e7506446",
-      "events": 24,
+      "eventHash": "08a73ce5b57be0",
+      "events": 26,
       "units": [
         "P1 13,5 topRight hp 10",
         "P2 15,5 topRight hp 10",

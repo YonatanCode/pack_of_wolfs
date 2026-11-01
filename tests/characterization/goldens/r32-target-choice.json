@@ -151,8 +151,8 @@
   },
   "usage": {
     "contexts": 3,
-    "maxSteps": 68,
-    "totalSteps": 68,
+    "maxSteps": 95,
+    "totalSteps": 95,
     "cap": 4000
   }
 }

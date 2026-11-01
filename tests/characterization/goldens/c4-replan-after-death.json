@@ -28,10 +28,18 @@
         },
         {
           "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
           "action": "Defend"
         }
       ],
-      "queueAfterLength": 3,
+      "queueAfterLength": 5,
       "replan": {
         "afterQueueHasNoE1E2Entries": true,
         "afterQueueUnits": [

@@ -76,13 +76,17 @@
       "move tick=1 unit=E2 from={row:0,col:7} to={row:2,col:9} direction=bottomRight facing=bottomRight moved=true path=[{row:0,col:7},{row:1,col:8},{row:2,col:9}]",
       "move tick=1 unit=E3 from={row:0,col:2} to={row:3,col:2} direction=bottomLeft facing=bottomLeft moved=true path=[{row:0,col:2},{row:1,col:2},{row:2,col:2},{row:3,col:2}]",
       "attackSwing tick=1 unit=P2 action=Attack animation=bite cycles=1 direction=topRight faced=true target=E3",
-      "miss tick=1 attacker=P2 reason=target-not-adjacent target=E3"
+      "attackSwing tick=1 unit=E1 action=Attack animation=bite cycles=1 direction=bottomLeft faced=true target=null",
+      "miss tick=1 attacker=P2 reason=target-not-adjacent target=E3",
+      "miss tick=1 attacker=E1",
+      "attackSwing tick=2 unit=E3 action=Attack animation=bite cycles=1 direction=bottomLeft faced=true target=null",
+      "miss tick=2 attacker=E3"
     ]
   },
   "usage": {
     "contexts": 3,
-    "maxSteps": 52,
-    "totalSteps": 52,
+    "maxSteps": 79,
+    "totalSteps": 79,
     "cap": 4000
   }
 }

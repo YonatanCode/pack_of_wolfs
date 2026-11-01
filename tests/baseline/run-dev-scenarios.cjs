@@ -16,12 +16,10 @@ const LABEL = "CHARACTERIZATION — records CURRENT behaviour, not desired behav
 
 // Scenarios known to fail on the current game, each measured (not a harness limit). run-all fails if the
 // set of failing ids differs from these keys. Cause common to all four: planEnemyPackTurn only plans an
-// Attack when a wolf is ALREADY adjacent to a player at its planned position, so with the default
-// grid 16 / 3-wolf spawns (enemies row 0, players row 15) the 2 Attack slots go unused and the queue
-// stops at 3 entries; the scenarios were written for a tighter layout.
+// Attack when a wolf is ALREADY adjacent to a player at its planned position (since fixed: a wolf with no adjacent
+// target and no helpful Move now plans a speculative Attack, which cleared pack-action-cap and
+// pack-attack-non-focus-adjacent); the remaining scenarios were written for a tighter layout / the old 3-wolf spawns.
 const KNOWN_FAILURES = {
-  "pack-action-cap": { classification: "fails-measured", reason: "expects 5 queued entries; planner emits 3 (E3 Move, E1 Move, E2 Defend) because no wolf is adjacent on grid 16 so Attack is never planned." },
-  "pack-attack-non-focus-adjacent": { classification: "fails-measured", reason: "hard-coded positions assume a small grid; on grid 16 the flank wolf is not adjacent to anyone so no Attack is planned (passes at grid 8 and 10)." },
   "pack-multi-tick": { classification: "fails-measured", reason: "expects enemy.row > 0 after the turn; E1 only gets Defend (stale 3-wolf default spacing), so it stays at row 0." },
   "pack-one-enemy": { classification: "fails-measured", reason: "expects every entry from the unit at (0,4); queue is M@0,4 M@0,4 D@0,7, so the unit at (0,7) appears (stale default spawn layout)." },
 };

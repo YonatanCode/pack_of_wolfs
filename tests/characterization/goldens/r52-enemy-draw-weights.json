@@ -158,8 +158,8 @@
           "action": "Defend"
         }
       ],
-      "eventHash": "b53522b8062edec0b0e44119d3ef9ce8834ac9d939fb6661e191bcf5bc80e216",
-      "finalStateHash": "367266399443742ae54977d9c4b8fafd734874d63b36b84ade984fa7dc71d70a",
+      "eventHash": "58ebf2f5bc9c4edad42bba0993302eec2fe3a70fcdeb9957dbc766031e44333e",
+      "finalStateHash": "c9cbda91470fa7e7a2831cd32a98724cd617f530870d2b658e9303e2ad3f618b",
       "nextPool": [
         "Move",
         "Move",
@@ -233,7 +233,7 @@
   "usage": {
     "contexts": 7,
     "maxSteps": 79,
-    "totalSteps": 131,
+    "totalSteps": 158,
     "cap": 4000
   }
 }

@@ -328,7 +328,7 @@
       ]
     },
     "full-turn-recovery-refill": {
-      "tickCount": 2,
+      "tickCount": 4,
       "states": [
         {
           "label": "start",
@@ -336,11 +336,11 @@
             "P1": "r11 c5 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
             "P2": "r11 c3 topRight hp8 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
             "P3": "r11 c8 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
-            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Defend]",
+            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Attack,Defend]",
             "E2": "r0 c7 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Move]",
-            "E3": "r0 c2 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Move]"
+            "E3": "r0 c2 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Move,Attack]"
           },
-          "packQueue": "len=3 E3:Move E2:Move E1:Defend",
+          "packQueue": "len=5 E3:Move E2:Move E1:Attack E3:Attack E1:Defend",
           "focus": "P1",
           "hand": "Attack,Move,Attack,Defend,Defend",
           "reshuffleChargesRemaining": 2,
@@ -353,11 +353,11 @@
             "P1": "r11 c5 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[Attack]",
             "P2": "r11 c3 topRight hp8 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[Move]",
             "P3": "r11 c8 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[Attack]",
-            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Defend]",
-            "E2": "r0 c7 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Move]",
+            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Attack,Defend]",
+            "E2": "r0 c7 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Move,Attack]",
             "E3": "r0 c2 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Move]"
           },
-          "packQueue": "len=3 E2:Move E3:Move E1:Defend",
+          "packQueue": "len=5 E2:Move E3:Move E1:Attack E2:Attack E1:Defend",
           "focus": "P2",
           "hand": "Defend,Defend",
           "reshuffleChargesRemaining": 2,
@@ -366,6 +366,23 @@
         },
         {
           "label": "after tick 1",
+          "units": {
+            "P1": "r11 c5 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
+            "P2": "r8 c3 topRight hp8 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
+            "P3": "r11 c8 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
+            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Defend]",
+            "E2": "r3 c7 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Attack]",
+            "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[]"
+          },
+          "packQueue": "len=2 E2:Attack E1:Defend",
+          "focus": "P2",
+          "hand": "Defend,Defend",
+          "reshuffleChargesRemaining": 2,
+          "resultOverlay": "hidden",
+          "handRng": "seed=1 draws=5 next3=0.281104,0.612839,0.720743"
+        },
+        {
+          "label": "after tick 2",
           "units": {
             "P1": "r11 c5 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
             "P2": "r8 c3 topRight hp8 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
@@ -387,11 +404,11 @@
             "P1": "r11 c5 topRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
             "P2": "r8 c3 topRight hp9 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
             "P3": "r11 c8 topRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
-            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Move]",
-            "E2": "r3 c7 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Move]",
-            "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Defend]"
+            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Move,Defend]",
+            "E2": "r3 c7 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Move,Attack]",
+            "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Attack]"
           },
-          "packQueue": "len=3 E2:Move E1:Move E3:Defend",
+          "packQueue": "len=5 E2:Move E1:Move E3:Attack E2:Attack E1:Defend",
           "focus": "P2",
           "hand": "Move,Attack,Defend,Defend,Defend",
           "reshuffleChargesRemaining": 2,
@@ -404,11 +421,11 @@
             "P1": "r11 c5 topRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[Move]",
             "P2": "r8 c3 topRight hp9 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[Attack]",
             "P3": "r11 c8 topRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[Defend]",
-            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Move]",
-            "E2": "r3 c7 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Move]",
-            "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Defend]"
+            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Move,Defend]",
+            "E2": "r3 c7 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Move,Attack]",
+            "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Attack]"
           },
-          "packQueue": "len=3 E2:Move E1:Move E3:Defend",
+          "packQueue": "len=5 E2:Move E1:Move E3:Attack E2:Attack E1:Defend",
           "focus": "P2",
           "hand": "Defend,Defend",
           "reshuffleChargesRemaining": 2,
@@ -416,7 +433,24 @@
           "handRng": "seed=1 draws=8 next3=0.425797,0.994823,0.455271"
         },
         {
-          "label": "after tick 2",
+          "label": "after tick 3",
+          "units": {
+            "P1": "r9 c7 bottomRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
+            "P2": "r8 c3 topRight hp9 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
+            "P3": "r11 c8 topRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
+            "E1": "r2 c3 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Defend]",
+            "E2": "r6 c4 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Attack]",
+            "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[]"
+          },
+          "packQueue": "len=2 E2:Attack E1:Defend",
+          "focus": "P2",
+          "hand": "Defend,Defend",
+          "reshuffleChargesRemaining": 2,
+          "resultOverlay": "hidden",
+          "handRng": "seed=1 draws=8 next3=0.425797,0.994823,0.455271"
+        },
+        {
+          "label": "after tick 4",
           "units": {
             "P1": "r9 c7 bottomRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
             "P2": "r8 c3 topRight hp9 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
@@ -438,11 +472,11 @@
             "P1": "r9 c7 bottomRight hp10 alive mv=Hunt tsh=2 dmg=0 flee=0 obj=- q=[]",
             "P2": "r8 c3 topRight hp9 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
             "P3": "r11 c8 topRight hp10 alive mv=Hunt tsh=2 dmg=0 flee=0 obj=- q=[]",
-            "E1": "r2 c3 bottomLeft hp10 alive mv=Hunt tsh=2 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Move]",
-            "E2": "r6 c4 bottomLeft hp10 alive mv=Hunt tsh=2 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Defend]",
+            "E1": "r2 c3 bottomLeft hp10 alive mv=Hunt tsh=2 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Move,Attack]",
+            "E2": "r6 c4 bottomLeft hp10 alive mv=Hunt tsh=2 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Attack,Defend]",
             "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=2 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Move]"
           },
-          "packQueue": "len=3 E3:Move E1:Move E2:Defend",
+          "packQueue": "len=5 E3:Move E1:Move E2:Attack E1:Attack E2:Defend",
           "focus": "P2",
           "hand": "Attack,Defend,Move,Defend,Defend",
           "reshuffleChargesRemaining": 2,
@@ -729,11 +763,11 @@
             "P1": "r11 c5 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
             "P2": "r11 c3 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
             "P3": "r11 c8 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
-            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Defend]",
+            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Attack,Defend]",
             "E2": "r0 c7 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Move]",
-            "E3": "r0 c2 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Move]"
+            "E3": "r0 c2 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Move,Attack]"
           },
-          "packQueue": "len=3 E3:Move E2:Move E1:Defend",
+          "packQueue": "len=5 E3:Move E2:Move E1:Attack E3:Attack E1:Defend",
           "focus": "P1",
           "hand": "Attack,Move,Attack,Defend,Defend",
           "reshuffleChargesRemaining": 2,
@@ -746,11 +780,11 @@
             "P1": "r11 c5 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[Attack,Move]",
             "P2": "r11 c3 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[Attack]",
             "P3": "r11 c8 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
-            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Defend]",
+            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Attack,Defend]",
             "E2": "r0 c7 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Move]",
-            "E3": "r0 c2 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Move]"
+            "E3": "r0 c2 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Move,Attack]"
           },
-          "packQueue": "len=3 E3:Move E2:Move E1:Defend",
+          "packQueue": "len=5 E3:Move E2:Move E1:Attack E3:Attack E1:Defend",
           "focus": "P1",
           "hand": "Defend,Defend",
           "reshuffleChargesRemaining": 2,
@@ -763,11 +797,11 @@
             "P1": "r11 c5 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[Move]",
             "P2": "r11 c3 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
             "P3": "r11 c8 topRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj=- q=[]",
-            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[]",
+            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Defend]",
             "E2": "r2 c9 bottomRight hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[]",
-            "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[]"
+            "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=0 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Attack]"
           },
-          "packQueue": "len=0",
+          "packQueue": "len=2 E3:Attack E1:Defend",
           "focus": "P1",
           "hand": "Defend,Defend",
           "reshuffleChargesRemaining": 2,
@@ -797,11 +831,11 @@
             "P1": "r8 c5 topRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
             "P2": "r11 c3 topRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
             "P3": "r11 c8 topRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj=- q=[]",
-            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Defend]",
+            "E1": "r0 c5 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:0}} q=[Attack,Defend]",
             "E2": "r2 c9 bottomRight hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:1}} q=[Move]",
-            "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Move]"
+            "E3": "r3 c2 bottomLeft hp10 alive mv=Hunt tsh=1 dmg=0 flee=0 obj={mode:engage,slotDelta:{row:-1,col:-1}} q=[Move,Attack]"
           },
-          "packQueue": "len=3 E2:Move E3:Move E1:Defend",
+          "packQueue": "len=5 E2:Move E3:Move E3:Attack E1:Attack E1:Defend",
           "focus": "P1",
           "hand": "Move,Attack,Defend,Defend,Defend",
           "reshuffleChargesRemaining": 2,
@@ -814,7 +848,7 @@
   "usage": {
     "contexts": 8,
     "maxSteps": 278,
-    "totalSteps": 803,
+    "totalSteps": 884,
     "cap": 4000
   }
 }

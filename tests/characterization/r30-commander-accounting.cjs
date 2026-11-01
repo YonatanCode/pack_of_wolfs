@@ -4,8 +4,10 @@
 //      turn core), with the exact reasons, the invariants (assigned = spent + forfeited + unplayed; budget = assigned
 //      + unassigned; spent <= budget), the turn-start events (enemyBudget / unassigned) agreeing with the turn-end
 //      enemyAccounting, and the exact "Enemy actions" battle-note block pinned in the golden:
-//        no-valid-assignment  default numbers, untouched far seed-1 board: no wolf can reach a player, so the pool's
-//                             Attacks have no valid use;
+//        no-valid-assignment  default numbers, every enemy wolf wounded (3/10) within flee range of P1: fleeing wolves
+//                             never Attack (not even speculatively at a far target), so the pool's Attacks have no
+//                             valid use. (A healthy wolf with no adjacent target now plans a speculative Attack, so
+//                             the old far-board setup no longer leaves any Attack unassigned.);
 //        pool-limit           budget 5, pool Move 2 only: the pool has only 2 actions;
 //        budget-zero          budget 0: nothing assigned, the enemy passes;
 //        unplayed             P1 (1 HP) alone next to E1: E1's first Attack kills it in tick 1, the battle ends with
@@ -23,8 +25,14 @@ const LAST_STAND = (g) => {
   PV.queueCards(g, "player", ["Attack"]);
   return ["P1:Attack"];
 };
+const ALL_FLEEING = (g) => {
+  PV.L.resetUnits(g, [{ row: 5, col: 4, direction: "topRight" }, null, null,
+    { row: 5, col: 6, direction: "bottomLeft", health: 3 }, { row: 3, col: 5, direction: "bottomLeft", health: 3 }, { row: 7, col: 5, direction: "topLeft", health: 3 }]);
+  PV.queueCards(g, "player", ["Defend"]);
+  return ["P1:Defend"];
+};
 const CASES = [
-  { id: "no-valid-assignment", rules: "", setup: (g) => PV.BOARDS.plain.setup(g), expect: { reasons: ["no-valid-assignment"] } },
+  { id: "no-valid-assignment", rules: "", setup: ALL_FLEEING, expect: { reasons: ["no-valid-assignment"] } },
   { id: "pool-limit", rules: "epd:0,epa:0", setup: (g) => PV.BOARDS.plain.setup(g), expect: { reasons: ["pool-limit"] } },
   { id: "budget-zero", rules: "eab:0", setup: (g) => PV.BOARDS.plain.setup(g), expect: { reasons: ["budget-zero"], assigned: 0 } },
   { id: "unplayed", rules: "", setup: LAST_STAND, expect: { unplayedAtLeast: 1, winner: "enemy" } },

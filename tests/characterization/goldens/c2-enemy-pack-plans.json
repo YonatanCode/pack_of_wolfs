@@ -50,11 +50,19 @@
           "action": "Move"
         },
         {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E2",
+          "action": "Attack"
+        },
+        {
           "unit": "E2",
           "action": "Defend"
         }
       ],
-      "queueLength": 3,
+      "queueLength": 5,
       "focusTarget": {
         "row": 12,
         "col": 6,
@@ -231,10 +239,18 @@
         },
         {
           "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E1",
           "action": "Defend"
         }
       ],
-      "queueLength": 3,
+      "queueLength": 5,
       "focusTarget": {
         "row": 8,
         "col": 6,

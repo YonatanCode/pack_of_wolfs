@@ -110,6 +110,14 @@
       },
       {
         "unit": "E2",
+        "action": "Attack"
+      },
+      {
+        "unit": "E3",
+        "action": "Attack"
+      },
+      {
+        "unit": "E2",
         "action": "Defend"
       }
     ],
@@ -120,14 +128,12 @@
       ],
       "accounting": {
         "budget": 5,
-        "assigned": 3,
-        "spent": 3,
+        "assigned": 5,
+        "spent": 5,
         "forfeited": 0,
         "unplayed": 0,
-        "unassigned": 2,
-        "reasons": [
-          "no-valid-assignment x2"
-        ]
+        "unassigned": 0,
+        "reasons": []
       }
     }
   },
@@ -166,27 +172,35 @@
         },
         {
           "unit": "E2",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E2",
           "action": "Defend"
         }
       ]
     ],
-    "enemyActionsConsumed": 6,
+    "enemyActionsConsumed": 8,
     "events": {
-      "count": 38,
+      "count": 46,
       "types": {
         "turnStart": 1,
         "enemyPlan": 2,
         "fighters": 1,
-        "tickStart": 3,
-        "consumed": 3,
+        "tickStart": 4,
+        "consumed": 4,
         "move": 5,
-        "attackSwing": 3,
-        "hit": 3,
-        "damage": 2,
+        "attackSwing": 5,
+        "hit": 5,
+        "damage": 3,
         "death": 2,
         "queueCleared": 2,
         "replan": 1,
-        "tickEnd": 3,
+        "tickEnd": 4,
         "defendSwing": 2,
         "recovery": 1,
         "debugNote": 1,
@@ -197,7 +211,7 @@
       "key": [
         "death tick=1 unit=E1",
         "death tick=1 unit=P1",
-        "replan tick=1 queue=[{unit:E2,action:Move},{unit:E3,action:Move},{unit:E2,action:Defend}] focus=P3 renderUnits=[E1,E2,E3]",
+        "replan tick=1 queue=[{unit:E2,action:Move},{unit:E3,action:Move},{unit:E2,action:Attack},{unit:E3,action:Attack},{unit:E2,action:Defend}] focus=P3 renderUnits=[E1,E2,E3]",
         "recovery heals=[{unit:P3,amount:1,healthBefore:7,healthAfter:8}]",
         "handDraw drawn=[Move,Attack,Defend,Attack] hand=[Move,Attack,Defend,Attack,Defend]",
         "outcome winner=none doubleKO=false"
@@ -206,8 +220,8 @@
   },
   "usage": {
     "contexts": 2,
-    "maxSteps": 150,
-    "totalSteps": 260,
+    "maxSteps": 184,
+    "totalSteps": 294,
     "cap": 4000
   }
 }

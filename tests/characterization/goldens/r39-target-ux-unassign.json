@@ -88,14 +88,18 @@
       "targetsCommitted targets=[{unit:P1,target:E1,source:auto,targetAlive:true},{unit:P2,target:null,source:null,targetAlive:false},{unit:P3,target:null,source:null,targetAlive:false}] autoPicked=[P1]",
       "move tick=1 unit=P1 from={row:11,col:5} to={row:8,col:5} direction=topRight facing=topRight moved=true path=[{row:11,col:5},{row:10,col:5},{row:9,col:5},{row:8,col:5}]",
       "move tick=1 unit=E2 from={row:0,col:7} to={row:2,col:9} direction=bottomRight facing=bottomRight moved=true path=[{row:0,col:7},{row:1,col:8},{row:2,col:9}]",
-      "move tick=1 unit=E3 from={row:0,col:2} to={row:3,col:2} direction=bottomLeft facing=bottomLeft moved=true path=[{row:0,col:2},{row:1,col:2},{row:2,col:2},{row:3,col:2}]"
+      "move tick=1 unit=E3 from={row:0,col:2} to={row:3,col:2} direction=bottomLeft facing=bottomLeft moved=true path=[{row:0,col:2},{row:1,col:2},{row:2,col:2},{row:3,col:2}]",
+      "attackSwing tick=1 unit=E1 action=Attack animation=bite cycles=1 direction=bottomLeft faced=true target=null",
+      "miss tick=1 attacker=E1",
+      "attackSwing tick=2 unit=E3 action=Attack animation=bite cycles=1 direction=bottomLeft faced=true target=null",
+      "miss tick=2 attacker=E3"
     ]
   },
   "refusedWhileExecuting": "intro · seed 1 · commander (experimental) · target P1 cleared (Play will auto-pick the nearest)",
   "usage": {
     "contexts": 5,
-    "maxSteps": 50,
-    "totalSteps": 50,
+    "maxSteps": 78,
+    "totalSteps": 78,
     "cap": 4000
   }
 }

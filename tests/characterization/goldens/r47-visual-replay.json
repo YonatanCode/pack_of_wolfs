@@ -79,11 +79,11 @@
       "maxSameAction": 3
     },
     "recordedEventHashes": [
-      "19ec9259b33ae8",
-      "04d64c4b3a0447",
-      "0527b9a5e75764"
+      "046340945e893b",
+      "10fff72f44c5ae",
+      "09fe15033b5372"
     ],
-    "finalStateHash": "c747fa41586e4ce6135c9ffe970ab68ec09f8b2e571e8571260337f91c1ec46b"
+    "finalStateHash": "bfc6e2ba326740896a034168ca9744e1d3562451fdbc5cfcbfcefa4226af876b"
   },
   "payloadKeys": [
     "v",
@@ -100,11 +100,11 @@
     "turns"
   ],
   "hashTurnEvents": {
-    "hash": "19ec9259b33ae8",
-    "again": "19ec9259b33ae8",
-    "reorderedKeys": "19ec9259b33ae8",
-    "viaDevTest": "19ec9259b33ae8",
-    "formula": "19ec9259b33ae8",
+    "hash": "046340945e893b",
+    "again": "046340945e893b",
+    "reorderedKeys": "046340945e893b",
+    "viaDevTest": "046340945e893b",
+    "formula": "046340945e893b",
     "empty": "15202279b28c9e",
     "nonArray": "TypeError: hashTurnEvents: events must be an array of turn events",
     "undefinedMember": true
@@ -137,24 +137,24 @@
         "is-replay"
       ]
     },
-    "playedSteps": 311,
+    "playedSteps": 373,
     "results": [
       {
         "turn": 1,
-        "recorded": "19ec9259b33ae8",
-        "replayed": "19ec9259b33ae8",
+        "recorded": "046340945e893b",
+        "replayed": "046340945e893b",
         "match": true
       },
       {
         "turn": 2,
-        "recorded": "04d64c4b3a0447",
-        "replayed": "04d64c4b3a0447",
+        "recorded": "10fff72f44c5ae",
+        "replayed": "10fff72f44c5ae",
         "match": true
       },
       {
         "turn": 3,
-        "recorded": "0527b9a5e75764",
-        "replayed": "0527b9a5e75764",
+        "recorded": "09fe15033b5372",
+        "replayed": "09fe15033b5372",
         "match": true
       }
     ],
@@ -249,8 +249,8 @@
   "hands": 21,
   "usage": {
     "contexts": 5,
-    "maxSteps": 574,
-    "totalSteps": 625,
+    "maxSteps": 698,
+    "totalSteps": 776,
     "cap": 4000
   }
 }

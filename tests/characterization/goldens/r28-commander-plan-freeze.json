@@ -13,6 +13,14 @@
       },
       {
         "unit": "E1",
+        "action": "Attack"
+      },
+      {
+        "unit": "E3",
+        "action": "Attack"
+      },
+      {
+        "unit": "E1",
         "action": "Defend"
       }
     ],
@@ -44,6 +52,14 @@
         "action": "Move"
       },
       {
+        "unit": "E3",
+        "action": "Attack"
+      },
+      {
+        "unit": "E1",
+        "action": "Attack"
+      },
+      {
         "unit": "E1",
         "action": "Defend"
       }
@@ -73,6 +89,14 @@
         },
         {
           "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E1",
           "action": "Defend"
         }
       ],
@@ -84,6 +108,14 @@
         {
           "unit": "E2",
           "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Attack"
         },
         {
           "unit": "E1",
@@ -102,6 +134,14 @@
         {
           "unit": "E2",
           "action": "Move"
+        },
+        {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Attack"
         },
         {
           "unit": "E1",
@@ -135,13 +175,13 @@
     }
   },
   "dryRunEqualsPlay": {
-    "eventHash": "0879f9a11ff695",
+    "eventHash": "07f416b50fe368",
     "outcome": {
       "winner": "none",
       "doubleKO": false
     },
     "events": {
-      "count": 23,
+      "count": 30,
       "types": {
         "turnStart": 1,
         "targetsCommitted": 1,
@@ -149,13 +189,13 @@
         "enemyBudget": 1,
         "unassigned": 1,
         "fighters": 1,
-        "tickStart": 1,
-        "consumed": 1,
+        "tickStart": 2,
+        "consumed": 2,
         "move": 3,
-        "attackSwing": 1,
+        "attackSwing": 3,
         "defendSwing": 2,
-        "miss": 1,
-        "tickEnd": 1,
+        "miss": 3,
+        "tickEnd": 2,
         "enemyAccounting": 1,
         "recovery": 1,
         "debugNote": 1,
@@ -194,8 +234,8 @@
   },
   "usage": {
     "contexts": 5,
-    "maxSteps": 52,
-    "totalSteps": 52,
+    "maxSteps": 79,
+    "totalSteps": 79,
     "cap": 4000
   }
 }

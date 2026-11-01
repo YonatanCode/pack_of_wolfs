@@ -24,9 +24,9 @@
       "player": 3,
       "enemy": 3
     },
-    "enemyActionsConsumed": 1,
+    "enemyActionsConsumed": 3,
     "events": {
-      "count": 16,
+      "count": 20,
       "types": {
         "turnStart": 1,
         "enemyPlan": 2,
@@ -34,6 +34,8 @@
         "tickStart": 1,
         "consumed": 1,
         "move": 4,
+        "attackSwing": 2,
+        "miss": 2,
         "tickEnd": 1,
         "recovery": 1,
         "debugNote": 1,
@@ -47,7 +49,7 @@
         "outcome winner=none doubleKO=false"
       ]
     },
-    "eventHash": "1b3b1331d95146",
+    "eventHash": "02640f2f37acf7",
     "outcome": {
       "winner": "none",
       "doubleKO": false
@@ -87,7 +89,7 @@
     "sameSettingsLoad": {
       "identicalSnapshot": true,
       "identicalRules": true,
-      "dryRunEventHash": "1b3b1331d95146"
+      "dryRunEventHash": "02640f2f37acf7"
     },
     "differentRulesRefused": {
       "defaults": "BattleStateError: loadBattleState: the state's rules must match the live battle's effective rules",
@@ -96,8 +98,8 @@
   },
   "usage": {
     "contexts": 6,
-    "maxSteps": 23,
-    "totalSteps": 46,
+    "maxSteps": 50,
+    "totalSteps": 100,
     "cap": 4000
   }
 }

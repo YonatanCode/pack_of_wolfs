@@ -30,7 +30,7 @@
     "enemy 3 / player 5": {
       "plannerTags": {
         "E1": [
-          "Defend"
+          "Attack"
         ],
         "E2": [
           "Move"
@@ -45,13 +45,15 @@
     "enemy 5 / player 2": {
       "plannerTags": {
         "E1": [
+          "Attack",
           "Defend"
         ],
         "E2": [
           "Move"
         ],
         "E3": [
-          "Move"
+          "Move",
+          "Attack"
         ]
       },
       "enemySixShown": 5,

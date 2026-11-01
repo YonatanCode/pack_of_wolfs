@@ -5,8 +5,9 @@
 //      battle unchanged (full live fingerprint incl. the enemy stream) and draws only on its copy; the real Play turn has
 //      the same events and the same final BattleState (incl. rng.enemyDrawState and enemyPack.drawnPool); its only draw is
 //      the turn end's, equal to the copy's.
-// R50b UNPLACEABLE DRAWS -> UNASSIGNED: seed 1's first drawn list has an Attack the planner cannot place: enemyBudget
-//      carries the drawn list as the pool, unassigned = no-valid-assignment x1 [Attack], the accounting invariants hold, no
+// R50b DRAWN LIST FULLY PLACED: seed 1's first drawn list has an Attack that no wolf can reach by melee yet; the planner
+//      now commits it speculatively (attacks resolve against live positions) instead of leaving it unassigned, so
+//      enemyBudget carries the drawn list as the pool, nothing is unassigned (no reasons), the accounting invariants hold, no
 //      refund: turn 2 starts from a fresh draw of exactly the budget (nothing carried over). Budget 0 (eab:0): the draw is
 //      empty, consumes no stream value, reason budget-zero. Budget 10 (eab:10): 10 drawn actions, cap raised to 4.
 // R50c FORFEIT, NO CASUALTY REDRAW (lethal board, seed 1): E1 dies in tick 1 and its remaining frozen action is forfeited;
@@ -54,7 +55,8 @@ async function run() {
   const budget1 = C.one(events, "enemyBudget");
   same(budget1.pool, store0.pool, "R50b: the turn's pool is the drawn list");
   const un1 = C.one(events, "unassigned");
-  same(un1.reasons.map((r) => [r.code, r.count, r.actions ?? null]), [["no-valid-assignment", 1, ["Attack"]]], "R50b: the unplaceable Attack is unassigned (no-valid-assignment)");
+  same(un1.reasons.map((r) => [r.code, r.count, r.actions ?? null]), [], "R50b: every drawn action is placed (the far Attack is speculative, not unassigned)");
+  check(un1.count === 0 && budget1.assigned.length === budget1.pool.length, "R50b: assigned = the whole drawn list");
   const acc1 = C.checkAccounting(C.one(events, "enemyAccounting"), "R50b turn 1");
   PV.L.queueByIndex(g, "playerFlank", [0]);
   const events2 = PV.L.drainTurn(g);

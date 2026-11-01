@@ -3,18 +3,10 @@
   "generatedBy": "tests/baseline/run-dev-scenarios.cjs",
   "seed": "0xC0FFEE",
   "total": 47,
-  "passedCount": 43,
-  "maxSteps": 74,
+  "passedCount": 45,
+  "maxSteps": 78,
   "stepCap": 4000,
   "knownFailures": {
-    "pack-action-cap": {
-      "classification": "fails-measured",
-      "reason": "expects 5 queued entries; planner emits 3 (E3 Move, E1 Move, E2 Defend) because no wolf is adjacent on grid 16 so Attack is never planned."
-    },
-    "pack-attack-non-focus-adjacent": {
-      "classification": "fails-measured",
-      "reason": "hard-coded positions assume a small grid; on grid 16 the flank wolf is not adjacent to anyone so no Attack is planned (passes at grid 8 and 10)."
-    },
     "pack-multi-tick": {
       "classification": "fails-measured",
       "reason": "expects enemy.row > 0 after the turn; E1 only gets Defend (stale 3-wolf default spacing), so it stays at row 0."
@@ -311,6 +303,18 @@
           },
           {
             "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 4
+          },
+          {
+            "action": "Attack",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 9
+          },
+          {
+            "action": "Attack",
             "unitTeam": "enemy",
             "unitRow": 0,
             "unitCol": 4
@@ -2337,6 +2341,18 @@
             "unitCol": 9
           },
           {
+            "action": "Attack",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 7
+          },
+          {
+            "action": "Attack",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 4
+          },
+          {
             "action": "Defend",
             "unitTeam": "enemy",
             "unitRow": 0,
@@ -2348,6 +2364,7 @@
           "col": 7
         },
         "enemyIntentTags": [
+          "Attack",
           "Defend"
         ],
         "capResults": [
@@ -2457,7 +2474,7 @@
     {
       "id": "pack-action-cap",
       "label": "Pack: 5-action cap",
-      "passed": false,
+      "passed": true,
       "error": null,
       "timedOut": false,
       "frameCapped": false,
@@ -2557,6 +2574,18 @@
             "unitCol": 9
           },
           {
+            "action": "Attack",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 7
+          },
+          {
+            "action": "Attack",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 4
+          },
+          {
             "action": "Defend",
             "unitTeam": "enemy",
             "unitRow": 0,
@@ -2568,10 +2597,10 @@
           "col": 7
         },
         "enemyIntentTags": [
+          "Attack",
           "Defend"
         ]
-      },
-      "classification": "fails-measured"
+      }
     },
     {
       "id": "pack-focus-weaker",
@@ -2676,6 +2705,18 @@
             "unitCol": 4
           },
           {
+            "action": "Attack",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 7
+          },
+          {
+            "action": "Attack",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 9
+          },
+          {
             "action": "Defend",
             "unitTeam": "enemy",
             "unitRow": 0,
@@ -2687,6 +2728,7 @@
           "col": 5
         },
         "enemyIntentTags": [
+          "Attack",
           "Defend"
         ]
       }
@@ -2694,7 +2736,7 @@
     {
       "id": "pack-attack-non-focus-adjacent",
       "label": "Pack: attack non-focus adjacent",
-      "passed": false,
+      "passed": true,
       "error": null,
       "timedOut": false,
       "frameCapped": false,
@@ -2794,10 +2836,22 @@
             "unitCol": 4
           },
           {
-            "action": "Defend",
+            "action": "Attack",
             "unitTeam": "enemy",
             "unitRow": 8,
             "unitCol": 7
+          },
+          {
+            "action": "Attack",
+            "unitTeam": "enemy",
+            "unitRow": 7,
+            "unitCol": 2
+          },
+          {
+            "action": "Defend",
+            "unitTeam": "enemy",
+            "unitRow": 8,
+            "unitCol": 4
           }
         ],
         "enemyPackFocusTarget": {
@@ -2805,10 +2859,10 @@
           "col": 5
         },
         "enemyIntentTags": [
-          "Move"
+          "Move",
+          "Attack"
         ]
-      },
-      "classification": "fails-measured"
+      }
     },
     {
       "id": "pack-both-attack",
@@ -2912,9 +2966,9 @@
       "timedOut": false,
       "frameCapped": false,
       "usage": {
-        "frames": 49,
+        "frames": 77,
         "timerFires": 1,
-        "steps": 50,
+        "steps": 78,
         "cap": 4000
       },
       "state": {
@@ -3105,6 +3159,18 @@
             "unitCol": 4
           },
           {
+            "action": "Attack",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 7
+          },
+          {
+            "action": "Attack",
+            "unitTeam": "enemy",
+            "unitRow": 0,
+            "unitCol": 4
+          },
+          {
             "action": "Defend",
             "unitTeam": "enemy",
             "unitRow": 0,
@@ -3116,6 +3182,7 @@
           "col": 7
         },
         "enemyIntentTags": [
+          "Attack",
           "Defend"
         ]
       },
@@ -3339,6 +3406,18 @@
           },
           {
             "action": "Move",
+            "unitTeam": "enemy",
+            "unitRow": 5,
+            "unitCol": 14
+          },
+          {
+            "action": "Attack",
+            "unitTeam": "enemy",
+            "unitRow": 5,
+            "unitCol": 14
+          },
+          {
+            "action": "Attack",
             "unitTeam": "enemy",
             "unitRow": 5,
             "unitCol": 14

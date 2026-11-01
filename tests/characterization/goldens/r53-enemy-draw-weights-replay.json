@@ -79,9 +79,9 @@
       "maxSameAction": 3
     },
     "recordedEventHashes": [
-      "0b55201128bd0e",
-      "1c6fdabb91a4f2",
-      "1cdf781e3cc36d"
+      "06e7c5f4d2c03d",
+      "0901b981831596",
+      "0653580b8d41a0"
     ],
     "drawnPools": [
       [
@@ -109,7 +109,7 @@
         "Attack"
       ]
     ],
-    "finalStateHash": "697b00855fa319d639849791ccc206c243395e7e60b0b90348c063bea8f6d2f0"
+    "finalStateHash": "861fc02426d7612a6e575c64250f32d8aa0ca70b06b9054090b728edb745f902"
   },
   "replay": {
     "status": "done",
@@ -126,8 +126,8 @@
   "hands": 15,
   "usage": {
     "contexts": 4,
-    "maxSteps": 299,
-    "totalSteps": 299,
+    "maxSteps": 326,
+    "totalSteps": 326,
     "cap": 4000
   }
 }

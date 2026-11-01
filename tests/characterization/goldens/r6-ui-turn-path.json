@@ -78,6 +78,14 @@
           "action": "Move"
         },
         {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E1",
+          "action": "Attack"
+        },
+        {
           "unit": "E1",
           "action": "Defend"
         }
@@ -134,6 +142,14 @@
         },
         {
           "unit": "E2",
+          "action": "Attack"
+        },
+        {
+          "unit": "E3",
+          "action": "Attack"
+        },
+        {
+          "unit": "E2",
           "action": "Defend"
         }
       ],
@@ -150,8 +166,8 @@
   "playAgainEqualsFresh": true,
   "usage": {
     "contexts": 2,
-    "maxSteps": 170,
-    "totalSteps": 340,
+    "maxSteps": 198,
+    "totalSteps": 396,
     "cap": 4000
   }
 }

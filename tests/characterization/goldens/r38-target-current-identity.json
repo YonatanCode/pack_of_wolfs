@@ -3,22 +3,22 @@
   "hands": 8,
   "boards": {
     "plain": {
-      "eventHash": "08c7799eabd4c3",
-      "recordedByR15": "08c7799eabd4c3",
-      "events": 20,
-      "misses": 2
+      "eventHash": "18b02e59b60d0f",
+      "recordedByR15": "18b02e59b60d0f",
+      "events": 27,
+      "misses": 4
     },
     "lethal": {
-      "eventHash": "1733161013ed8e",
-      "recordedByR15": "1733161013ed8e",
-      "events": 38,
+      "eventHash": "1495a8b0b3519f",
+      "recordedByR15": "1495a8b0b3519f",
+      "events": 46,
       "misses": 0
     }
   },
   "usage": {
     "contexts": 4,
-    "maxSteps": 150,
-    "totalSteps": 402,
+    "maxSteps": 184,
+    "totalSteps": 524,
     "cap": 4000
   }
 }
