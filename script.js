@@ -5589,9 +5589,16 @@ function getEnemyPackMoveAssignment(unit, focusTarget, plannedStates, reservedMo
   // Engaging wolves close on their surround slot; fleeing wolves try to grow the
   // gap to the nearest player. Both are scored as "improvement" so the same greedy
   // queue filler handles either intent.
+  // Engage distance is the walkable step-count to the goal (routes around hills, water and trees), so a wolf boxed in
+  // behind rocks still finds a step that gets it closer. Manhattan is the fallback when the goal is unreachable.
+  const goalField = isFleeing ? null : buildWalkableDistanceField(goal.row, goal.col);
+  const useGoalField = goalField !== null && Number.isFinite(getFieldDistance(goalField, plannedState.row, plannedState.col));
+  const getGoalDistance = (row, col) => useGoalField
+    ? getFieldDistance(goalField, row, col)
+    : getGridDistance(row, col, goal.row, goal.col);
   const currentMetric = isFleeing
     ? getNearestPlayerDistanceFrom(plannedState.row, plannedState.col, players)
-    : getGridDistance(plannedState.row, plannedState.col, goal.row, goal.col);
+    : getGoalDistance(plannedState.row, plannedState.col);
   let bestAssignment = null;
 
   MOVEMENT_DIRECTIONS.forEach((direction) => {
@@ -5612,7 +5619,7 @@ function getEnemyPackMoveAssignment(unit, focusTarget, plannedStates, reservedMo
 
     const goalDistance = isFleeing
       ? 0
-      : getGridDistance(target.row, target.col, goal.row, goal.col);
+      : getGoalDistance(target.row, target.col);
     const improvement = isFleeing
       ? getNearestPlayerDistanceFrom(target.row, target.col, players) - currentMetric
       : currentMetric - goalDistance;
