@@ -20,6 +20,11 @@ break one, say so and offer the clean path instead.
    committing. Never `git add -A` blindly — know exactly what's going in.
 6. **Finish → merge → delete.** Merge the branch to `main`, delete it, *then*
    start the next thing. Don't let branches pile up.
+7. **Update the backlog.** Every piece of work touches [Backlog.md](Backlog.md)
+   before it's merged: move the matching item's status (Idea → In Progress →
+   Done), record what shipped and what's still open, add new rows for ideas or
+   problems found along the way, and keep the Candidate Groupings in sync. Commit
+   it as its own `docs:` commit on the same branch, then merge.
 
 ## When starting new work
 
