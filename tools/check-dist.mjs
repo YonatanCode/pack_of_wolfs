@@ -17,12 +17,12 @@ if (argIdx >= 0 && !process.argv[argIdx + 1]) { console.error("--dist needs a pa
 const DIST = resolve(argIdx >= 0 ? process.argv[argIdx + 1] : join(ROOT, "dist"));
 
 // ---- visible constants ------------------------------------------------------------------------
-const COPIED_FILES = ["script.js"];
-const COPIED_DIRS = ["scenarios", "wolf", "stag", "isometric tileset", "assets/icons"];
-const EXPECTED_TOP_LEVEL = ["index.html", "assets", "script.js", "scenarios", "wolf", "stag", "isometric tileset", "build-id.json"];
+const COPIED_FILES = ["script.js", "music.js"];
+const COPIED_DIRS = ["scenarios", "wolf", "stag", "isometric tileset", "assets/icons", "assets/sound"];
+const EXPECTED_TOP_LEVEL = ["index.html", "assets", "script.js", "music.js", "scenarios", "wolf", "stag", "isometric tileset", "build-id.json"];
 // Denylist: any path segment (case-insensitive) equal to one of these names, or matching a pattern, fails.
 const DENY_NAMES = ["tests", "tools", "lab", "gui-pack", ".claude", "node_modules", "package.json"];
-const DENY_PATHS = ["assets/sound"];
+const DENY_PATHS = [];
 const DENY_PATTERNS = [/\.md$/i, /-handoff\.md$/i, /^pnpm-/, /^vite\.config\./, /^\.DS_Store$/, /^scenarios\/.*\.test.*$/];
 
 const failures = [];
@@ -104,6 +104,8 @@ const lines = [`check-dist: ${DIST}`];
   const js = readFileSync(join(ROOT, "script.js"), "utf8");
   for (const m of js.matchAll(/"((?:assets\/icons|isometric tileset)\/[^"]+\.(?:svg|png))"/g)) paths.add(m[1]);
   for (const m of js.matchAll(/file:\s*"(wolf-[\w-]+\.png)"/g)) paths.add(`wolf/no effects/${m[1]}`);
+  const music = readFileSync(join(ROOT, "music.js"), "utf8");
+  for (const m of music.matchAll(/"(assets\/sound\/[^"]+\.m4a)"/g)) paths.add(m[1]);
   for (const dir of ["NE", "NW", "SE", "SW"]) for (const a of ["idle", "walk", "run"]) paths.add(`stag/critter_stag_${dir}_${a}.png`);
   // CSS/HTML references (source styles.css and built html/css).
   const refs = [];
@@ -151,7 +153,7 @@ const lines = [`check-dist: ${DIST}`];
 
 // ---- (d) serve smoke --------------------------------------------------------------------------
 {
-  const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json" };
+  const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".json": "application/json", ".m4a": "audio/mp4" };
   const server = createServer((req, res) => {
     const u = decodeURIComponent((req.url || "/").split("?")[0]);
     const abs = resolve(DIST, "." + (u.endsWith("/") ? u + "index.html" : u));
@@ -165,7 +167,7 @@ const lines = [`check-dist: ${DIST}`];
   const html = readFileSync(join(DIST, "index.html"), "utf8");
   const cssHref = /<link[^>]*rel="stylesheet"[^>]*href="(?!https?:)([^"]+)"/.exec(html)?.[1];
   const reqs = [
-    ["/", "text/html"], ["/script.js", "javascript"], ["/scenarios/intro.js", "javascript"], ["/scenarios/wilds.js", "javascript"],
+    ["/", "text/html"], ["/script.js", "javascript"], ["/music.js", "javascript"], ["/assets/sound/Fight_music.m4a", "audio/mp4"], ["/scenarios/intro.js", "javascript"], ["/scenarios/wilds.js", "javascript"],
     ["/wolf/no effects/wolf-idle.png", "image/png"], ["/isometric tileset/separated images/tile_000.png", "image/png"],
     ["/assets/icons/move.svg", "image/svg+xml"], ["/build-id.json", "application/json"], ...(cssHref ? [["/" + cssHref.replace(/^\//, ""), "text/css"]] : []),
   ];
