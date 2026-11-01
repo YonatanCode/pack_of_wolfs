@@ -9763,6 +9763,7 @@ function moveUnitToTile(
   }
 
   playUnitAnimation(unit, isUnitAnimationSupported(unit, "run") ? "run" : "walk", shouldUpdateButtons);
+  window.Sfx?.move(duration);
 
   return new Promise((resolve) => {
     const move = (timestamp) => {
