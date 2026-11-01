@@ -74,6 +74,12 @@
       </section>
       <!-- Dev tools, in four collapsible groups: Battle, Rules, Checks, Terrain. -->
       <div class="debug-controls" aria-label="Developer tools" hidden>
+        <section class="dev-control-section" aria-label="Music">
+          <h2>Music</h2>
+          <div class="control-group">
+            <button type="button" id="dev-toggle-music" class="ui-button" aria-pressed="false">Music: off</button>
+          </div>
+        </section>
         <details class="dev-rules-panel dev-group" open>
           <summary>Battle</summary>
           <section class="dev-control-section" aria-label="End fight">
@@ -235,5 +241,6 @@
     <script src="scenarios/intro.js"></script>
     <script src="scenarios/wilds.js"></script>
     <script src="script.js"></script>
+    <script src="music.js"></script>
   </body>
 </html>
