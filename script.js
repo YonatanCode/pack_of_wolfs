@@ -5526,6 +5526,29 @@ function getBestEnemyPackAction(
     }
   }
 
+  // No wolf is adjacent in its planned position and no Move helps (none in the pool, or the wolf is boxed in): still
+  // commit an Attack at the focus target. Attacks resolve against live positions, so it connects if the wolf or the
+  // player has closed the gap by then, and is a Miss otherwise; Defend is only the last resort.
+  if (doctrinePool.includes("Attack") && focusTarget) {
+    const speculativeAttack = enemyUnits
+      .filter((unit) => unit.packObjective?.mode !== "flee" && plannedStates.has(unit))
+      .map((unit) => {
+        const plannedState = plannedStates.get(unit);
+
+        return {
+          action: "Attack",
+          score: getGridDistance(plannedState.row, plannedState.col, focusTarget.row, focusTarget.col) +
+            getPlannedActionCountForUnit(unit, plannedActions) * 5,
+          unit,
+        };
+      })
+      .sort((assignment, otherAssignment) => assignment.score - otherAssignment.score)[0] ?? null;
+
+    if (speculativeAttack) {
+      return speculativeAttack;
+    }
+  }
+
   if (doctrinePool.includes("Defend")) {
     return getEnemyPackDefendAssignment(enemyUnits, plannedActions);
   }
